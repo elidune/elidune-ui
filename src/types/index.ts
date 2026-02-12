@@ -141,6 +141,7 @@ export interface MediaTypeOption {
 export interface Item {
   id: number;
   media_type?: MediaType;
+  public_type?: number;
   identification?: string;
   title1?: string;
   title2?: string;
@@ -157,12 +158,14 @@ export interface Item {
   keywords?: string;
   subject?: string;
   nb_specimens?: number;
+  nb_borrowed_specimens?: number;
   is_valid?: number;
 }
 
 export interface ItemShort {
   id: number;
   media_type?: MediaType;
+  public_type?: number;
   identification?: string;
   title?: string;
   date?: string;
@@ -170,6 +173,8 @@ export interface ItemShort {
   is_local?: number;
   is_archive?: number;
   authors?: Author[];
+  nb_specimens?: number;
+  nb_borrowed_specimens?: number;
 }
 
 export interface Author {
@@ -372,6 +377,7 @@ export interface Source {
   name: string | null;
   is_archive: number | null;
   archive_date: string | null;
+  default?: boolean;
 }
 
 // Account types for permissions

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, BookOpen, Filter, Search, Globe, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, BookOpen, Filter, Search, Globe, Loader2, AlertCircle, CheckCircle, Video, Music, Image, FileText, Disc, Newspaper } from 'lucide-react';
 import { Card, Button, Table, Badge, Pagination, SearchInput, Modal, Input } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType, type MediaTypeOption } from '@/types';
 import api from '@/services/api';
 import type { ItemShort, Author, Z3950Server } from '@/types';
+import { PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -99,14 +100,73 @@ export default function ItemsPage() {
     return <Badge>{t('items.unavailable')}</Badge>;
   };
 
+  const getMediaTypeIcon = (mediaType?: MediaType) => {
+    const iconClass = "h-5 w-5";
+    const colorClass = "text-amber-600 dark:text-amber-400";
+    
+    switch (mediaType) {
+      case 'b':
+      case 'bc':
+        return <BookOpen className={`${iconClass} ${colorClass}`} />;
+      case 'p':
+        return <Newspaper className={`${iconClass} ${colorClass}`} />;
+      case 'v':
+      case 'vt':
+      case 'vd':
+        return <Video className={`${iconClass} text-red-600 dark:text-red-400`} />;
+      case 'a':
+      case 'am':
+      case 'amt':
+      case 'amc':
+      case 'an':
+        return <Music className={`${iconClass} text-blue-600 dark:text-blue-400`} />;
+      case 'c':
+        return <Disc className={`${iconClass} text-purple-600 dark:text-purple-400`} />;
+      case 'i':
+        return <Image className={`${iconClass} text-green-600 dark:text-green-400`} />;
+      case 'm':
+        return <FileText className={`${iconClass} text-indigo-600 dark:text-indigo-400`} />;
+      default:
+        return <BookOpen className={`${iconClass} text-gray-600 dark:text-gray-400`} />;
+    }
+  };
+
+  const getMediaTypeBgColor = (mediaType?: MediaType) => {
+    switch (mediaType) {
+      case 'b':
+      case 'bc':
+        return 'bg-amber-50 dark:bg-amber-900/30';
+      case 'p':
+        return 'bg-orange-50 dark:bg-orange-900/30';
+      case 'v':
+      case 'vt':
+      case 'vd':
+        return 'bg-red-50 dark:bg-red-900/30';
+      case 'a':
+      case 'am':
+      case 'amt':
+      case 'amc':
+      case 'an':
+        return 'bg-blue-50 dark:bg-blue-900/30';
+      case 'c':
+        return 'bg-purple-50 dark:bg-purple-900/30';
+      case 'i':
+        return 'bg-green-50 dark:bg-green-900/30';
+      case 'm':
+        return 'bg-indigo-50 dark:bg-indigo-900/30';
+      default:
+        return 'bg-gray-50 dark:bg-gray-900/30';
+    }
+  };
+
   const columns = [
     {
       key: 'title',
       header: t('items.titleField'),
       render: (item: ItemShort) => (
         <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
-            <BookOpen className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.media_type)} flex items-center justify-center`}>
+            {getMediaTypeIcon(item.media_type)}
           </div>
           <div className="min-w-0">
             <p className="font-medium text-gray-900 dark:text-white truncate">
@@ -127,6 +187,31 @@ export default function ItemsPage() {
           {formatAuthors(item.authors)}
         </span>
       ),
+    },
+    {
+      key: 'public_type',
+      header: t('items.publicType'),
+      render: (item: ItemShort) => (
+        <span className="text-gray-600 dark:text-gray-300">
+          {item.public_type ? getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.public_type) : '-'}
+        </span>
+      ),
+      className: 'hidden lg:table-cell',
+    },
+    {
+      key: 'specimens',
+      header: t('items.specimens'),
+      render: (item: ItemShort) => {
+        const total = item.nb_specimens || 0;
+        const borrowed = item.nb_borrowed_specimens || 0;
+        if (total === 0) return <span className="text-gray-500 dark:text-gray-400">-</span>;
+        return (
+          <span className="text-gray-600 dark:text-gray-300">
+            {borrowed}/{total}
+          </span>
+        );
+      },
+      className: 'hidden md:table-cell',
     },
     {
       key: 'date',

@@ -24,6 +24,7 @@ import type {
   UserAggregateStats,
   CatalogStats,
   Source,
+  Specimen,
 } from '@/types';
 
 const API_BASE_URL = '/api/v1';
@@ -184,6 +185,15 @@ class ApiService {
     await this.client.delete(`/items/${id}`, { params: { force } });
   }
 
+  async updateSpecimen(itemId: number, specimenId: number, data: Partial<Specimen>): Promise<Specimen> {
+    const response = await this.client.put<Specimen>(`/items/${itemId}/specimens/${specimenId}`, data);
+    return response.data;
+  }
+
+  async deleteSpecimen(itemId: number, specimenId: number): Promise<void> {
+    await this.client.delete(`/items/${itemId}/specimens/${specimenId}`);
+  }
+
   // Users
   async getUsers(params?: {
     name?: string;
@@ -237,6 +247,11 @@ class ApiService {
 
   async renewLoan(loanId: number): Promise<{ id: number; issue_date: string; message: string }> {
     const response = await this.client.post(`/loans/${loanId}/renew`);
+    return response.data;
+  }
+
+  async returnLoanByBarcode(specimenBarcode: string): Promise<{ status: string; loan: Loan }> {
+    const response = await this.client.post(`/loans/specimens/${specimenBarcode}/return`);
     return response.data;
   }
 
@@ -311,9 +326,13 @@ class ApiService {
     return response.data;
   }
 
-  async renameSource(id: number, name: string): Promise<Source> {
-    const response = await this.client.put<Source>(`/sources/${id}/rename`, { name });
+  async updateSource(id: number, data: Partial<Source>): Promise<Source> {
+    const response = await this.client.put<Source>(`/sources/${id}`, data);
     return response.data;
+  }
+
+  async renameSource(id: number, name: string): Promise<Source> {
+    return this.updateSource(id, { name });
   }
 
   async archiveSource(id: number): Promise<Source> {
@@ -337,14 +356,40 @@ class ApiService {
     server_id?: number;
     max_results?: number;
   }): Promise<{ total: number; items: ItemShort[]; source: string }> {
-    const response = await this.client.get('/z3950/search', { params });
+    // Build CQL query from parameters
+    const cqlParts: string[] = [];
+    
+    if (params.isbn) {
+      // Exact match for ISBN
+      cqlParts.push(`isbn="${params.isbn.trim()}"`);
+    }
+    if (params.title) {
+      // Use "all" for text search to match all words in title
+      cqlParts.push(`title = "${params.title.trim()}"`);
+    }
+    if (params.author) {
+      // Use "all" for text search to match all words in author name
+      cqlParts.push(`author = "${params.author.trim()}"`);
+    }
+    
+    const cqlQuery = cqlParts.length > 0 ? cqlParts.join(' AND ') : '';
+    
+    // Send CQL query along with server_id and max_results
+    const requestParams: Record<string, any> = {
+      query: cqlQuery,
+      server_id: params.server_id,
+      max_results: params.max_results,
+    };
+    
+    const response = await this.client.get('/z3950/search', { params: requestParams });
     return response.data;
   }
 
-  async importZ3950(remoteItemId: number, specimens?: { identification: string; cote?: string }[]): Promise<Item> {
+  async importZ3950(remoteItemId: number, specimens?: { identification: string; cote?: string }[], sourceId?: number): Promise<Item> {
     const response = await this.client.post<Item>('/z3950/import', {
       remote_item_id: remoteItemId,
       specimens,
+      source_id: sourceId,
     });
     return response.data;
   }

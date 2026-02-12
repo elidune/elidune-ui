@@ -12,6 +12,7 @@ import {
   UsersPage,
   UserDetailPage,
   MyLoansPage,
+  LoansPage,
   StatsPage,
   SettingsPage,
   Z3950SearchPage,
@@ -104,6 +105,17 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyLoansPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/loans"
+        element={
+          <ProtectedRoute>
+            <LibrarianRoute>
+              <LoansPage />
+            </LibrarianRoute>
           </ProtectedRoute>
         }
       />

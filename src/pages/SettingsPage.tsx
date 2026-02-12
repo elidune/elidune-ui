@@ -82,6 +82,25 @@ function SourceEditor() {
     }
   };
 
+  const handleToggleDefault = async (source: Source) => {
+    clearMessages();
+    const newDefaultValue = !source.default;
+    try {
+      // If setting as default, first unset all other sources as default
+      if (newDefaultValue) {
+        const otherDefaultSources = sources.filter(s => s.default && s.id !== source.id);
+        for (const otherSource of otherDefaultSources) {
+          await api.updateSource(otherSource.id, { default: false });
+        }
+      }
+      await api.updateSource(source.id, { default: newDefaultValue });
+      showSuccess(t('settings.sources.defaultUpdated'));
+      fetchSources();
+    } catch {
+      setError(t('settings.sources.errorUpdateDefault'));
+    }
+  };
+
   const handleRenameCancel = () => { setRenamingId(null); setRenameValue(''); };
 
   const handleArchive = async (source: Source) => {
@@ -206,13 +225,28 @@ function SourceEditor() {
               ) : (
                 <Badge variant="success">{t('settings.sources.active')}</Badge>
               )}
+              {!isArchived && source.default && (
+                <Badge variant="default">{t('settings.sources.default')}</Badge>
+              )}
             </div>
           )}
         </div>
 
         {/* Actions */}
         {!mergeMode && !isRenaming && !isArchived && (
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={source.default || false}
+                onChange={() => handleToggleDefault(source)}
+                className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 focus:ring-indigo-500"
+                title={t('settings.sources.setDefault')}
+              />
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t('settings.sources.default')}
+              </span>
+            </label>
             <button
               onClick={() => handleRenameStart(source)}
               className="p-1.5 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

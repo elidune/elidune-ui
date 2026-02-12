@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Table, Modal, Input } from '@/components/common';
 import api from '@/services/api';
-import type { ItemShort, Author, Z3950Server, MediaType } from '@/types';
+import type { ItemShort, Author, Z3950Server, MediaType, Source } from '@/types';
 
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType): string {
@@ -85,8 +85,12 @@ export default function Z3950SearchPage() {
   const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ identification: '', cote: '' }]);
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<number | null>(null);
+  
+  // Sources state
+  const [sources, setSources] = useState<Source[]>([]);
+  const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
 
-  // Load servers from settings on mount
+  // Load servers and sources from settings on mount
   useEffect(() => {
     const fetchServers = async () => {
       try {
@@ -104,7 +108,25 @@ export default function Z3950SearchPage() {
         setIsLoadingServers(false);
       }
     };
+    
+    const fetchSources = async () => {
+      try {
+        const sourcesData = await api.getSources(false);
+        setSources(sourcesData);
+        // Select default source if available
+        const defaultSource = sourcesData.find(s => s.default);
+        if (defaultSource) {
+          setSelectedSourceId(defaultSource.id);
+        } else if (sourcesData.length > 0) {
+          setSelectedSourceId(sourcesData[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching sources:', error);
+      }
+    };
+    
     fetchServers();
+    fetchSources();
   }, [t]);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -159,6 +181,13 @@ export default function Z3950SearchPage() {
     setSelectedItem(item);
     setSpecimens([{ identification: '', cote: '' }]);
     setImportSuccess(null);
+    // Reset to default source when opening import modal
+    const defaultSource = sources.find(s => s.default);
+    if (defaultSource) {
+      setSelectedSourceId(defaultSource.id);
+    } else if (sources.length > 0) {
+      setSelectedSourceId(sources[0].id);
+    }
     setShowImportModal(true);
   };
 
@@ -188,7 +217,8 @@ export default function Z3950SearchPage() {
       
       const imported = await api.importZ3950(
         selectedItem.id,
-        validSpecimens.length > 0 ? validSpecimens : undefined
+        validSpecimens.length > 0 ? validSpecimens : undefined,
+        selectedSourceId || undefined
       );
       
       setImportSuccess(imported.id);
@@ -480,6 +510,26 @@ export default function Z3950SearchPage() {
                     ISBN: {selectedItem.identification}
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Source selector */}
+            {sources.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('items.source')}
+                </label>
+                <select
+                  value={selectedSourceId || ''}
+                  onChange={(e) => setSelectedSourceId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-2.5 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
+                >
+                  {sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name || `Source ${source.id}`}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
 

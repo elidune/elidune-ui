@@ -16,6 +16,7 @@ import {
   Monitor,
   Globe,
   Upload,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -42,6 +43,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: t('nav.home'), href: '/', icon: Home, show: true },
     { name: t('nav.catalog'), href: '/items', icon: BookOpen, show: true },
     { name: t('nav.myLoans'), href: '/my-loans', icon: BookMarked, show: true },
+    { name: t('nav.loans'), href: '/loans', icon: ArrowLeftRight, show: isLibrarian(user?.account_type) },
     { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.account_type) },
     { name: t('nav.z3950Search'), href: '/z3950', icon: Globe, show: isLibrarian(user?.account_type) },
     { name: t('nav.importIso'), href: '/import-iso', icon: Upload, show: isLibrarian(user?.account_type) },
