@@ -43,6 +43,7 @@ export default function ItemsPage() {
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [mediaType, setMediaType] = useState<MediaType | ''>('');
+  const [publicType, setPublicType] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState({
     title: '',
@@ -59,6 +60,7 @@ export default function ItemsPage() {
       const response = await api.getItems({
         freesearch: searchQuery || undefined,
         media_type: mediaType || undefined,
+        public_type: publicType ? parseInt(publicType, 10) : undefined,
         title: advancedFilters.title || undefined,
         author: advancedFilters.author || undefined,
         identification: advancedFilters.identification || undefined,
@@ -72,7 +74,7 @@ export default function ItemsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, mediaType, advancedFilters, currentPage]);
+  }, [searchQuery, mediaType, publicType, advancedFilters, currentPage]);
 
   useEffect(() => {
     fetchItems();
@@ -267,6 +269,21 @@ export default function ItemsPage() {
               {MEDIA_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={publicType}
+              onChange={(e) => {
+                setPublicType(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">{t('items.allPublicTypes')}</option>
+              {PUBLIC_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>

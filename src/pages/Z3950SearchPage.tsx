@@ -14,8 +14,10 @@ import {
   Server,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Table, Modal, Input } from '@/components/common';
+import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
 import type { ItemShort, Author, Z3950Server, MediaType, Source } from '@/types';
+import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType): string {
@@ -51,7 +53,7 @@ interface Z3950SearchResponse {
 
 interface SpecimenToAdd {
   identification: string;
-  cote: string;
+  call_number: string;
 }
 
 export default function Z3950SearchPage() {
@@ -82,7 +84,7 @@ export default function Z3950SearchPage() {
   // Import state
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Z3950Result | null>(null);
-  const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ identification: '', cote: '' }]);
+  const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ identification: '', call_number: '' }]);
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<number | null>(null);
   
@@ -179,7 +181,7 @@ export default function Z3950SearchPage() {
 
   const handleOpenImport = (item: Z3950Result) => {
     setSelectedItem(item);
-    setSpecimens([{ identification: '', cote: '' }]);
+    setSpecimens([{ identification: '', call_number: '' }]);
     setImportSuccess(null);
     // Reset to default source when opening import modal
     const defaultSource = sources.find(s => s.default);
@@ -192,7 +194,7 @@ export default function Z3950SearchPage() {
   };
 
   const handleAddSpecimen = () => {
-    setSpecimens([...specimens, { identification: '', cote: '' }]);
+    setSpecimens([...specimens, { identification: '', call_number: '' }]);
   };
 
   const handleRemoveSpecimen = (index: number) => {
@@ -209,10 +211,13 @@ export default function Z3950SearchPage() {
 
   const handleImport = async () => {
     if (!selectedItem?.id) return;
-
+    const invalidCallNumber = specimens.find(s => s.call_number.trim() !== '' && !validateCallNumber(s.call_number));
+    if (invalidCallNumber) {
+      setSearchError(t('items.callNumberInvalid'));
+      return;
+    }
     setIsImporting(true);
     try {
-      // Filtrer les exemplaires vides
       const validSpecimens = specimens.filter(s => s.identification.trim() !== '');
       
       const imported = await api.importZ3950(
@@ -558,10 +563,20 @@ export default function Z3950SearchPage() {
                         value={specimen.identification}
                         onChange={(e) => handleSpecimenChange(index, 'identification', e.target.value)}
                       />
-                      <Input
+                      <CallNumberField
+                        value={specimen.call_number}
+                        onChange={(v) => handleSpecimenChange(index, 'call_number', v)}
+                        suggestedValue={
+                          selectedItem
+                            ? buildSuggestedCallNumber({
+                                categoryCode: 'IMP',
+                                year: selectedItem.date,
+                                authorOrCollectorName: selectedItem.authors?.[0]?.lastname,
+                              })
+                            : undefined
+                        }
                         placeholder={t('items.callNumber')}
-                        value={specimen.cote}
-                        onChange={(e) => handleSpecimenChange(index, 'cote', e.target.value)}
+                        inputId={`z3950-call-${index}`}
                       />
                     </div>
                     {specimens.length > 1 && (

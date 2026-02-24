@@ -15,6 +15,8 @@ import {
   Plus,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
+import CallNumberField from '@/components/specimen/CallNumberField';
+import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType } from '@/types';
 import api from '@/services/api';
@@ -43,6 +45,23 @@ function getMediaTypeTranslationKey(mediaType: MediaType): string {
     'm': 'multimedia',
   };
   return keyMap[mediaType] || 'unknown';
+}
+
+/** Derive suggested call number from item: [CATEGORY]-[YEAR]-[AUTHOR]. */
+function getSuggestedCallNumberFromItem(item: Item): string {
+  const categoryCode = item.media_type
+    ? String(item.media_type).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'GEN'
+    : 'GEN';
+  const year =
+    item.publication_date?.trim().slice(0, 4) ||
+    item.edition?.date?.trim().slice(0, 4) ||
+    undefined;
+  const authorName = item.authors1?.[0]?.lastname?.trim();
+  return buildSuggestedCallNumber({
+    categoryCode: categoryCode || 'GEN',
+    year: year ? parseInt(year, 10) : undefined,
+    authorOrCollectorName: authorName,
+  });
 }
 
 export default function ItemDetailPage() {
@@ -345,7 +364,7 @@ export default function ItemDetailPage() {
         title={t('items.addSpecimen')}
       >
         <AddSpecimenForm
-          itemId={item.id}
+          item={item}
           onSuccess={() => {
             setShowAddSpecimenModal(false);
             // Refresh item data
@@ -365,7 +384,7 @@ export default function ItemDetailPage() {
       >
         {selectedSpecimen && (
           <EditSpecimenForm
-            itemId={item.id}
+            item={item}
             specimen={selectedSpecimen}
             onSuccess={() => {
               setShowEditSpecimenModal(false);
@@ -489,8 +508,8 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
           )}
         </div>
       </div>
-      {specimen.cote && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.callNumber')}: {specimen.cote}</p>
+      {specimen.call_number && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.callNumber')}: {specimen.call_number}</p>
       )}
       {specimen.source_name && (
         <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.source')}: {specimen.source_name}</p>
@@ -695,25 +714,26 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
 }
 
 interface AddSpecimenFormProps {
-  itemId: number;
+  item: Item;
   onSuccess: () => void;
 }
 
-function AddSpecimenForm({ itemId, onSuccess }: AddSpecimenFormProps) {
+function AddSpecimenForm({ item, onSuccess }: AddSpecimenFormProps) {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
     identification: '',
-    cote: '',
+    call_number: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateCallNumber(formData.call_number)) return;
     setIsLoading(true);
     try {
-      // Note: This would need a dedicated endpoint in the API
-      await api.updateItem(itemId, {
-        specimens: [{ ...formData, id: 0, status: 0, availability: 0 }],
+      await api.updateItem(item.id, {
+        specimens: [{ ...formData, id: 0, status: 0, availability: 0 } as Specimen],
       });
       onSuccess();
     } catch (error) {
@@ -731,10 +751,12 @@ function AddSpecimenForm({ itemId, onSuccess }: AddSpecimenFormProps) {
         onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
         required
       />
-      <Input
+      <CallNumberField
         label={t('items.callNumber')}
-        value={formData.cote}
-        onChange={(e) => setFormData({ ...formData, cote: e.target.value })}
+        value={formData.call_number}
+        onChange={(v) => setFormData({ ...formData, call_number: v })}
+        suggestedValue={suggestedCallNumber}
+        placeholder={suggestedCallNumber}
       />
       <div className="flex justify-end gap-2 pt-4">
         <Button type="submit" isLoading={isLoading}>
@@ -746,26 +768,28 @@ function AddSpecimenForm({ itemId, onSuccess }: AddSpecimenFormProps) {
 }
 
 interface EditSpecimenFormProps {
-  itemId: number;
+  item: Item;
   specimen: Specimen;
   onSuccess: () => void;
 }
 
-function EditSpecimenForm({ itemId, specimen, onSuccess }: EditSpecimenFormProps) {
+function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
     identification: specimen.identification || '',
-    cote: specimen.cote || '',
+    call_number: specimen.call_number || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateCallNumber(formData.call_number)) return;
     setIsLoading(true);
     try {
-      await api.updateSpecimen(itemId, specimen.id, {
+      await api.updateSpecimen(item.id, specimen.id, {
         identification: formData.identification,
-        cote: formData.cote,
+        call_number: formData.call_number,
       });
       onSuccess();
     } catch (error) {
@@ -783,10 +807,13 @@ function EditSpecimenForm({ itemId, specimen, onSuccess }: EditSpecimenFormProps
         onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
         required
       />
-      <Input
+      <CallNumberField
         label={t('items.callNumber')}
-        value={formData.cote}
-        onChange={(e) => setFormData({ ...formData, cote: e.target.value })}
+        value={formData.call_number}
+        onChange={(v) => setFormData({ ...formData, call_number: v })}
+        suggestedValue={suggestedCallNumber}
+        excludeSpecimenId={specimen.id}
+        placeholder={suggestedCallNumber}
       />
       <div className="flex justify-end gap-2 pt-4">
         <Button type="submit" isLoading={isLoading}>

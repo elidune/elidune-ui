@@ -206,7 +206,7 @@ export interface Collection {
 export interface Specimen {
   id: number;
   identification?: string;
-  cote?: string;
+  call_number?: string;
   status?: number;
   source_name?: string;
   availability?: number;

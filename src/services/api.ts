@@ -158,6 +158,7 @@ class ApiService {
     author?: string;
     identification?: string;
     media_type?: MediaType;
+    public_type?: number;
     freesearch?: string;
     page?: number;
     per_page?: number;
@@ -385,7 +386,7 @@ class ApiService {
     return response.data;
   }
 
-  async importZ3950(remoteItemId: number, specimens?: { identification: string; cote?: string }[], sourceId?: number): Promise<Item> {
+  async importZ3950(remoteItemId: number, specimens?: { identification: string; call_number?: string }[], sourceId?: number): Promise<Item> {
     const response = await this.client.post<Item>('/z3950/import', {
       remote_item_id: remoteItemId,
       specimens,
