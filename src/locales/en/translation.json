@@ -521,6 +521,8 @@
     "errors": "{{count}} error",
     "errors_plural": "{{count}} errors",
     "importAll": "Import all ({{count}})",
+    "importOne": "Import this notice",
+    "onlyWithSpecimen": "Only import notices with local fields (9xx)",
     "importWithScan": "Import with scan",
     "scanMode": "Scan mode activated",
     "scanModeHint": "Scan the ISBN barcode of each document to import",
@@ -530,13 +532,37 @@
     "remainingToScan": "{{count}} document remaining to scan",
     "remainingToScan_plural": "{{count}} documents remaining to scan",
     "importProgress": "Import in progress...",
+    "rawFields": "Extracted MARC fields",
+    "preview": {
+      "tag": "Tag",
+      "indicators": "Indicators",
+      "subfields": "Subfields",
+      "value": "Value"
+    },
+    "mappingApi": "Mapping for API (JSON)",
+    "fields9xx": "Local fields (9xx)",
     "formats": {
       "iso2709": "MARC ISO 2709",
       "marcxml": "MARCXML"
     },
+    "source": "Source (for specimens)",
+    "noSource": "No source",
+    "default": "default",
+    "addSource": "Add source",
+    "newSourceName": "New source name",
+    "sourceHint": "Used as source_id when creating specimens from 9xx fields.",
+    "sourcesError": "Failed to load sources",
+    "sourceCreateError": "Failed to create source",
+    "duplicateIsbnTitle": "Duplicate ISBN",
+    "duplicateIsbnMessage": "An item with ISBN {{isbn}} already exists.",
+    "duplicateIsbnChoose": "Choose an existing item to add the specimen to, or create a new item:",
+    "duplicateIsbnNoMatches": "No existing items found for this ISBN.",
+    "duplicateUseThis": "Use this item",
+    "duplicateCreateNew": "Create new item anyway",
     "encodings": {
       "utf8": "UTF-8",
       "iso88591": "ISO-8859-1 (Latin-1)",
+      "iso88594": "ISO-8859-4 (Latin-4)",
       "iso885915": "ISO-8859-15 (Latin-9)",
       "windows1252": "Windows-1252"
     }
@@ -565,7 +591,31 @@
     "notFound": "Resource not found",
     "serverError": "Server error. Please try again later.",
     "accessDenied": "Access denied",
-    "accessDeniedHint": "You do not have permission to access this page."
+    "accessDeniedHint": "You do not have permission to access this page.",
+    "apiCode": {
+      "0": "Success",
+      "1": "An error occurred",
+      "2": "You are not authorized to perform this action",
+      "3": "Database error. Please try again later.",
+      "4": "User not found",
+      "5": "Item not found",
+      "6": "Server memory error. Please try again later.",
+      "7": "Item is not available",
+      "8": "Duplicate: this entry already exists",
+      "9": "Z39.50 search failed",
+      "10": "Z39.50 search timed out",
+      "11": "Maximum number of borrows reached",
+      "12": "This item is not borrowable",
+      "13": "This specimen is already borrowed",
+      "14": "Item identifier (e.g. ISBN) is missing",
+      "15": "Specimen barcode is missing",
+      "16": "An item with this ISBN already exists",
+      "17": "A specimen with this barcode already exists",
+      "18": "Invalid value",
+      "19": "This user identifier already exists",
+      "20": "Data not found",
+      "21": "This user still has borrowed specimens"
+    }
   },
   "codes": {
     "publicType": {

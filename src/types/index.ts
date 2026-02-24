@@ -142,7 +142,7 @@ export interface Item {
   id: number;
   media_type?: MediaType;
   public_type?: number;
-  identification?: string;
+  isbn?: string;
   title1?: string;
   title2?: string;
   title3?: string;
@@ -166,7 +166,7 @@ export interface ItemShort {
   id: number;
   media_type?: MediaType;
   public_type?: number;
-  identification?: string;
+  isbn?: string;
   title?: string;
   date?: string;
   status?: number;
@@ -205,7 +205,7 @@ export interface Collection {
 
 export interface Specimen {
   id: number;
-  identification?: string;
+  barcode?: string;
   call_number?: string;
   status?: number;
   source_name?: string;

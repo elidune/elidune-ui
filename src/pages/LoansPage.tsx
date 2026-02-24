@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Table, Input, Modal } from '@/components/common';
 import api from '@/services/api';
+import { getApiErrorMessage } from '@/utils/apiError';
 import type { User as UserType, Loan, UserShort } from '@/types';
 
 type TabType = 'borrow' | 'return';
@@ -141,13 +142,9 @@ export default function LoansPage() {
       // Refresh loans
       const loansData = await api.getUserLoans(selectedUser.id);
       setLoans(loansData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating loan:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          t('loans.errorCreatingLoan');
-      throw new Error(errorMessage);
+      throw new Error(getApiErrorMessage(error, t) || t('loans.errorCreatingLoan'));
     }
   };
 
@@ -159,13 +156,9 @@ export default function LoansPage() {
         const loansData = await api.getUserLoans(selectedUser.id);
         setLoans(loansData);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error returning loan:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          t('loans.errorReturningLoan');
-      throw new Error(errorMessage);
+      throw new Error(getApiErrorMessage(error, t) || t('loans.errorReturningLoan'));
     }
   };
 
@@ -186,13 +179,9 @@ export default function LoansPage() {
       setTimeout(() => {
         returnBarcodeInputRef.current?.focus();
       }, 500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error returning loan:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          t('loans.errorReturningLoan');
-      setReturnError(errorMessage);
+      setReturnError(getApiErrorMessage(error, t) || t('loans.errorReturningLoan'));
       setTimeout(() => {
         returnBarcodeInputRef.current?.focus();
         returnBarcodeInputRef.current?.select();
@@ -278,9 +267,9 @@ export default function LoansPage() {
         const loansData = await api.getUserLoans(selectedUser.id);
         setLoans(loansData);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error renewing loan:', error);
-      alert(error.response?.data?.message || t('loans.errorRenewingLoan'));
+      alert(getApiErrorMessage(error, t) || t('loans.errorRenewingLoan'));
     }
   };
 

@@ -521,6 +521,8 @@
     "errors": "{{count}} Fehler",
     "errors_plural": "{{count}} Fehler",
     "importAll": "Alle importieren ({{count}})",
+    "importOne": "Diese Notice importieren",
+    "onlyWithSpecimen": "Nur Notizen mit lokalen Feldern (9xx) importieren",
     "importWithScan": "Mit Scan importieren",
     "scanMode": "Scanmodus aktiviert",
     "scanModeHint": "Scannen Sie den ISBN-Barcode jedes zu importierenden Dokuments",
@@ -530,13 +532,37 @@
     "remainingToScan": "{{count}} Dokument noch zu scannen",
     "remainingToScan_plural": "{{count}} Dokumente noch zu scannen",
     "importProgress": "Import läuft...",
+    "rawFields": "Extrahierte MARC-Felder",
+    "preview": {
+      "tag": "Tag",
+      "indicators": "Indikatoren",
+      "subfields": "Unterfelder",
+      "value": "Wert"
+    },
+    "mappingApi": "API-Mapping (JSON)",
+    "fields9xx": "Lokale Felder (9xx)",
     "formats": {
       "iso2709": "MARC ISO 2709",
       "marcxml": "MARCXML"
     },
+    "source": "Quelle (für Exemplare)",
+    "noSource": "Keine Quelle",
+    "default": "Standard",
+    "addSource": "Quelle hinzufügen",
+    "newSourceName": "Name der neuen Quelle",
+    "sourceHint": "Wird als source_id beim Anlegen von Exemplaren aus 9xx-Feldern verwendet.",
+    "sourcesError": "Quellen konnten nicht geladen werden",
+    "sourceCreateError": "Quelle konnte nicht erstellt werden",
+    "duplicateIsbnTitle": "Doppelte ISBN",
+    "duplicateIsbnMessage": "Ein Eintrag mit der ISBN {{isbn}} existiert bereits.",
+    "duplicateIsbnChoose": "Wählen Sie einen bestehenden Eintrag zum Hinzufügen des Exemplars oder erstellen Sie einen neuen:",
+    "duplicateIsbnNoMatches": "Keine bestehenden Einträge für diese ISBN gefunden.",
+    "duplicateUseThis": "Diesen Eintrag verwenden",
+    "duplicateCreateNew": "Trotzdem neuen Eintrag anlegen",
     "encodings": {
       "utf8": "UTF-8",
       "iso88591": "ISO-8859-1 (Latin-1)",
+      "iso88594": "ISO-8859-4 (Latin-4)",
       "iso885915": "ISO-8859-15 (Latin-9)",
       "windows1252": "Windows-1252"
     }
@@ -565,7 +591,31 @@
     "notFound": "Ressource nicht gefunden",
     "serverError": "Serverfehler. Bitte versuchen Sie es später erneut.",
     "accessDenied": "Zugriff verweigert",
-    "accessDeniedHint": "Sie haben keine Berechtigung für diese Seite."
+    "accessDeniedHint": "Sie haben keine Berechtigung für diese Seite.",
+    "apiCode": {
+      "0": "Erfolg",
+      "1": "Ein Fehler ist aufgetreten",
+      "2": "Sie sind nicht berechtigt, diese Aktion auszuführen",
+      "3": "Datenbankfehler. Bitte versuchen Sie es später erneut.",
+      "4": "Benutzer nicht gefunden",
+      "5": "Eintrag nicht gefunden",
+      "6": "Speicherfehler des Servers. Bitte versuchen Sie es später erneut.",
+      "7": "Der Eintrag ist nicht verfügbar",
+      "8": "Doppelt: dieser Eintrag existiert bereits",
+      "9": "Z39.50-Suche fehlgeschlagen",
+      "10": "Z39.50-Suche abgelaufen",
+      "11": "Maximale Ausleihanzahl erreicht",
+      "12": "Dieser Eintrag ist nicht ausleihbar",
+      "13": "Dieses Exemplar ist bereits ausgeliehen",
+      "14": "Eintrags-Kennung (z. B. ISBN) fehlt",
+      "15": "Exemplar-Barcode fehlt",
+      "16": "Ein Eintrag mit dieser ISBN existiert bereits",
+      "17": "Ein Exemplar mit diesem Barcode existiert bereits",
+      "18": "Ungültiger Wert",
+      "19": "Diese Benutzerkennung existiert bereits",
+      "20": "Daten nicht gefunden",
+      "21": "Dieser Benutzer hat noch ausgeliehene Exemplare"
+    }
   },
   "codes": {
     "publicType": {

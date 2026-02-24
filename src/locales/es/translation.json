@@ -521,6 +521,8 @@
     "errors": "{{count}} error",
     "errors_plural": "{{count}} errores",
     "importAll": "Importar todo ({{count}})",
+    "importOne": "Importar esta notice",
+    "onlyWithSpecimen": "Solo importar notices con campos locales (9xx)",
     "importWithScan": "Importar con escaneo",
     "scanMode": "Modo escaneo activado",
     "scanModeHint": "Escanee el código de barras ISBN de cada documento a importar",
@@ -530,13 +532,37 @@
     "remainingToScan": "{{count}} documento pendiente de escanear",
     "remainingToScan_plural": "{{count}} documentos pendientes de escanear",
     "importProgress": "Importación en curso...",
+    "rawFields": "Campos MARC extraídos",
+    "preview": {
+      "tag": "Etiqueta",
+      "indicators": "Indicadores",
+      "subfields": "Subcampos",
+      "value": "Valor"
+    },
+    "mappingApi": "Mapping para API (JSON)",
+    "fields9xx": "Campos locales (9xx)",
     "formats": {
       "iso2709": "MARC ISO 2709",
       "marcxml": "MARCXML"
     },
+    "source": "Fuente (para ejemplares)",
+    "noSource": "Sin fuente",
+    "default": "por defecto",
+    "addSource": "Añadir fuente",
+    "newSourceName": "Nombre de la nueva fuente",
+    "sourceHint": "Se usa como source_id al crear ejemplares a partir de los campos 9xx.",
+    "sourcesError": "Error al cargar las fuentes",
+    "sourceCreateError": "Error al crear la fuente",
+    "duplicateIsbnTitle": "ISBN duplicado",
+    "duplicateIsbnMessage": "Ya existe un documento con el ISBN {{isbn}}.",
+    "duplicateIsbnChoose": "Elija un documento existente para añadir el ejemplar o cree uno nuevo:",
+    "duplicateIsbnNoMatches": "No se encontraron documentos con este ISBN.",
+    "duplicateUseThis": "Usar este documento",
+    "duplicateCreateNew": "Crear nuevo documento de todos modos",
     "encodings": {
       "utf8": "UTF-8",
       "iso88591": "ISO-8859-1 (Latin-1)",
+      "iso88594": "ISO-8859-4 (Latin-4)",
       "iso885915": "ISO-8859-15 (Latin-9)",
       "windows1252": "Windows-1252"
     }
@@ -565,7 +591,31 @@
     "notFound": "Recurso no encontrado",
     "serverError": "Error del servidor. Por favor intente más tarde.",
     "accessDenied": "Acceso denegado",
-    "accessDeniedHint": "No tiene permiso para acceder a esta página."
+    "accessDeniedHint": "No tiene permiso para acceder a esta página.",
+    "apiCode": {
+      "0": "Éxito",
+      "1": "Se produjo un error",
+      "2": "No está autorizado para realizar esta acción",
+      "3": "Error de base de datos. Por favor intente más tarde.",
+      "4": "Usuario no encontrado",
+      "5": "Documento no encontrado",
+      "6": "Error de memoria del servidor. Por favor intente más tarde.",
+      "7": "El documento no está disponible",
+      "8": "Duplicado: este registro ya existe",
+      "9": "Búsqueda Z39.50 fallida",
+      "10": "Búsqueda Z39.50 caducada",
+      "11": "Se alcanzó el número máximo de préstamos",
+      "12": "Este documento no es prestable",
+      "13": "Este ejemplar ya está prestado",
+      "14": "Falta el identificador del documento (ej. ISBN)",
+      "15": "Falta el código de barras del ejemplar",
+      "16": "Ya existe un documento con este ISBN",
+      "17": "Ya existe un ejemplar con este código de barras",
+      "18": "Valor no válido",
+      "19": "Este identificador de usuario ya existe",
+      "20": "Datos no encontrados",
+      "21": "Este usuario tiene ejemplares prestados"
+    }
   },
   "codes": {
     "publicType": {

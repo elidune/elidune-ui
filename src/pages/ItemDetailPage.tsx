@@ -189,7 +189,7 @@ export default function ItemDetailPage() {
           <Card>
             <CardHeader title={t('items.generalInfo')} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InfoRow icon={Hash} label={t('items.identification')} value={item.identification} />
+              <InfoRow icon={Hash} label={t('items.isbn')} value={item.isbn} />
               <InfoRow icon={User} label={t('items.mainAuthor')} value={formatAuthors(item.authors1)} />
               <InfoRow icon={User} label={t('items.secondaryAuthor')} value={formatAuthors(item.authors2)} />
               <InfoRow icon={Calendar} label={t('items.publicationDate')} value={item.publication_date} />
@@ -409,7 +409,7 @@ export default function ItemDetailPage() {
         {selectedSpecimen && (
           <>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              {t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.identification || 'Sans code' })}
+              {t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
             </p>
             <div className="flex justify-end gap-2">
               <Button
@@ -484,7 +484,7 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
     <div className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
       <div className="flex items-center justify-between mb-2">
         <p className="font-medium text-gray-900 dark:text-white">
-          {specimen.identification || t('items.noSpecimens')}
+          {specimen.barcode || t('items.noSpecimens')}
         </p>
         <div className="flex items-center gap-2">
           {getAvailabilityBadge(specimen.availability)}
@@ -531,7 +531,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
     title1: item.title1 || '',
     title2: item.title2 || '',
     title3: item.title3 || '',
-    identification: item.identification || '',
+    isbn: item.isbn || '',
     publication_date: item.publication_date || '',
     abstract_: item.abstract_ || '',
     keywords: item.keywords || '',
@@ -567,7 +567,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
         title1: formData.title1,
         title2: formData.title2,
         title3: formData.title3,
-        identification: formData.identification,
+        isbn: formData.isbn,
         publication_date: formData.publication_date,
         abstract_: formData.abstract_,
         keywords: formData.keywords,
@@ -601,8 +601,8 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <Input
           label={t('items.isbn')}
-          value={formData.identification}
-          onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
+          value={formData.isbn}
+          onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
         />
         <Input
           label={t('items.publicationDate')}
@@ -723,7 +723,7 @@ function AddSpecimenForm({ item, onSuccess }: AddSpecimenFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
-    identification: '',
+    barcode: '',
     call_number: '',
   });
 
@@ -747,8 +747,8 @@ function AddSpecimenForm({ item, onSuccess }: AddSpecimenFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
         label={t('items.specimenBarcode')}
-        value={formData.identification}
-        onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
+        value={formData.barcode}
+        onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
         required
       />
       <CallNumberField
@@ -778,7 +778,7 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
   const [isLoading, setIsLoading] = useState(false);
   const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
-    identification: specimen.identification || '',
+    barcode: specimen.barcode || '',
     call_number: specimen.call_number || '',
   });
 
@@ -788,7 +788,7 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
     setIsLoading(true);
     try {
       await api.updateSpecimen(item.id, specimen.id, {
-        identification: formData.identification,
+        barcode: formData.barcode,
         call_number: formData.call_number,
       });
       onSuccess();
@@ -803,8 +803,8 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
         label={t('items.specimenBarcode')}
-        value={formData.identification}
-        onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
+        value={formData.barcode}
+        onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
         required
       />
       <CallNumberField

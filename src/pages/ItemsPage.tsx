@@ -48,7 +48,7 @@ export default function ItemsPage() {
   const [advancedFilters, setAdvancedFilters] = useState({
     title: '',
     author: '',
-    identification: '',
+    isbn: '',
   });
 
   // Modal
@@ -63,7 +63,7 @@ export default function ItemsPage() {
         public_type: publicType ? parseInt(publicType, 10) : undefined,
         title: advancedFilters.title || undefined,
         author: advancedFilters.author || undefined,
-        identification: advancedFilters.identification || undefined,
+        isbn: advancedFilters.isbn || undefined,
         page: currentPage,
         per_page: ITEMS_PER_PAGE,
       });
@@ -175,7 +175,7 @@ export default function ItemsPage() {
               {item.title || t('items.notSpecified')}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-              {item.identification}
+              {item.isbn}
             </p>
           </div>
         </div>
@@ -319,9 +319,9 @@ export default function ItemsPage() {
               />
               <Input
                 label={t('items.isbn')}
-                value={advancedFilters.identification}
+                value={advancedFilters.isbn}
                 onChange={(e) =>
-                  setAdvancedFilters({ ...advancedFilters, identification: e.target.value })
+                  setAdvancedFilters({ ...advancedFilters, isbn: e.target.value })
                 }
                 placeholder={t('z3950.isbnPlaceholder')}
               />
@@ -330,7 +330,7 @@ export default function ItemsPage() {
               <Button
                 variant="ghost"
                 onClick={() => {
-                  setAdvancedFilters({ title: '', author: '', identification: '' });
+                  setAdvancedFilters({ title: '', author: '', isbn: '' });
                   setCurrentPage(1);
                 }}
               >
@@ -390,12 +390,12 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<{
     title1: string;
-    identification: string;
+    isbn: string;
     media_type: MediaType;
     publication_date: string;
   }>({
     title1: '',
-    identification: '',
+    isbn: '',
     media_type: 'b',
     publication_date: '',
   });
@@ -438,7 +438,7 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
   }, []);
 
   const handleZ3950Search = async () => {
-    if (!formData.identification.trim()) {
+    if (!formData.isbn.trim()) {
       setZ3950Message({ type: 'error', text: t('z3950.isbnRequired') });
       return;
     }
@@ -454,7 +454,7 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
     try {
       // Use first active server
       const response = await api.searchZ3950({
-        isbn: formData.identification,
+        isbn: formData.isbn,
         server_id: z3950Servers[0].id,
         max_results: 1,
       });
@@ -508,9 +508,9 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
           </label>
           <div className="flex gap-2">
             <Input
-              value={formData.identification}
+              value={formData.isbn}
               onChange={(e) => {
-                setFormData({ ...formData, identification: e.target.value });
+                setFormData({ ...formData, isbn: e.target.value });
                 setZ3950Message(null);
               }}
               placeholder={t('z3950.isbnPlaceholder')}
@@ -521,7 +521,7 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
                 type="button"
                 variant="secondary"
                 onClick={handleZ3950Search}
-                disabled={isSearchingZ3950 || !formData.identification.trim()}
+                disabled={isSearchingZ3950 || !formData.isbn.trim()}
                 title={t('z3950.searchButton')}
                 className="flex-shrink-0"
               >

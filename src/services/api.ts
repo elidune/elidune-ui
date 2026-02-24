@@ -156,7 +156,7 @@ class ApiService {
   async getItems(params?: {
     title?: string;
     author?: string;
-    identification?: string;
+    isbn?: string;
     media_type?: MediaType;
     public_type?: number;
     freesearch?: string;
@@ -172,8 +172,9 @@ class ApiService {
     return response.data;
   }
 
-  async createItem(item: Partial<Item>): Promise<Item> {
-    const response = await this.client.post<Item>('/items', item);
+  async createItem(item: Partial<Item>, options?: { allowDuplicateIsbn?: boolean }): Promise<Item> {
+    const params = options?.allowDuplicateIsbn ? { allow_duplicate_isbn: true } : undefined;
+    const response = await this.client.post<Item>('/items', item, { params });
     return response.data;
   }
 
@@ -193,6 +194,11 @@ class ApiService {
 
   async deleteSpecimen(itemId: number, specimenId: number): Promise<void> {
     await this.client.delete(`/items/${itemId}/specimens/${specimenId}`);
+  }
+
+  async createSpecimen(itemId: number, data: { barcode?: string; call_number?: string; source_id?: number }): Promise<Specimen> {
+    const response = await this.client.post<Specimen>(`/items/${itemId}/specimens`, data);
+    return response.data;
   }
 
   // Users
@@ -327,6 +333,11 @@ class ApiService {
     return response.data;
   }
 
+  async createSource(data: { name: string }): Promise<Source> {
+    const response = await this.client.post<Source>('/sources', data);
+    return response.data;
+  }
+
   async updateSource(id: number, data: Partial<Source>): Promise<Source> {
     const response = await this.client.put<Source>(`/sources/${id}`, data);
     return response.data;
@@ -386,7 +397,7 @@ class ApiService {
     return response.data;
   }
 
-  async importZ3950(remoteItemId: number, specimens?: { identification: string; call_number?: string }[], sourceId?: number): Promise<Item> {
+  async importZ3950(remoteItemId: number, specimens?: { barcode: string; call_number?: string }[], sourceId?: number): Promise<Item> {
     const response = await this.client.post<Item>('/z3950/import', {
       remote_item_id: remoteItemId,
       specimens,

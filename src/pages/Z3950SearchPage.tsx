@@ -52,7 +52,7 @@ interface Z3950SearchResponse {
 }
 
 interface SpecimenToAdd {
-  identification: string;
+  barcode: string;
   call_number: string;
 }
 
@@ -84,7 +84,7 @@ export default function Z3950SearchPage() {
   // Import state
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Z3950Result | null>(null);
-  const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ identification: '', call_number: '' }]);
+  const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ barcode: '', call_number: '' }]);
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<number | null>(null);
   
@@ -181,7 +181,7 @@ export default function Z3950SearchPage() {
 
   const handleOpenImport = (item: Z3950Result) => {
     setSelectedItem(item);
-    setSpecimens([{ identification: '', call_number: '' }]);
+    setSpecimens([{ barcode: '', call_number: '' }]);
     setImportSuccess(null);
     // Reset to default source when opening import modal
     const defaultSource = sources.find(s => s.default);
@@ -194,7 +194,7 @@ export default function Z3950SearchPage() {
   };
 
   const handleAddSpecimen = () => {
-    setSpecimens([...specimens, { identification: '', call_number: '' }]);
+    setSpecimens([...specimens, { barcode: '', call_number: '' }]);
   };
 
   const handleRemoveSpecimen = (index: number) => {
@@ -218,7 +218,7 @@ export default function Z3950SearchPage() {
     }
     setIsImporting(true);
     try {
-      const validSpecimens = specimens.filter(s => s.identification.trim() !== '');
+      const validSpecimens = specimens.filter(s => s.barcode.trim() !== '');
       
       const imported = await api.importZ3950(
         selectedItem.id,
@@ -263,7 +263,7 @@ export default function Z3950SearchPage() {
               {item.title || t('items.notSpecified')}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-              {item.identification}
+              {item.isbn}
             </p>
           </div>
         </div>
@@ -510,9 +510,9 @@ export default function Z3950SearchPage() {
                   {formatAuthors(selectedItem.authors)}
                   {selectedItem.date && ` • ${selectedItem.date}`}
                 </p>
-                {selectedItem.identification && (
+                {selectedItem.isbn && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    ISBN: {selectedItem.identification}
+                    ISBN: {selectedItem.isbn}
                   </p>
                 )}
               </div>
@@ -560,8 +560,8 @@ export default function Z3950SearchPage() {
                     <div className="flex-1 grid grid-cols-2 gap-3">
                       <Input
                         placeholder={t('items.specimenBarcode')}
-                        value={specimen.identification}
-                        onChange={(e) => handleSpecimenChange(index, 'identification', e.target.value)}
+                        value={specimen.barcode}
+                        onChange={(e) => handleSpecimenChange(index, 'barcode', e.target.value)}
                       />
                       <CallNumberField
                         value={specimen.call_number}

@@ -540,6 +540,8 @@
     "errors": "{{count}} erreur",
     "errors_plural": "{{count}} erreurs",
     "importAll": "Tout importer ({{count}})",
+    "importOne": "Importer cette notice",
+    "onlyWithSpecimen": "N'importer que les notices avec champs locaux (9xx)",
     "importWithScan": "Importer avec scan",
     "scanMode": "Mode scan activé",
     "scanModeHint": "Scannez le code-barre ISBN de chaque document à importer",
@@ -549,13 +551,37 @@
     "remainingToScan": "{{count}} document restant à scanner",
     "remainingToScan_plural": "{{count}} documents restants à scanner",
     "importProgress": "Import en cours...",
+    "rawFields": "Champs MARC extraits",
+    "preview": {
+      "tag": "Étiquette",
+      "indicators": "Indicateurs",
+      "subfields": "Sous-champs",
+      "value": "Valeur"
+    },
+    "mappingApi": "Mapping pour l'API (JSON)",
+    "fields9xx": "Champs locaux (9xx)",
     "formats": {
       "iso2709": "MARC ISO 2709",
       "marcxml": "MARCXML"
     },
+    "source": "Source (pour les exemplaires)",
+    "noSource": "Aucune source",
+    "default": "par défaut",
+    "addSource": "Ajouter une source",
+    "newSourceName": "Nom de la nouvelle source",
+    "sourceHint": "Utilisé comme source_id lors de la création des exemplaires à partir des champs 9xx.",
+    "sourcesError": "Impossible de charger les sources",
+    "sourceCreateError": "Impossible de créer la source",
+    "duplicateIsbnTitle": "ISBN en double",
+    "duplicateIsbnMessage": "Un document avec l'ISBN {{isbn}} existe déjà.",
+    "duplicateIsbnChoose": "Choisir un document existant pour y ajouter l'exemplaire, ou en créer un nouveau :",
+    "duplicateIsbnNoMatches": "Aucun document existant pour cet ISBN.",
+    "duplicateUseThis": "Utiliser ce document",
+    "duplicateCreateNew": "Créer malgré tout un nouveau document",
     "encodings": {
       "utf8": "UTF-8",
       "iso88591": "ISO-8859-1 (Latin-1)",
+      "iso88594": "ISO-8859-4 (Latin-4)",
       "iso885915": "ISO-8859-15 (Latin-9)",
       "windows1252": "Windows-1252"
     }
@@ -584,7 +610,31 @@
     "notFound": "Ressource introuvable",
     "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
     "accessDenied": "Accès refusé",
-    "accessDeniedHint": "Vous n'avez pas les droits pour accéder à cette page."
+    "accessDeniedHint": "Vous n'avez pas les droits pour accéder à cette page.",
+    "apiCode": {
+      "0": "Succès",
+      "1": "Une erreur s'est produite",
+      "2": "Vous n'êtes pas autorisé à effectuer cette action",
+      "3": "Erreur base de données. Veuillez réessayer plus tard.",
+      "4": "Utilisateur introuvable",
+      "5": "Document introuvable",
+      "6": "Erreur mémoire serveur. Veuillez réessayer plus tard.",
+      "7": "Le document n'est pas disponible",
+      "8": "Doublon : cet enregistrement existe déjà",
+      "9": "Recherche Z39.50 en échec",
+      "10": "Recherche Z39.50 expirée",
+      "11": "Nombre maximum d'emprunts atteint",
+      "12": "Ce document n'est pas empruntable",
+      "13": "Cet exemplaire est déjà emprunté",
+      "14": "L'identifiant du document (ex. ISBN) est manquant",
+      "15": "Le code-barres de l'exemplaire est manquant",
+      "16": "Un document avec cet ISBN existe déjà",
+      "17": "Un exemplaire avec ce code-barres existe déjà",
+      "18": "Valeur invalide",
+      "19": "Cet identifiant utilisateur existe déjà",
+      "20": "Donnée introuvable",
+      "21": "Cet utilisateur a encore des exemplaires empruntés"
+    }
   },
   "codes": {
     "publicType": {

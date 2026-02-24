@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Save, Plus, Trash2, Server, BookOpen, Archive, Pencil, Merge, Package, Check, X, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, Button, Input, Badge } from '@/components/common';
 import api from '@/services/api';
+import { getApiErrorMessage } from '@/utils/apiError';
 import type { Settings, LoanSettings, Z3950Server, MediaType, Source } from '@/types';
 
 // Helper function to get translation key for media type
@@ -113,7 +114,7 @@ function SourceEditor() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
       if (axiosErr.response?.status === 422) {
-        setError(axiosErr.response.data?.message || t('settings.sources.errorArchive'));
+        setError(getApiErrorMessage(axiosErr, t) || t('settings.sources.errorArchive'));
       } else {
         setError(t('settings.sources.errorArchive'));
       }
