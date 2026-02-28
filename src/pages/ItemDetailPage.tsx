@@ -79,6 +79,8 @@ export default function ItemDetailPage() {
   const [showEditSpecimenModal, setShowEditSpecimenModal] = useState(false);
   const [showDeleteSpecimenModal, setShowDeleteSpecimenModal] = useState(false);
   const [selectedSpecimen, setSelectedSpecimen] = useState<Specimen | null>(null);
+  const [deleteSpecimenBorrowedError, setDeleteSpecimenBorrowedError] = useState(false);
+  const [deleteSpecimenLoading, setDeleteSpecimenLoading] = useState(false);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -397,6 +399,7 @@ export default function ItemDetailPage() {
         onClose={() => {
           setShowDeleteSpecimenModal(false);
           setSelectedSpecimen(null);
+          setDeleteSpecimenBorrowedError(false);
         }}
         title={t('common.confirm')}
         size="sm"
@@ -404,7 +407,9 @@ export default function ItemDetailPage() {
         {selectedSpecimen && (
           <>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              {t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
+              {deleteSpecimenBorrowedError
+                ? t('items.specimenBorrowedForceDelete')
+                : t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
             </p>
             <div className="flex justify-end gap-2">
               <Button
@@ -412,26 +417,60 @@ export default function ItemDetailPage() {
                 onClick={() => {
                   setShowDeleteSpecimenModal(false);
                   setSelectedSpecimen(null);
+                  setDeleteSpecimenBorrowedError(false);
                 }}
               >
                 {t('common.cancel')}
               </Button>
-              <Button
-                variant="danger"
-                onClick={async () => {
-                  if (!selectedSpecimen || item.id == null) return;
-                  try {
-                    await api.deleteSpecimen(item.id, selectedSpecimen.id);
-                    setShowDeleteSpecimenModal(false);
-                    setSelectedSpecimen(null);
-                    api.getItem(item.id).then(setItem);
-                  } catch (error) {
-                    console.error('Error deleting specimen:', error);
-                  }
-                }}
-              >
-                {t('common.delete')}
-              </Button>
+              {deleteSpecimenBorrowedError ? (
+                <Button
+                  variant="danger"
+                  disabled={deleteSpecimenLoading}
+                  onClick={async () => {
+                    if (!selectedSpecimen || item.id == null) return;
+                    setDeleteSpecimenLoading(true);
+                    try {
+                      await api.deleteSpecimen(item.id, selectedSpecimen.id, true);
+                      setShowDeleteSpecimenModal(false);
+                      setSelectedSpecimen(null);
+                      setDeleteSpecimenBorrowedError(false);
+                      api.getItem(item.id).then(setItem);
+                    } catch (error) {
+                      console.error('Error force-deleting specimen:', error);
+                    } finally {
+                      setDeleteSpecimenLoading(false);
+                    }
+                  }}
+                >
+                  {t('items.forceDeleteSpecimen')}
+                </Button>
+              ) : (
+                <Button
+                  variant="danger"
+                  disabled={deleteSpecimenLoading}
+                  onClick={async () => {
+                    if (!selectedSpecimen || item.id == null) return;
+                    setDeleteSpecimenLoading(true);
+                    try {
+                      await api.deleteSpecimen(item.id, selectedSpecimen.id);
+                      setShowDeleteSpecimenModal(false);
+                      setSelectedSpecimen(null);
+                      api.getItem(item.id).then(setItem);
+                    } catch (error: unknown) {
+                      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+                      if (typeof msg === 'string' && (msg.includes('borrowed') || msg.includes('force=true'))) {
+                        setDeleteSpecimenBorrowedError(true);
+                      } else {
+                        console.error('Error deleting specimen:', error);
+                      }
+                    } finally {
+                      setDeleteSpecimenLoading(false);
+                    }
+                  }}
+                >
+                  {t('common.delete')}
+                </Button>
+              )}
             </div>
           </>
         )}

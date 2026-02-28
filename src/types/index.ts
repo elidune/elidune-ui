@@ -399,6 +399,24 @@ export interface PaginatedResponse<T> {
   per_page: number;
 }
 
+export interface ImportReport {
+  action: 'created' | 'merged_bibliographic' | 'replaced_archived' | 'replaced_confirmed';
+  existing_id?: number;
+  warnings: string[];
+  message?: string;
+}
+
+export interface ImportResult<T> {
+  item: T;
+  import_report: ImportReport;
+}
+
+export interface DuplicateConfirmationRequired {
+  code: 'duplicate_isbn_needs_confirmation';
+  existing_id: number;
+  message: string;
+}
+
 // Error response
 export interface ApiError {
   code: number;

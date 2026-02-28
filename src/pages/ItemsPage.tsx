@@ -6,10 +6,22 @@ import { Card, Button, Table, Badge, Pagination, SearchInput, Modal, Input } fro
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType, type MediaTypeOption } from '@/types';
 import api from '@/services/api';
-import type { ItemShort, Author, Z3950Server } from '@/types';
+import type { ItemShort, Author, Z3950Server, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
+import type { AxiosError } from 'axios';
 
 const ITEMS_PER_PAGE = 20;
+
+function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmationRequired | null {
+  const ax = error as AxiosError<any>;
+  if (ax?.response?.status !== 409) return null;
+  const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
+  if (!data) return null;
+  if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
+  if (typeof data.existing_id !== 'number') return null;
+  if (typeof data.message !== 'string') return null;
+  return data as DuplicateConfirmationRequired;
+}
 
 export default function ItemsPage() {
   const { t } = useTranslation();
@@ -360,22 +372,28 @@ export default function ItemsPage() {
         title={t('items.add')}
         size="lg"
       >
-        <CreateItemForm onSuccess={() => {
-          setShowCreateModal(false);
-          fetchItems();
-        }} />
+        <CreateItemForm
+          onCreated={() => fetchItems()}
+          onClose={() => setShowCreateModal(false)}
+        />
       </Modal>
     </div>
   );
 }
 
 interface CreateItemFormProps {
-  onSuccess: () => void;
+  onCreated: () => void;
+  onClose: () => void;
 }
 
-function CreateItemForm({ onSuccess }: CreateItemFormProps) {
+function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [createdItemId, setCreatedItemId] = useState<number | null>(null);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
+  const [confirmReplaceModal, setConfirmReplaceModal] = useState<{ existingId: number; message: string } | null>(null);
+  const [confirmReplaceLoading, setConfirmReplaceLoading] = useState(false);
+  const [confirmReplaceError, setConfirmReplaceError] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
     title: string;
     isbn: string;
@@ -472,17 +490,74 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await api.createItem(formData);
-      onSuccess();
+      const created = await api.createItem(formData);
+      setCreatedItemId(created.item.id);
+      setImportReport(created.import_report);
+      onCreated();
     } catch (error) {
-      console.error('Error creating item:', error);
+      const confirm = getDuplicateConfirmationRequired(error);
+      if (confirm) {
+        setConfirmReplaceError(null);
+        setConfirmReplaceModal({ existingId: confirm.existing_id, message: confirm.message });
+      } else {
+        console.error('Error creating item:', error);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleConfirmReplaceExisting = async () => {
+    if (!confirmReplaceModal) return;
+    setConfirmReplaceLoading(true);
+    setConfirmReplaceError(null);
+    try {
+      const created = await api.createItem(formData, { confirmReplaceExistingId: confirmReplaceModal.existingId });
+      setConfirmReplaceModal(null);
+      setCreatedItemId(created.item.id);
+      setImportReport(created.import_report);
+      onCreated();
+    } catch (err) {
+      console.error('Error confirming replace existing item:', err);
+      setConfirmReplaceError(t('errors.generic'));
+    } finally {
+      setConfirmReplaceLoading(false);
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
+      {createdItemId ? (
+        <div className="text-center py-4">
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 mb-3">
+            <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            {t('common.success')}
+          </h3>
+          {importReport && (
+            <div className="mx-auto max-w-xl text-left mb-4 p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10">
+              <div className="text-sm font-medium text-green-900 dark:text-green-200">
+                {importReport.message || importReport.action}
+                {importReport.existing_id != null ? ` (ID: ${importReport.existing_id})` : ''}
+              </div>
+              {importReport.warnings?.length > 0 && (
+                <ul className="mt-2 list-disc pl-5 text-sm text-green-800 dark:text-green-300 space-y-1">
+                  {importReport.warnings.map((w, idx) => (
+                    <li key={idx}>{w}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          <div className="flex justify-center gap-3">
+            <Button variant="secondary" onClick={onClose}>
+              {t('common.close')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
       <Input
         label={t('items.titleField')}
         value={formData.title}
@@ -566,6 +641,54 @@ function CreateItemForm({ onSuccess }: CreateItemFormProps) {
           {t('common.create')}
         </Button>
       </div>
-    </form>
+        </form>
+      )}
+
+      <Modal
+        isOpen={!!confirmReplaceModal}
+        onClose={() => {
+          if (confirmReplaceLoading) return;
+          setConfirmReplaceModal(null);
+          setConfirmReplaceError(null);
+        }}
+        title={t('items.confirmReplaceTitle')}
+        size="lg"
+      >
+        {confirmReplaceModal && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{confirmReplaceModal.message}</p>
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              <div className="font-medium mb-1">
+                {t('items.confirmReplaceExistingId', { id: confirmReplaceModal.existingId })}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">
+                {t('items.confirmReplaceExplanation')}
+              </div>
+            </div>
+            {confirmReplaceError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {confirmReplaceError}
+              </div>
+            )}
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (confirmReplaceLoading) return;
+                  setConfirmReplaceModal(null);
+                  setConfirmReplaceError(null);
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleConfirmReplaceExisting} isLoading={confirmReplaceLoading}>
+                {t('items.confirmReplaceConfirm')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 }

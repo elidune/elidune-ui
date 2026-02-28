@@ -16,8 +16,9 @@ import {
 import { Card, CardHeader, Button, Badge, Table, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
-import type { ItemShort, Author, Z3950Server, MediaType, Source } from '@/types';
+import type { ItemShort, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
+import type { AxiosError } from 'axios';
 
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType): string {
@@ -39,6 +40,17 @@ function getMediaTypeTranslationKey(mediaType: MediaType): string {
     'm': 'multimedia',
   };
   return keyMap[mediaType] || 'unknown';
+}
+
+function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmationRequired | null {
+  const ax = error as AxiosError<any>;
+  if (ax?.response?.status !== 409) return null;
+  const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
+  if (!data) return null;
+  if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
+  if (typeof data.existing_id !== 'number') return null;
+  if (typeof data.message !== 'string') return null;
+  return data as DuplicateConfirmationRequired;
 }
 
 interface Z3950Result extends ItemShort {
@@ -87,6 +99,10 @@ export default function Z3950SearchPage() {
   const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ barcode: '', call_number: '' }]);
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<number | null>(null);
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
+  const [confirmReplaceModal, setConfirmReplaceModal] = useState<{ existingId: number; message: string } | null>(null);
+  const [confirmReplaceLoading, setConfirmReplaceLoading] = useState(false);
+  const [confirmReplaceError, setConfirmReplaceError] = useState<string | null>(null);
   
   // Sources state
   const [sources, setSources] = useState<Source[]>([]);
@@ -183,6 +199,9 @@ export default function Z3950SearchPage() {
     setSelectedItem(item);
     setSpecimens([{ barcode: '', call_number: '' }]);
     setImportSuccess(null);
+    setImportReport(null);
+    setConfirmReplaceModal(null);
+    setConfirmReplaceError(null);
     // Reset to default source when opening import modal
     const defaultSource = sources.find(s => s.default);
     if (defaultSource) {
@@ -226,12 +245,42 @@ export default function Z3950SearchPage() {
         selectedSourceId || undefined
       );
       
-      setImportSuccess(imported.id);
+      setImportSuccess(imported.item.id);
+      setImportReport(imported.import_report);
     } catch (error) {
-      console.error('Error importing item:', error);
-      setSearchError(t('z3950.importError'));
+      const confirm = getDuplicateConfirmationRequired(error);
+      if (confirm) {
+        setConfirmReplaceError(null);
+        setConfirmReplaceModal({ existingId: confirm.existing_id, message: confirm.message });
+      } else {
+        console.error('Error importing item:', error);
+        setSearchError(t('z3950.importError'));
+      }
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleConfirmReplaceExisting = async () => {
+    if (!selectedItem?.id || !confirmReplaceModal) return;
+    setConfirmReplaceLoading(true);
+    setConfirmReplaceError(null);
+    try {
+      const validSpecimens = specimens.filter(s => s.barcode.trim() !== '');
+      const imported = await api.importZ3950(
+        selectedItem.id,
+        validSpecimens.length > 0 ? validSpecimens : undefined,
+        selectedSourceId || undefined,
+        { confirmReplaceExistingId: confirmReplaceModal.existingId }
+      );
+      setConfirmReplaceModal(null);
+      setImportSuccess(imported.item.id);
+      setImportReport(imported.import_report);
+    } catch (err) {
+      console.error('Error confirming replace existing item:', err);
+      setConfirmReplaceError(t('z3950.importError'));
+    } finally {
+      setConfirmReplaceLoading(false);
     }
   };
 
@@ -489,6 +538,21 @@ export default function Z3950SearchPage() {
             <p className="text-gray-500 dark:text-gray-400 mb-6">
               {t('z3950.importSuccessMessage')}
             </p>
+            {importReport && (
+              <div className="mx-auto max-w-xl text-left mb-6 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10">
+                <div className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
+                  {importReport.message || importReport.action}
+                  {importReport.existing_id != null ? ` (ID: ${importReport.existing_id})` : ''}
+                </div>
+                {importReport.warnings?.length > 0 && (
+                  <ul className="mt-2 list-disc pl-5 text-sm text-emerald-800 dark:text-emerald-300 space-y-1">
+                    {importReport.warnings.map((w, idx) => (
+                      <li key={idx}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <div className="flex justify-center gap-3">
               <Button variant="secondary" onClick={() => setShowImportModal(false)}>
                 {t('common.close')}
@@ -608,6 +672,54 @@ export default function Z3950SearchPage() {
                 leftIcon={<Download className="h-4 w-4" />}
               >
                 {t('z3950.import')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!confirmReplaceModal}
+        onClose={() => {
+          if (confirmReplaceLoading) return;
+          setConfirmReplaceModal(null);
+          setConfirmReplaceError(null);
+        }}
+        title={t('z3950.confirmReplaceTitle')}
+        size="lg"
+      >
+        {confirmReplaceModal && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {confirmReplaceModal.message}
+            </p>
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              <div className="font-medium mb-1">
+                {t('z3950.confirmReplaceExistingId', { id: confirmReplaceModal.existingId })}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">
+                {t('z3950.confirmReplaceExplanation')}
+              </div>
+            </div>
+            {confirmReplaceError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {confirmReplaceError}
+              </div>
+            )}
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (confirmReplaceLoading) return;
+                  setConfirmReplaceModal(null);
+                  setConfirmReplaceError(null);
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleConfirmReplaceExisting} isLoading={confirmReplaceLoading}>
+                {t('z3950.confirmReplaceConfirm')}
               </Button>
             </div>
           </div>

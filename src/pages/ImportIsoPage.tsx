@@ -22,7 +22,7 @@ import {
 import { Card, Button, Badge, Input, Modal } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
-import type { Author, MediaType, Source, ItemShort } from '@/types';
+import type { Author, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import type { AxiosError } from 'axios';
 
 // Helper function to get translation key for media type
@@ -84,17 +84,20 @@ interface ParsedRecord {
   status: 'pending' | 'importing' | 'imported' | 'error';
   error?: string;
   importedId?: number;
+  importReport?: ImportReport;
 }
 
 type MarcFormat = 'UNIMARC' | 'MARC21';
 
-/** Detect duplicate ISBN error from API (code 8 or message) */
-function isDuplicateIsbnError(error: unknown): boolean {
-  const data = (error as AxiosError<{ code?: number; error?: string; message?: string }>)?.response?.data;
-  if (!data) return false;
-  if (data.code === 8) return true;
-  const msg = (data.message || data.error || '').toLowerCase();
-  return msg.includes('duplicate') || msg.includes('isbn already exists');
+function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmationRequired | null {
+  const ax = error as AxiosError<any>;
+  if (ax?.response?.status !== 409) return null;
+  const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
+  if (!data) return null;
+  if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
+  if (typeof data.existing_id !== 'number') return null;
+  if (typeof data.message !== 'string') return null;
+  return data as DuplicateConfirmationRequired;
 }
 
 const SUBFIELD_DELIMITER = '\x1F'; // Hex 1F
@@ -808,10 +811,16 @@ export default function ImportIsoPage() {
   // Only import notices that have local fields (9xx) → will create a specimen
   const [onlyImportWithSpecimen, setOnlyImportWithSpecimen] = useState(false);
 
-  // Duplicate ISBN resolution: show modal to pick existing item or create new
-  const [duplicateModal, setDuplicateModal] = useState<{ record: ParsedRecord; matches: ItemShort[] } | null>(null);
-  const [duplicateActionLoading, setDuplicateActionLoading] = useState(false);
-  const [duplicateModalError, setDuplicateModalError] = useState<string | null>(null);
+  const [replaceConfirmModal, setReplaceConfirmModal] = useState<{
+    record: ParsedRecord;
+    existingId: number;
+    message: string;
+  } | null>(null);
+  const [replaceConfirmLoading, setReplaceConfirmLoading] = useState(false);
+  const [replaceConfirmError, setReplaceConfirmError] = useState<string | null>(null);
+
+  const [singleErrorModal, setSingleErrorModal] = useState<{ title: string; message: string } | null>(null);
+  const [showImportErrorList, setShowImportErrorList] = useState(false);
 
   const fetchSources = useCallback(async () => {
     try {
@@ -919,10 +928,11 @@ export default function ImportIsoPage() {
 
     setIsImporting(true);
     setImportProgress({ current: 0, total: pendingRecords.length });
+    setShowImportErrorList(false);
 
     for (let i = 0; i < pendingRecords.length; i++) {
       const record = pendingRecords[i];
-      await importRecord(record);
+      await importRecord(record, { showErrorModal: false });
       setImportProgress({ current: i + 1, total: pendingRecords.length });
     }
 
@@ -948,7 +958,7 @@ export default function ImportIsoPage() {
       : undefined,
   });
 
-  const completeImportWithItemId = async (record: ParsedRecord, itemId: number) => {
+  const completeImportWithItemId = async (record: ParsedRecord, itemId: number, importReport: ImportReport) => {
     if (has9xxFields(record)) {
       const specimenData = buildSpecimenFrom9xx(record);
       await api.createSpecimen(itemId, {
@@ -957,67 +967,59 @@ export default function ImportIsoPage() {
       });
     }
     setRecords(prev => prev.map(r =>
-      r.id === record.id ? { ...r, status: 'imported' as const, importedId: itemId } : r
+      r.id === record.id ? { ...r, status: 'imported' as const, importedId: itemId, importReport } : r
     ));
   };
 
-  const importRecord = async (record: ParsedRecord) => {
+  const importRecord = async (record: ParsedRecord, options?: { showErrorModal?: boolean }) => {
+    const showErrorModal = options?.showErrorModal !== false;
     setRecords(prev => prev.map(r =>
       r.id === record.id ? { ...r, status: 'importing' as const } : r
     ));
 
     try {
-      const item = await api.createItem(buildItemPayload(record));
-      if (item.id != null) await completeImportWithItemId(record, item.id);
+      const { item, import_report } = await api.createItem(buildItemPayload(record));
+      if (item.id != null) await completeImportWithItemId(record, item.id, import_report);
     } catch (error) {
-      if (isDuplicateIsbnError(error) && record.identification) {
-        try {
-          const response = await api.getItems({ isbn: record.identification, per_page: 50, archive: true });
-          setDuplicateModalError(null);
-          setDuplicateModal({ record, matches: response.items || [] });
-        } catch (fetchErr) {
-          console.error('Error fetching items by ISBN:', fetchErr);
-          setRecords(prev => prev.map(r =>
-            r.id === record.id ? { ...r, status: 'error' as const, error: getApiErrorMessage(fetchErr, t) } : r
-          ));
-        }
-      } else {
-        console.error('Error importing record:', error);
+      const confirm = getDuplicateConfirmationRequired(error);
+      if (confirm) {
+        setReplaceConfirmError(null);
+        setReplaceConfirmModal({ record, existingId: confirm.existing_id, message: confirm.message });
         setRecords(prev => prev.map(r =>
-          r.id === record.id ? { ...r, status: 'error' as const, error: getApiErrorMessage(error, t) } : r
+          r.id === record.id ? { ...r, status: 'pending' as const } : r
         ));
+        return;
+      }
+      const errorMessage = getApiErrorMessage(error, t);
+      console.error('Error importing record:', error);
+      setRecords(prev => prev.map(r =>
+        r.id === record.id ? { ...r, status: 'error' as const, error: errorMessage } : r
+      ));
+      if (showErrorModal) {
+        setSingleErrorModal({
+          title: record.title1 || record.identification || t('items.notSpecified'),
+          message: errorMessage,
+        });
       }
     }
   };
 
-  const handleDuplicateChooseExisting = async (itemId: number) => {
-    if (!duplicateModal) return;
-    setDuplicateActionLoading(true);
-    setDuplicateModalError(null);
+  const handleConfirmReplaceExisting = async () => {
+    if (!replaceConfirmModal) return;
+    setReplaceConfirmLoading(true);
+    setReplaceConfirmError(null);
     try {
-      await completeImportWithItemId(duplicateModal.record, itemId);
-      setDuplicateModal(null);
+      const { record, existingId } = replaceConfirmModal;
+      const { item, import_report } = await api.createItem(buildItemPayload(record), {
+        confirmReplaceExistingId: existingId,
+      });
+      if (item.id != null) await completeImportWithItemId(record, item.id, import_report);
+      setReplaceConfirmModal(null);
     } catch (err) {
-      console.error('Error adding specimen to existing item:', err);
-      setDuplicateModalError(getApiErrorMessage(err, t));
+      console.error('Error confirming replace existing item:', err);
+      setReplaceConfirmError(getApiErrorMessage(err, t));
     } finally {
-      setDuplicateActionLoading(false);
-    }
-  };
-
-  const handleDuplicateCreateNew = async () => {
-    if (!duplicateModal) return;
-    setDuplicateActionLoading(true);
-    setDuplicateModalError(null);
-    try {
-      const item = await api.createItem(buildItemPayload(duplicateModal.record), { allowDuplicateIsbn: true });
-      if (item.id != null) await completeImportWithItemId(duplicateModal.record, item.id);
-      setDuplicateModal(null);
-    } catch (err) {
-      console.error('Error creating item with duplicate ISBN:', err);
-      setDuplicateModalError(getApiErrorMessage(err, t));
-    } finally {
-      setDuplicateActionLoading(false);
+      setReplaceConfirmLoading(false);
     }
   };
 
@@ -1417,6 +1419,38 @@ export default function ImportIsoPage() {
                 </div>
               </div>
 
+              {errorCount > 0 && (
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowImportErrorList((v) => !v)}
+                    leftIcon={<AlertCircle className="h-4 w-4" />}
+                    className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    {showImportErrorList ? t('importMarc.hideErrorList') : t('importMarc.showErrorList')}
+                  </Button>
+                  {showImportErrorList && (
+                    <ul className="mt-2 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10 max-h-48 overflow-y-auto space-y-2">
+                      {records
+                        .filter((r) => r.status === 'error' && r.error)
+                        .map((r) => (
+                          <li key={r.id} className="text-sm flex flex-col gap-0.5">
+                            <span className="font-medium text-gray-900 dark:text-white truncate">
+                              {r.title1 || r.identification || t('items.notSpecified')}
+                            </span>
+                            {r.identification && r.title1 && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{r.identification}</span>
+                            )}
+                            <span className="text-red-700 dark:text-red-300">{r.error}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 {pendingCount > 0 && !scanMode && (
                   <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-400">
@@ -1564,6 +1598,24 @@ export default function ImportIsoPage() {
                       {expandedRecordId === record.id && (
                         <tr key={`${record.id}-detail`} className="bg-gray-50 dark:bg-gray-800/50">
                           <td colSpan={columns.length} className="px-4 py-3">
+                            {record.importReport && (
+                              <div className="mb-4 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+                                <div className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                                  {t('importMarc.importReportTitle')}
+                                </div>
+                                <div className="text-sm text-amber-900 dark:text-amber-200">
+                                  {record.importReport.message || record.importReport.action}
+                                  {record.importReport.existing_id != null ? ` (ID: ${record.importReport.existing_id})` : ''}
+                                </div>
+                                {record.importReport.warnings?.length > 0 && (
+                                  <ul className="mt-2 list-disc pl-5 text-sm text-amber-800 dark:text-amber-300 space-y-1">
+                                    {record.importReport.warnings.map((w, idx) => (
+                                      <li key={idx}>{w}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
                             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
                               {t('importMarc.detectedEncoding', { encoding: record.detectedEncoding ?? 'utf-8' })}
                             </div>
@@ -1640,75 +1692,73 @@ export default function ImportIsoPage() {
         </>
       )}
 
-      {/* Duplicate ISBN: choose existing item or create new */}
+      {/* Single import error popup */}
       <Modal
-        isOpen={!!duplicateModal}
+        isOpen={!!singleErrorModal}
+        onClose={() => setSingleErrorModal(null)}
+        title={t('importMarc.importErrorTitle')}
+        size="md"
+      >
+        {singleErrorModal && (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate" title={singleErrorModal.title}>
+              {singleErrorModal.title}
+            </p>
+            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
+              {singleErrorModal.message}
+            </div>
+            <div className="flex justify-end">
+              <Button variant="primary" onClick={() => setSingleErrorModal(null)}>
+                {t('common.close')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Duplicate ISBN: explicit confirmation required (409) */}
+      <Modal
+        isOpen={!!replaceConfirmModal}
         onClose={() => {
-          if (!duplicateActionLoading && duplicateModal) {
-            const recordId = duplicateModal.record.id;
-            setRecords(prev => prev.map(r => (r.id === recordId ? { ...r, status: 'pending' as const } : r)));
-            setDuplicateModal(null);
-            setDuplicateModalError(null);
-          }
+          if (replaceConfirmLoading) return;
+          setReplaceConfirmModal(null);
+          setReplaceConfirmError(null);
         }}
-        title={t('importMarc.duplicateIsbnTitle')}
+        title={t('importMarc.confirmReplaceTitle')}
         size="lg"
       >
-        {duplicateModal && (
+        {replaceConfirmModal && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t('importMarc.duplicateIsbnMessage', { isbn: duplicateModal.record.identification })}
+              {replaceConfirmModal.message}
             </p>
-            {duplicateModal.matches.length > 0 ? (
-              <>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('importMarc.duplicateIsbnChoose')}
-                </p>
-                <ul className="border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-200 dark:divide-gray-700 max-h-60 overflow-y-auto">
-                  {duplicateModal.matches.map((match) => (
-                    <li key={match.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateChooseExisting(match.id)}
-                        disabled={duplicateActionLoading}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 flex items-center gap-3 disabled:opacity-50"
-                      >
-                        <BookOpen className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {match.title || t('items.notSpecified')}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {match.isbn && `${t('items.isbn')}: ${match.isbn}`}
-                            {match.author ? ` • ${formatAuthors([match.author])}` : ''}
-                          </p>
-                        </div>
-                        <span className="text-sm text-amber-600 dark:text-amber-400">
-                          {t('importMarc.duplicateUseThis')}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t('importMarc.duplicateIsbnNoMatches')}
-              </p>
-            )}
-            {duplicateModalError && (
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              <div className="font-medium mb-1">
+                {t('importMarc.confirmReplaceExistingId', { id: replaceConfirmModal.existingId })}
+              </div>
+              <div className="text-gray-600 dark:text-gray-400">
+                {t('importMarc.confirmReplaceExplanation')}
+              </div>
+            </div>
+            {replaceConfirmError && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                {duplicateModalError}
+                {replaceConfirmError}
               </div>
             )}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
               <Button
-                onClick={handleDuplicateCreateNew}
-                isLoading={duplicateActionLoading}
-                leftIcon={<Plus className="h-4 w-4" />}
+                variant="secondary"
+                onClick={() => {
+                  if (replaceConfirmLoading) return;
+                  setReplaceConfirmModal(null);
+                  setReplaceConfirmError(null);
+                }}
               >
-                {t('importMarc.duplicateCreateNew')}
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleConfirmReplaceExisting} isLoading={replaceConfirmLoading}>
+                {t('importMarc.confirmReplaceConfirm')}
               </Button>
             </div>
           </div>

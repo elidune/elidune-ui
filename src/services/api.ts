@@ -6,6 +6,7 @@ import type {
   UserShort,
   Item, 
   ItemShort, 
+  ImportResult,
   Loan,
   Stats,
   Settings,
@@ -175,9 +176,17 @@ class ApiService {
     return response.data;
   }
 
-  async createItem(item: Partial<Item>, options?: { allowDuplicateIsbn?: boolean }): Promise<Item> {
-    const params = options?.allowDuplicateIsbn ? { allow_duplicate_isbn: true } : undefined;
-    const response = await this.client.post<Item>('/items', item, { params });
+  async createItem(
+    item: Partial<Item>,
+    options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: number | null }
+  ): Promise<ImportResult<Item>> {
+    const params: Record<string, any> = {
+      allow_duplicate_isbn: options?.allowDuplicateIsbn === true,
+    };
+    if (options?.confirmReplaceExistingId != null) {
+      params.confirm_replace_existing_id = options.confirmReplaceExistingId;
+    }
+    const response = await this.client.post<ImportResult<Item>>('/items', item, { params });
     return response.data;
   }
 
@@ -400,11 +409,19 @@ class ApiService {
     return response.data;
   }
 
-  async importZ3950(remoteItemId: number, specimens?: { barcode: string; call_number?: string }[], sourceId?: number): Promise<Item> {
-    const response = await this.client.post<Item>('/z3950/import', {
+  async importZ3950(
+    remoteItemId: number,
+    specimens?: { barcode: string; call_number?: string }[],
+    sourceId?: number,
+    options?: { confirmReplaceExistingId?: number | null }
+  ): Promise<ImportResult<Item>> {
+    const response = await this.client.post<ImportResult<Item>>('/z3950/import', {
       remote_item_id: remoteItemId,
       specimens,
       source_id: sourceId,
+      ...(options?.confirmReplaceExistingId != null && {
+        confirm_replace_existing_id: options.confirmReplaceExistingId,
+      }),
     });
     return response.data;
   }
