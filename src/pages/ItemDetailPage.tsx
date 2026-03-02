@@ -86,7 +86,7 @@ export default function ItemDetailPage() {
     const fetchItem = async () => {
       if (!id) return;
       try {
-        const data = await api.getItem(parseInt(id));
+        const data = await api.getItem(id);
         setItem(data);
       } catch (error) {
         console.error('Error fetching item:', error);
@@ -162,7 +162,7 @@ export default function ItemDetailPage() {
                 }
               </Badge>
               {item.audience_type != null && (
-                <Badge variant="secondary">
+                <Badge variant="default">
                   {getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audience_type)}
                 </Badge>
               )}
@@ -365,7 +365,7 @@ export default function ItemDetailPage() {
           onSuccess={() => {
             setShowAddSpecimenModal(false);
             // Refresh item data
-            api.getItem(item.id).then(setItem);
+            if (item.id) api.getItem(item.id).then(setItem);
           }}
         />
       </Modal>
@@ -387,7 +387,7 @@ export default function ItemDetailPage() {
               setShowEditSpecimenModal(false);
               setSelectedSpecimen(null);
               // Refresh item data
-              api.getItem(item.id).then(setItem);
+              if (item.id) api.getItem(item.id).then(setItem);
             }}
           />
         )}
@@ -512,7 +512,7 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
       ? STATUS_OPTIONS.find((o) => o.value === String(specimen.borrow_status))?.labelKey
       : null;
 
-  const getAvailabilityBadge = (availability?: number) => {
+  const getAvailabilityBadge = (availability?: number | null) => {
     if (availability === 0) return <Badge variant="success">{t('items.available')}</Badge>;
     if (availability === 1) return <Badge variant="warning">{t('items.borrowed')}</Badge>;
     return <Badge>{t('items.unavailable')}</Badge>;
@@ -567,7 +567,7 @@ interface EditItemFormProps {
   onSuccess: (item: Item) => void;
 }
 
-type AuthorForm = { id: number; lastname: string; firstname: string; function: string };
+type AuthorForm = { id: string; lastname: string; firstname: string; function: string };
 
 function EditItemForm({ item, onSuccess }: EditItemFormProps) {
   const { t } = useTranslation();
@@ -627,7 +627,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
   const addAuthor = () => {
     setFormData({
       ...formData,
-      authors: [...formData.authors, { id: 0, lastname: '', firstname: '', function: '' }],
+      authors: [...formData.authors, { id: '', lastname: '', firstname: '', function: '' }],
     });
   };
   const removeAuthor = (index: number) => {
@@ -663,10 +663,10 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
         },
         authors: authorsPayload,
         collection: formData.collection_id
-          ? { id: parseInt(formData.collection_id, 10), primary_title: formData.collection_primary_title || undefined }
+          ? { id: formData.collection_id, primary_title: formData.collection_primary_title || undefined }
           : undefined,
         series: formData.series_name || formData.series_volume
-          ? { id: formData.series_id ? parseInt(formData.series_id, 10) : null, name: formData.series_name || undefined }
+          ? { id: formData.series_id ?? null, name: formData.series_name || undefined }
           : undefined,
         series_volume_number: formData.series_volume ? parseInt(formData.series_volume, 10) : undefined,
       };

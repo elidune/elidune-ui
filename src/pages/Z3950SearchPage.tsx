@@ -48,14 +48,13 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
   if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
-  if (typeof data.existing_id !== 'number') return null;
+  if (typeof data.existing_id !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
 }
 
-interface Z3950Result extends ItemShort {
-  remote_id?: number;
-}
+/** Z39.50 search returns ItemShort items (id as string for i64 compatibility). */
+type Z3950Result = ItemShort;
 
 interface Z3950SearchResponse {
   total: number;
@@ -74,7 +73,7 @@ export default function Z3950SearchPage() {
 
   // Servers state
   const [servers, setServers] = useState<Z3950Server[]>([]);
-  const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [isLoadingServers, setIsLoadingServers] = useState(true);
 
   // Search state
@@ -96,17 +95,20 @@ export default function Z3950SearchPage() {
   // Import state
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Z3950Result | null>(null);
+  /** Id of the item to import (kept as string to preserve i64/u64 precision). */
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ barcode: '', call_number: '' }]);
   const [isImporting, setIsImporting] = useState(false);
-  const [importSuccess, setImportSuccess] = useState<number | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
-  const [confirmReplaceModal, setConfirmReplaceModal] = useState<{ existingId: number; message: string } | null>(null);
+  const [confirmReplaceModal, setConfirmReplaceModal] = useState<{ existingId: string; message: string } | null>(null);
   const [confirmReplaceLoading, setConfirmReplaceLoading] = useState(false);
   const [confirmReplaceError, setConfirmReplaceError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   
   // Sources state
   const [sources, setSources] = useState<Source[]>([]);
-  const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
 
   // Load servers and sources from settings on mount
   useEffect(() => {
@@ -197,11 +199,13 @@ export default function Z3950SearchPage() {
 
   const handleOpenImport = (item: Z3950Result) => {
     setSelectedItem(item);
+    setSelectedItemId(item.id);
     setSpecimens([{ barcode: '', call_number: '' }]);
     setImportSuccess(null);
     setImportReport(null);
     setConfirmReplaceModal(null);
     setConfirmReplaceError(null);
+    setImportError(null);
     // Reset to default source when opening import modal
     const defaultSource = sources.find(s => s.default);
     if (defaultSource) {
@@ -229,23 +233,24 @@ export default function Z3950SearchPage() {
   };
 
   const handleImport = async () => {
-    if (!selectedItem?.id) return;
+    if (selectedItemId == null) return;
     const invalidCallNumber = specimens.find(s => s.call_number.trim() !== '' && !validateCallNumber(s.call_number));
     if (invalidCallNumber) {
-      setSearchError(t('items.callNumberInvalid'));
+      setImportError(t('items.callNumberInvalid'));
       return;
     }
+    setImportError(null);
     setIsImporting(true);
     try {
       const validSpecimens = specimens.filter(s => s.barcode.trim() !== '');
       
       const imported = await api.importZ3950(
-        selectedItem.id,
+        selectedItemId,
         validSpecimens.length > 0 ? validSpecimens : undefined,
         selectedSourceId || undefined
       );
       
-      setImportSuccess(imported.item.id);
+      setImportSuccess(imported.item.id ?? null);
       setImportReport(imported.import_report);
     } catch (error) {
       const confirm = getDuplicateConfirmationRequired(error);
@@ -254,7 +259,7 @@ export default function Z3950SearchPage() {
         setConfirmReplaceModal({ existingId: confirm.existing_id, message: confirm.message });
       } else {
         console.error('Error importing item:', error);
-        setSearchError(t('z3950.importError'));
+        setImportError(t('z3950.importError'));
       }
     } finally {
       setIsImporting(false);
@@ -262,19 +267,19 @@ export default function Z3950SearchPage() {
   };
 
   const handleConfirmReplaceExisting = async () => {
-    if (!selectedItem?.id || !confirmReplaceModal) return;
+    if (selectedItemId == null || !confirmReplaceModal) return;
     setConfirmReplaceLoading(true);
     setConfirmReplaceError(null);
     try {
       const validSpecimens = specimens.filter(s => s.barcode.trim() !== '');
       const imported = await api.importZ3950(
-        selectedItem.id,
+        selectedItemId,
         validSpecimens.length > 0 ? validSpecimens : undefined,
         selectedSourceId || undefined,
         { confirmReplaceExistingId: confirmReplaceModal.existingId }
       );
       setConfirmReplaceModal(null);
-      setImportSuccess(imported.item.id);
+      setImportSuccess(imported.item.id ?? null);
       setImportReport(imported.import_report);
     } catch (err) {
       console.error('Error confirming replace existing item:', err);
@@ -339,7 +344,7 @@ export default function Z3950SearchPage() {
       render: (item: Z3950Result) => (
         <Badge>
           {item.media_type 
-            ? t(`items.mediaType.${getMediaTypeTranslationKey(item.media_type)}`)
+            ? t(`items.mediaType.${getMediaTypeTranslationKey(item.media_type as MediaType)}`)
             : t('items.document')
           }
         </Badge>
@@ -513,7 +518,7 @@ export default function Z3950SearchPage() {
             <Table
               columns={columns}
               data={results}
-              keyExtractor={(item) => item.id || Math.random()}
+              keyExtractor={(item) => item.id || `${item.isbn ?? ''}-${item.title ?? ''}`}
               emptyMessage={t('z3950.noResults')}
             />
           )}
@@ -567,6 +572,11 @@ export default function Z3950SearchPage() {
             {/* Document info */}
             {selectedItem && (
               <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                {selectedItemId != null && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    ID: {selectedItemId}
+                  </p>
+                )}
                 <h3 className="font-medium text-gray-900 dark:text-white mb-1">
                   {selectedItem.title}
                 </h3>
@@ -590,7 +600,7 @@ export default function Z3950SearchPage() {
                 </label>
                 <select
                   value={selectedSourceId || ''}
-                  onChange={(e) => setSelectedSourceId(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => setSelectedSourceId(e.target.value || null)}
                   className="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-2.5 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
                 >
                   {sources.map((source) => (
@@ -661,12 +671,20 @@ export default function Z3950SearchPage() {
               </p>
             </div>
 
+            {importError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {importError}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <Button variant="secondary" onClick={() => setShowImportModal(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
+                type="button"
                 onClick={handleImport}
                 isLoading={isImporting}
                 leftIcon={<Download className="h-4 w-4" />}

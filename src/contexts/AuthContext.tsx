@@ -4,7 +4,7 @@ import type { User, LoginRequest, LoginResponse, TwoFactorMethod } from '@/types
 
 // Pending 2FA state when login requires verification
 interface Pending2FA {
-  userId: number;
+  userId: string;
   method: TwoFactorMethod;
   user: LoginResponse['user'];
 }

@@ -1,6 +1,6 @@
 // User types
 export interface User {
-  id: number;
+  id: string;
   username: string;
   login?: string;
   firstname?: string;
@@ -51,10 +51,11 @@ export interface UpdateProfileRequest {
 }
 
 export interface UserShort {
-  id: number;
+  id: string;
   firstname?: string;
   lastname?: string;
   account_type?: string;
+  public_type?: number;
   nb_loans?: number;
   nb_late_loans?: number;
 }
@@ -73,7 +74,7 @@ export interface LoginResponse {
   two_factor_method?: string;
   device_id?: string;
   user: {
-    id: number;
+    id: string;
     username: string;
     login: string;
     firstname?: string;
@@ -96,7 +97,7 @@ export interface Setup2FAResponse {
 }
 
 export interface Verify2FARequest {
-  user_id: number;
+  user_id: string;
   code: string;
   trust_device?: boolean;
   device_id?: string;
@@ -110,7 +111,7 @@ export interface Verify2FAResponse {
 }
 
 export interface VerifyRecoveryRequest {
-  user_id: number;
+  user_id: string;
   code: string;
 }
 
@@ -140,7 +141,7 @@ export interface MediaTypeOption {
 // Item types — aligned with README-items-specimens-data.md
 
 export interface Author {
-  id: number;
+  id: string;
   lastname?: string | null;
   firstname?: string | null;
   bio?: string | null;
@@ -149,21 +150,21 @@ export interface Author {
 }
 
 export interface Edition {
-  id: number | null;
+  id: string | null;
   publisher_name?: string | null;
   place_of_publication?: string | null;
   date?: string | null;
 }
 
 export interface Serie {
-  id: number | null;
+  id: string | null;
   key?: string | null;
   name?: string | null;
   issn?: string | null;
 }
 
 export interface Collection {
-  id: number | null;
+  id: string | null;
   key?: string | null;
   primary_title?: string | null;
   secondary_title?: string | null;
@@ -172,7 +173,7 @@ export interface Collection {
 }
 
 export interface Item {
-  id?: number | null;
+  id?: string | null;
   marc_format?: string | null;
   media_type?: MediaType | string | null;
   isbn?: string | null;
@@ -195,10 +196,10 @@ export interface Item {
   keywords?: string | null;
   state?: string | null;
   is_valid?: number | null;
-  series_id?: number | null;
+  series_id?: string | null;
   series_volume_number?: number | null;
-  edition_id?: number | null;
-  collection_id?: number | null;
+  edition_id?: string | null;
+  collection_id?: string | null;
   collection_sequence_number?: number | null;
   collection_volume_number?: number | null;
   status?: number;
@@ -214,7 +215,7 @@ export interface Item {
 }
 
 export interface ItemShort {
-  id: number;
+  id: string;
   media_type?: MediaType | string | null;
   isbn?: string | null;
   title?: string | null;
@@ -230,9 +231,9 @@ export interface ItemShort {
 }
 
 export interface Specimen {
-  id: number;
-  item_id?: number | null;
-  source_id?: number | null;
+  id: string;
+  item_id?: string | null;
+  source_id?: string | null;
   barcode?: string | null;
   call_number?: string | null;
   volume_designation?: string | null;
@@ -257,7 +258,7 @@ export interface CreateSpecimen {
   borrow_status?: number | null;
   notes?: string | null;
   price?: string | null;
-  source_id?: number | null;
+  source_id?: string | null;
   source_name?: string | null;
 }
 
@@ -270,12 +271,12 @@ export interface UpdateSpecimen {
   borrow_status?: number | null;
   notes?: string | null;
   price?: string | null;
-  source_id?: number | null;
+  source_id?: string | null;
 }
 
 // Loan types
 export interface Loan {
-  id: number;
+  id: string;
   start_date: string;
   issue_date: string;
   renewal_date?: string;
@@ -332,7 +333,7 @@ export interface LoanTimeStats {
 }
 
 export interface UserLoanStats {
-  user_id: number;
+  user_id: string;
   firstname: string;
   lastname: string;
   total_loans: number;
@@ -343,7 +344,7 @@ export interface UserLoanStats {
 // Catalog stats from /stats/catalog
 export interface CatalogStatsBreakdown {
   label?: string;
-  source_id?: number;
+  source_id?: string;
   source_name?: string;
   active_specimens: number;
   entered_specimens: number;
@@ -374,7 +375,7 @@ export interface AdvancedStatsParams {
   end_date: string;
   interval?: StatsInterval;
   media_type?: MediaType;
-  user_id?: number;
+  user_id?: string;
   public_type?: number;
 }
 
@@ -401,7 +402,7 @@ export interface PaginatedResponse<T> {
 
 export interface ImportReport {
   action: 'created' | 'merged_bibliographic' | 'replaced_archived' | 'replaced_confirmed';
-  existing_id?: number;
+  existing_id?: string;
   warnings: string[];
   message?: string;
 }
@@ -413,7 +414,7 @@ export interface ImportResult<T> {
 
 export interface DuplicateConfirmationRequired {
   code: 'duplicate_isbn_needs_confirmation';
-  existing_id: number;
+  existing_id: string;
   message: string;
 }
 
@@ -438,7 +439,7 @@ export interface Settings {
 }
 
 export interface Z3950Server {
-  id: number;
+  id: string;
   name: string;
   address: string;
   port: number;
@@ -451,7 +452,7 @@ export interface Z3950Server {
 
 // Source type
 export interface Source {
-  id: number;
+  id: string;
   key: string | null;
   name: string | null;
   is_archive: number | null;

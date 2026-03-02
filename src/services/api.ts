@@ -171,14 +171,14 @@ class ApiService {
     return response.data;
   }
 
-  async getItem(id: number, params?: { full_record?: boolean }): Promise<Item> {
+  async getItem(id: string, params?: { full_record?: boolean }): Promise<Item> {
     const response = await this.client.get<Item>(`/items/${id}`, { params });
     return response.data;
   }
 
   async createItem(
     item: Partial<Item>,
-    options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: number | null }
+    options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: string | null }
   ): Promise<ImportResult<Item>> {
     const params: Record<string, any> = {
       allow_duplicate_isbn: options?.allowDuplicateIsbn === true,
@@ -190,25 +190,25 @@ class ApiService {
     return response.data;
   }
 
-  async updateItem(id: number, item: Partial<Item>): Promise<Item> {
+  async updateItem(id: string, item: Partial<Item>): Promise<Item> {
     const response = await this.client.put<Item>(`/items/${id}`, item);
     return response.data;
   }
 
-  async deleteItem(id: number, force = false): Promise<void> {
+  async deleteItem(id: string, force = false): Promise<void> {
     await this.client.delete(`/items/${id}`, { params: { force } });
   }
 
-  async updateSpecimen(itemId: number, specimenId: number, data: UpdateSpecimen): Promise<Specimen> {
+  async updateSpecimen(itemId: string, specimenId: string, data: UpdateSpecimen): Promise<Specimen> {
     const response = await this.client.put<Specimen>(`/items/${itemId}/specimens/${specimenId}`, data);
     return response.data;
   }
 
-  async deleteSpecimen(itemId: number, specimenId: number, force = false): Promise<void> {
+  async deleteSpecimen(itemId: string, specimenId: string, force = false): Promise<void> {
     await this.client.delete(`/items/${itemId}/specimens/${specimenId}`, { params: { force } });
   }
 
-  async createSpecimen(itemId: number, data: CreateSpecimen): Promise<Specimen> {
+  async createSpecimen(itemId: string, data: CreateSpecimen): Promise<Specimen> {
     const response = await this.client.post<Specimen>(`/items/${itemId}/specimens`, data);
     return response.data;
   }
@@ -224,7 +224,7 @@ class ApiService {
     return response.data;
   }
 
-  async getUser(id: number): Promise<User> {
+  async getUser(id: string): Promise<User> {
     const response = await this.client.get<User>(`/users/${id}`);
     return response.data;
   }
@@ -234,37 +234,37 @@ class ApiService {
     return response.data;
   }
 
-  async updateUser(id: number, user: Partial<User> & { password?: string }): Promise<User> {
+  async updateUser(id: string, user: Partial<User> & { password?: string }): Promise<User> {
     const response = await this.client.put<User>(`/users/${id}`, user);
     return response.data;
   }
 
-  async deleteUser(id: number, force = false): Promise<void> {
+  async deleteUser(id: string, force = false): Promise<void> {
     await this.client.delete(`/users/${id}`, { params: { force } });
   }
 
   // Loans
-  async getUserLoans(userId: number): Promise<Loan[]> {
+  async getUserLoans(userId: string): Promise<Loan[]> {
     const response = await this.client.get<Loan[]>(`/users/${userId}/loans`);
     return response.data;
   }
 
   async createLoan(data: {
-    user_id: number;
-    specimen_id?: number;
+    user_id: string;
+    specimen_id?: string;
     specimen_identification?: string;
     force?: boolean;
-  }): Promise<{ id: number; issue_date: string; message: string }> {
+  }): Promise<{ id: string; issue_date: string; message: string }> {
     const response = await this.client.post('/loans', data);
     return response.data;
   }
 
-  async returnLoan(loanId: number): Promise<{ status: string; loan: Loan }> {
+  async returnLoan(loanId: string): Promise<{ status: string; loan: Loan }> {
     const response = await this.client.post(`/loans/${loanId}/return`);
     return response.data;
   }
 
-  async renewLoan(loanId: number): Promise<{ id: number; issue_date: string; message: string }> {
+  async renewLoan(loanId: string): Promise<{ id: string; issue_date: string; message: string }> {
     const response = await this.client.post(`/loans/${loanId}/renew`);
     return response.data;
   }
@@ -350,21 +350,21 @@ class ApiService {
     return response.data;
   }
 
-  async updateSource(id: number, data: Partial<Source>): Promise<Source> {
+  async updateSource(id: string, data: Partial<Source>): Promise<Source> {
     const response = await this.client.put<Source>(`/sources/${id}`, data);
     return response.data;
   }
 
-  async renameSource(id: number, name: string): Promise<Source> {
+  async renameSource(id: string, name: string): Promise<Source> {
     return this.updateSource(id, { name });
   }
 
-  async archiveSource(id: number): Promise<Source> {
+  async archiveSource(id: string): Promise<Source> {
     const response = await this.client.post<Source>(`/sources/${id}/archive`);
     return response.data;
   }
 
-  async mergeSources(sourceIds: number[], name: string): Promise<Source> {
+  async mergeSources(sourceIds: string[], name: string): Promise<Source> {
     const response = await this.client.post<Source>('/sources/merge', {
       source_ids: sourceIds,
       name,
@@ -377,7 +377,7 @@ class ApiService {
     isbn?: string;
     title?: string;
     author?: string;
-    server_id?: number;
+    server_id?: string;
     max_results?: number;
   }): Promise<{ total: number; items: ItemShort[]; source: string }> {
     // Build CQL query from parameters
@@ -410,13 +410,13 @@ class ApiService {
   }
 
   async importZ3950(
-    remoteItemId: number,
+    itemId: string,
     specimens?: { barcode: string; call_number?: string }[],
-    sourceId?: number,
-    options?: { confirmReplaceExistingId?: number | null }
+    sourceId?: string,
+    options?: { confirmReplaceExistingId?: string | null }
   ): Promise<ImportResult<Item>> {
     const response = await this.client.post<ImportResult<Item>>('/z3950/import', {
-      remote_item_id: remoteItemId,
+      item_id: itemId,
       specimens,
       source_id: sourceId,
       ...(options?.confirmReplaceExistingId != null && {

@@ -38,11 +38,11 @@ function SourceEditor() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Rename state
-  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   // Merge state
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeName, setMergeName] = useState('');
   const [isMerging, setIsMerging] = useState(false);
@@ -71,7 +71,7 @@ function SourceEditor() {
     setRenameValue(source.name || '');
   };
 
-  const handleRenameConfirm = async (id: number) => {
+  const handleRenameConfirm = async (id: string) => {
     if (!renameValue.trim()) return;
     try {
       await api.renameSource(id, renameValue.trim());
@@ -121,7 +121,7 @@ function SourceEditor() {
     }
   };
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -587,7 +587,7 @@ export default function SettingsPage() {
                   z3950_servers: [
                     ...settings.z3950_servers,
                     {
-                      id: 0,
+                      id: '',
                       name: t('z3950.server'),
                       address: '',
                       port: 210,

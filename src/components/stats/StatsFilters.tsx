@@ -27,7 +27,7 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
   });
   const [interval, setInterval] = useState<StatsInterval>('day');
   const [mediaType, setMediaType] = useState<MediaType | ''>('');
-  const [selectedUserId, setSelectedUserId] = useState<number | undefined>(undefined);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
   const [users, setUsers] = useState<UserShort[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
@@ -190,7 +190,7 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
               </label>
               <select
                 value={selectedUserId || ''}
-                onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value) : undefined)}
+                onChange={(e) => setSelectedUserId(e.target.value || undefined)}
                 disabled={isLoadingUsers}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50"
               >

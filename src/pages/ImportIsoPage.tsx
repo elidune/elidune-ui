@@ -83,7 +83,7 @@ interface ParsedRecord {
   detectedEncoding?: RecordEncoding;
   status: 'pending' | 'importing' | 'imported' | 'error';
   error?: string;
-  importedId?: number;
+  importedId?: string;
   importReport?: ImportReport;
 }
 
@@ -95,7 +95,7 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
   if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
-  if (typeof data.existing_id !== 'number') return null;
+  if (typeof data.existing_id !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
 }
@@ -234,7 +234,7 @@ function parseAuthor(fieldData: string, delimiter = '\x1F'): Author {
   const firstname = getSubfield(fieldData, 'b', delimiter);
   const func = getSubfield(fieldData, '4', delimiter) || getSubfield(fieldData, 'e', delimiter);
   return {
-    id: 0,
+    id: '',
     lastname: lastname?.replace(/,\s*$/, ''),
     firstname,
     function: func,
@@ -783,7 +783,7 @@ export default function ImportIsoPage() {
 
   // Sources (for specimen creation)
   const [sources, setSources] = useState<Source[]>([]);
-  const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [showAddSource, setShowAddSource] = useState(false);
   const [newSourceName, setNewSourceName] = useState('');
   const [addSourceLoading, setAddSourceLoading] = useState(false);
@@ -813,7 +813,7 @@ export default function ImportIsoPage() {
 
   const [replaceConfirmModal, setReplaceConfirmModal] = useState<{
     record: ParsedRecord;
-    existingId: number;
+    existingId: string;
     message: string;
   } | null>(null);
   const [replaceConfirmLoading, setReplaceConfirmLoading] = useState(false);
@@ -958,7 +958,7 @@ export default function ImportIsoPage() {
       : undefined,
   });
 
-  const completeImportWithItemId = async (record: ParsedRecord, itemId: number, importReport: ImportReport) => {
+  const completeImportWithItemId = async (record: ParsedRecord, itemId: string, importReport: ImportReport) => {
     if (has9xxFields(record)) {
       const specimenData = buildSpecimenFrom9xx(record);
       await api.createSpecimen(itemId, {
@@ -1297,7 +1297,7 @@ export default function ImportIsoPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <select
                       value={selectedSourceId ?? ''}
-                      onChange={(e) => setSelectedSourceId(e.target.value ? Number(e.target.value) : null)}
+                      onChange={(e) => setSelectedSourceId(e.target.value || null)}
                       className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     >
                       <option value="">{t('importMarc.noSource')}</option>

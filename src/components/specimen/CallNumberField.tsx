@@ -10,7 +10,7 @@ interface CallNumberFieldProps {
   suggestedValue?: string | null;
   label?: string;
   placeholder?: string;
-  excludeSpecimenId?: number;
+  excludeSpecimenId?: string;
   disabled?: boolean;
   inputId?: string;
 }

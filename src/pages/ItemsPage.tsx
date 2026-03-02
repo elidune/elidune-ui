@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType, type MediaTypeOption } from '@/types';
 import api from '@/services/api';
 import type { ItemShort, Author, Z3950Server, ImportReport, DuplicateConfirmationRequired } from '@/types';
-import { PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
+import { PUBLIC_TYPE_OPTIONS } from '@/utils/codeLabels';
 import type { AxiosError } from 'axios';
 
 const ITEMS_PER_PAGE = 20;
@@ -18,7 +18,7 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
   if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
-  if (typeof data.existing_id !== 'number') return null;
+  if (typeof data.existing_id !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
 }
@@ -106,7 +106,7 @@ export default function ItemsPage() {
     return `${author.firstname || ''} ${author.lastname || ''}`.trim() || '-';
   };
 
-  const getStatusBadge = (status?: number) => {
+  const getStatusBadge = (status?: number | null) => {
     if (status === 0) return <Badge variant="success">{t('items.available')}</Badge>;
     if (status === 1) return <Badge variant="warning">{t('items.borrowed')}</Badge>;
     return <Badge>{t('items.unavailable')}</Badge>;
@@ -177,8 +177,8 @@ export default function ItemsPage() {
       header: t('items.titleField'),
       render: (item: ItemShort) => (
         <div className="flex items-center gap-3">
-          <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.media_type)} flex items-center justify-center`}>
-            {getMediaTypeIcon(item.media_type)}
+          <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.media_type as MediaType)} flex items-center justify-center`}>
+            {getMediaTypeIcon(item.media_type as MediaType)}
           </div>
           <div className="min-w-0">
             <p className="font-medium text-gray-900 dark:text-white truncate">
@@ -389,9 +389,9 @@ interface CreateItemFormProps {
 function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  const [createdItemId, setCreatedItemId] = useState<number | null>(null);
+  const [createdItemId, setCreatedItemId] = useState<string | null>(null);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
-  const [confirmReplaceModal, setConfirmReplaceModal] = useState<{ existingId: number; message: string } | null>(null);
+  const [confirmReplaceModal, setConfirmReplaceModal] = useState<{ existingId: string; message: string } | null>(null);
   const [confirmReplaceLoading, setConfirmReplaceLoading] = useState(false);
   const [confirmReplaceError, setConfirmReplaceError] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
@@ -471,7 +471,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         setFormData({
           ...formData,
           title: item.title || formData.title,
-          media_type: item.media_type || formData.media_type,
+          media_type: (item.media_type || formData.media_type) as MediaType,
           publication_date: item.date || formData.publication_date,
         });
         setZ3950Message({ type: 'success', text: t('z3950.dataFound') });
@@ -491,7 +491,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     setIsLoading(true);
     try {
       const created = await api.createItem(formData);
-      setCreatedItemId(created.item.id);
+      setCreatedItemId(created.item.id ?? null);
       setImportReport(created.import_report);
       onCreated();
     } catch (error) {
@@ -514,7 +514,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     try {
       const created = await api.createItem(formData, { confirmReplaceExistingId: confirmReplaceModal.existingId });
       setConfirmReplaceModal(null);
-      setCreatedItemId(created.item.id);
+      setCreatedItemId(created.item.id ?? null);
       setImportReport(created.import_report);
       onCreated();
     } catch (err) {

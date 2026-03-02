@@ -74,8 +74,8 @@ export default function UserDetailPage() {
       if (!id) return;
       try {
         const [userData, loansData] = await Promise.all([
-          api.getUser(parseInt(id)),
-          api.getUserLoans(parseInt(id)),
+          api.getUser(id),
+          api.getUserLoans(id),
         ]);
         setUser(userData);
         setLoans(loansData);
@@ -186,7 +186,7 @@ export default function UserDetailPage() {
     }
   };
 
-  const handleReturnLoan = async (loanId: number) => {
+  const handleReturnLoan = async (loanId: string) => {
     try {
       await api.returnLoan(loanId);
       // Refresh loans
@@ -199,7 +199,7 @@ export default function UserDetailPage() {
     }
   };
 
-  const handleRenewLoan = async (loanId: number) => {
+  const handleRenewLoan = async (loanId: string) => {
     try {
       await api.renewLoan(loanId);
       // Refresh loans
@@ -922,7 +922,7 @@ function EditUserForm({ user, onSuccess }: EditUserFormProps) {
 }
 
 interface BorrowFormProps {
-  userId: number;
+  userId: string;
   onSuccess: () => void;
 }
 

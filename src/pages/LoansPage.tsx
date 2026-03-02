@@ -10,7 +10,6 @@ import {
   X,
   AlertTriangle,
   Calendar,
-  Clock,
   BookOpen,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Table, Input, Modal } from '@/components/common';
@@ -30,7 +29,7 @@ export default function LoansPage() {
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<UserShort[]>([]);
-  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [, setIsSearchingUsers] = useState(false);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
   const barcodeInputRef = useRef<HTMLInputElement>(null);
@@ -148,7 +147,7 @@ export default function LoansPage() {
     }
   };
 
-  const handleReturn = async (loanId: number) => {
+  const handleReturn = async (loanId: string) => {
     try {
       await api.returnLoan(loanId);
       // Refresh loans
@@ -259,7 +258,7 @@ export default function LoansPage() {
     },
   ];
 
-  const handleRenewLoan = async (loanId: number) => {
+  const handleRenewLoan = async (loanId: string) => {
     try {
       await api.renewLoan(loanId);
       // Refresh loans
@@ -686,7 +685,7 @@ interface BorrowFormProps {
   onBorrow: (barcode: string) => Promise<void>;
   barcodeInput: string;
   setBarcodeInput: (value: string) => void;
-  barcodeInputRef: React.RefObject<HTMLInputElement>;
+  barcodeInputRef: React.RefObject<HTMLInputElement | null>;
   onSuccess?: () => void;
 }
 

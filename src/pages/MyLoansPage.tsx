@@ -28,7 +28,7 @@ export default function MyLoansPage() {
     fetchLoans();
   }, [user?.id]);
 
-  const handleRenewLoan = async (loanId: number) => {
+  const handleRenewLoan = async (loanId: string) => {
     try {
       await api.renewLoan(loanId);
       // Refresh loans
@@ -114,7 +114,7 @@ export default function MyLoansPage() {
 
 interface LoanCardProps {
   loan: Loan;
-  onRenew: (id: number) => void;
+  onRenew: (id: string) => void;
   isOverdue?: boolean;
 }
 
