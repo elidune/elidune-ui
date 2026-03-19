@@ -44,7 +44,7 @@ export default function HomePage() {
           <img src="/elidune_logo.png" alt="Elidune" className="h-30 w-30 mb-2" />
           <div>
           <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-            {t('nav.home')}, {user?.firstname || user?.username} 👋
+            {t('nav.home')}, {user?.firstname || user?.username}
           </h1>
           <p className="text-gray-100">
             {t('auth.loginSubtitle')}
@@ -134,7 +134,7 @@ export default function HomePage() {
                     {loan.item.title}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('loans.dueDate')}: {new Date(loan.issue_date).toLocaleDateString()}
+                    {t('loans.dueDate')}: {new Date(loan.issue_at).toLocaleDateString()}
                   </p>
                 </div>
                 {loan.is_overdue && (

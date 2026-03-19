@@ -31,6 +31,11 @@ import type {
   UpdateSpecimen,
   EnqueueResult,
   MarcBatchImportReport,
+  PublicType,
+  PublicTypeLoanSettings,
+  CreatePublicType,
+  UpdatePublicType,
+  UpsertLoanSettingRequest,
 } from '@/types';
 
 const API_BASE_URL = '/api/v1';
@@ -38,6 +43,23 @@ const API_BASE_URL = '/api/v1';
 class ApiService {
   private client: AxiosInstance;
   private token: string | null = null;
+
+  private shouldLogoutOnUnauthorized(error: AxiosError<ApiError>): boolean {
+    if (error.response?.status !== 401) {
+      return false;
+    }
+
+    const method = error.config?.method?.toLowerCase();
+    const url = error.config?.url || '';
+
+    // Wrong current password during profile password update can return 401
+    // while the current auth token is still valid.
+    if (method === 'put' && url.endsWith('/auth/profile')) {
+      return false;
+    }
+
+    return true;
+  }
 
   constructor() {
     this.client = axios.create({
@@ -62,7 +84,7 @@ class ApiService {
     this.client.interceptors.response.use(
       (response) => response,
       (error: AxiosError<ApiError>) => {
-        if (error.response?.status === 401) {
+        if (this.shouldLogoutOnUnauthorized(error)) {
           this.logout();
           window.location.href = '/login';
         }
@@ -180,7 +202,7 @@ class ApiService {
   }
 
   async createItem(
-    payload: Partial<Item> & { specimens?: CreateItemSpecimenInput[] },
+    payload: Omit<Partial<Item>, 'specimens'> & { specimens?: CreateItemSpecimenInput[] },
     options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: string | null }
   ): Promise<ImportResult<Item>> {
     const params: Record<string, any> = {
@@ -252,8 +274,15 @@ class ApiService {
   }
 
   // Loans
-  async getUserLoans(userId: string): Promise<Loan[]> {
-    const response = await this.client.get<Loan[]>(`/users/${userId}/loans`);
+  async getUserLoans(
+    userId: string,
+    options?: { archived?: boolean }
+  ): Promise<Loan[]> {
+    const response = await this.client.get<Loan[]>(`/users/${userId}/loans`, {
+      params: {
+        archived: options?.archived,
+      },
+    });
     return response.data;
   }
 
@@ -262,7 +291,7 @@ class ApiService {
     specimen_id?: string;
     specimen_identification?: string;
     force?: boolean;
-  }): Promise<{ id: string; issue_date: string; message: string }> {
+  }): Promise<{ id: string; issue_at: string; message: string }> {
     const response = await this.client.post('/loans', data);
     return response.data;
   }
@@ -272,7 +301,7 @@ class ApiService {
     return response.data;
   }
 
-  async renewLoan(loanId: string): Promise<{ id: string; issue_date: string; message: string }> {
+  async renewLoan(loanId: string): Promise<{ id: string; issue_at: string; message: string }> {
     const response = await this.client.post(`/loans/${loanId}/renew`);
     return response.data;
   }
@@ -286,7 +315,7 @@ class ApiService {
   async getStats(params?: {
     year?: number;
     media_type?: MediaType;
-    public_type?: number;
+    public_type?: string;
   }): Promise<Stats> {
     const response = await this.client.get<Stats>('/stats', { params });
     return response.data;
@@ -343,6 +372,45 @@ class ApiService {
   async updateSettings(settings: Partial<Settings>): Promise<Settings> {
     const response = await this.client.put<Settings>('/settings', settings);
     return response.data;
+  }
+
+  // Public types
+  async getPublicTypes(): Promise<PublicType[]> {
+    const response = await this.client.get<PublicType[]>('/public-types');
+    return response.data;
+  }
+
+  async getPublicType(id: string): Promise<[PublicType, PublicTypeLoanSettings[]]> {
+    const response = await this.client.get<[PublicType, PublicTypeLoanSettings[]]>(`/public-types/${id}`);
+    return response.data;
+  }
+
+  async createPublicType(data: CreatePublicType): Promise<PublicType> {
+    const response = await this.client.post<PublicType>('/public-types', data);
+    return response.data;
+  }
+
+  async updatePublicType(id: string, data: UpdatePublicType): Promise<PublicType> {
+    const response = await this.client.put<PublicType>(`/public-types/${id}`, data);
+    return response.data;
+  }
+
+  async deletePublicType(id: string): Promise<void> {
+    await this.client.delete(`/public-types/${id}`);
+  }
+
+  async upsertPublicTypeLoanSetting(
+    publicTypeId: string,
+    data: UpsertLoanSettingRequest
+  ): Promise<void> {
+    await this.client.put(`/public-types/${publicTypeId}/loan-settings`, data);
+  }
+
+  async deletePublicTypeLoanSetting(
+    publicTypeId: string,
+    mediaType: MediaType
+  ): Promise<void> {
+    await this.client.delete(`/public-types/${publicTypeId}/loan-settings/${mediaType}`);
   }
 
   // Sources
@@ -459,7 +527,8 @@ class ApiService {
   async importMarcBatch(
     batchId: string,
     recordId?: number,
-    sourceId?: string | number | null
+    sourceId?: string | number | null,
+    options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: string | null }
   ): Promise<MarcBatchImportReport> {
     const params: Record<string, any> = { batch_id: batchId };
     if (recordId != null) {
@@ -467,6 +536,12 @@ class ApiService {
     }
     if (sourceId != null) {
       params.source_id = sourceId;
+    }
+    if (options?.allowDuplicateIsbn === true) {
+      params.allow_duplicate_isbn = true;
+    }
+    if (options?.confirmReplaceExistingId != null) {
+      params.confirm_replace_existing_id = options.confirmReplaceExistingId;
     }
 
     const response = await this.client.post<MarcBatchImportReport>(

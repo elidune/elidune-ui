@@ -162,9 +162,31 @@ export function getCodeLabel(
   return fallback ?? String(value);
 }
 
-// Media type code → i18n key mapping (for codes like 'b', 'u', 'bc', etc.)
+// Media type → i18n key mapping.
+// Supports both new camelCase values and legacy short codes for backward compatibility.
 const MEDIA_TYPE_KEY_MAP: Record<string, string> = {
+  // New values
   '': 'items.mediaType.unknown',
+  'all': 'items.allTypes',
+  'unknown': 'items.mediaType.unknown',
+  'printedText': 'items.mediaType.printedText',
+  'multimedia': 'items.mediaType.multimedia',
+  'comics': 'items.mediaType.comics',
+  'periodic': 'items.mediaType.periodic',
+  'video': 'items.mediaType.video',
+  'videoTape': 'items.mediaType.videoTape',
+  'videoDvd': 'items.mediaType.videoDvd',
+  'audio': 'items.mediaType.audio',
+  'audioMusic': 'items.mediaType.audioMusic',
+  'audioMusicTape': 'items.mediaType.audioMusicTape',
+  'audioMusicCd': 'items.mediaType.audioMusicCd',
+  'audioNonMusic': 'items.mediaType.audioNonMusic',
+  'audioNonMusicTape': 'items.mediaType.audioNonMusicTape',
+  'audioNonMusicCd': 'items.mediaType.audioNonMusicCd',
+  'cdRom': 'items.mediaType.cdRom',
+  'images': 'items.mediaType.images',
+
+  // Legacy codes
   'u': 'items.mediaType.unknown',
   'b': 'items.mediaType.printedText',
   'm': 'items.mediaType.multimedia',
@@ -178,8 +200,8 @@ const MEDIA_TYPE_KEY_MAP: Record<string, string> = {
   'amt': 'items.mediaType.audioMusicTape',
   'amc': 'items.mediaType.audioMusicCd',
   'an': 'items.mediaType.audioNonMusic',
-  'ant': 'items.mediaType.audioNonMusic',
-  'anc': 'items.mediaType.audioNonMusic',
+  'ant': 'items.mediaType.audioNonMusicTape',
+  'anc': 'items.mediaType.audioNonMusicCd',
   'c': 'items.mediaType.cdRom',
   'i': 'items.mediaType.images',
 };
@@ -187,7 +209,11 @@ const MEDIA_TYPE_KEY_MAP: Record<string, string> = {
 // Textual label → i18n key mapping for public types (when API returns text labels instead of codes)
 const PUBLIC_TYPE_TEXT_MAP: Record<string, string> = {
   'adult': 'codes.publicType.adult',
+  'child': 'codes.publicType.children',
   'children': 'codes.publicType.children',
+  'senior': 'codes.publicType.senior',
+  'school': 'codes.publicType.school',
+  'staff': 'codes.publicType.staff',
   'unknown': 'codes.publicType.unknown',
 };
 
@@ -210,7 +236,8 @@ export function translateStatLabel(
 ): string {
   switch (category) {
     case 'mediaType': {
-      const key = MEDIA_TYPE_KEY_MAP[label];
+      const normalized = (label ?? '').trim();
+      const key = MEDIA_TYPE_KEY_MAP[normalized];
       return key ? t(key) : label;
     }
     case 'accountType': {

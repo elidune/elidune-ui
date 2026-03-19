@@ -120,7 +120,7 @@ interface LoanCardProps {
 
 function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
   const { t, i18n } = useTranslation();
-  const daysUntilDue = Math.ceil((new Date(loan.issue_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const daysUntilDue = Math.ceil((new Date(loan.issue_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
   return (
     <div
@@ -170,7 +170,7 @@ function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
             </Badge>
           ) : (
             <Badge variant="success">
-              {t('loans.dueDate')}: {new Date(loan.issue_date).toLocaleDateString(i18n.language)}
+              {t('loans.dueDate')}: {new Date(loan.issue_at).toLocaleDateString(i18n.language)}
             </Badge>
           )}
         </div>

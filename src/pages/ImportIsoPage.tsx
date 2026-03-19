@@ -28,25 +28,28 @@ import type {
 import type { AxiosError } from 'axios';
 
 // Helper function to get translation key for media type
-function getMediaTypeTranslationKey(mediaType: MediaType): string {
-  const keyMap: Record<MediaType, string> = {
-    'u': 'unknown',
-    'b': 'printedText',
-    'bc': 'comics',
-    'p': 'periodic',
-    'v': 'video',
-    'vt': 'videoTape',
-    'vd': 'videoDvd',
-    'a': 'audio',
-    'am': 'audioMusic',
-    'amt': 'audioMusicTape',
-    'amc': 'audioMusicCd',
-    'an': 'audioNonMusic',
-    'c': 'cdRom',
-    'i': 'images',
-    'm': 'multimedia',
+function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
+  if (!mediaType) return 'unknown';
+  const legacyMap: Record<string, string> = {
+    u: 'unknown',
+    b: 'printedText',
+    bc: 'comics',
+    p: 'periodic',
+    v: 'video',
+    vt: 'videoTape',
+    vd: 'videoDvd',
+    a: 'audio',
+    am: 'audioMusic',
+    amt: 'audioMusicTape',
+    amc: 'audioMusicCd',
+    an: 'audioNonMusic',
+    ant: 'audioNonMusicTape',
+    anc: 'audioNonMusicCd',
+    c: 'cdRom',
+    i: 'images',
+    m: 'multimedia',
   };
-  return keyMap[mediaType] || 'unknown';
+  return legacyMap[String(mediaType)] ?? String(mediaType);
 }
 
 // Types
@@ -104,6 +107,18 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   if (typeof data.existing_id !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
+}
+
+function parseDuplicateFromErrorMessage(message: string): { existingId: string; isbn?: string } | null {
+  const existingId =
+    message.match(/confirm_replace_existing_id\s*=\s*([0-9]+)/i)?.[1] ??
+    message.match(/existing[_\s-]?id\s*[=:]\s*([0-9]+)/i)?.[1] ??
+    message.match(/\bid\s*=\s*([0-9]+)\b/i)?.[1] ??
+    null;
+  if (!existingId) return null;
+  const rawIsbn = message.match(/\bISBN\s+([0-9Xx-]+)\b/)?.[1];
+  const isbn = rawIsbn ? normalizeIsbn(rawIsbn) : undefined;
+  return { existingId, isbn };
 }
 
 const SUBFIELD_DELIMITER = '\x1F'; // Hex 1F
@@ -295,30 +310,30 @@ function buildRecordFromFields(
     switch (leaderType) {
       case 'a': // Text (monographic)
       case 't': // Text (manuscript)
-        record.media_type = 'b'; // PrintedText
+        record.media_type = 'printedText';
         break;
       case 'g': // Projected medium
-        record.media_type = 'v'; // Video
+        record.media_type = 'video';
         break;
       case 'j': // Musical sound recording
       case 'i': // Nonmusical sound recording
-        record.media_type = 'a'; // Audio
+        record.media_type = 'audio';
         break;
       case 's': // Serial/Periodical
-        record.media_type = 'p'; // Periodic
+        record.media_type = 'periodic';
         break;
       case 'm': // Computer file
-        record.media_type = 'c'; // CdRom
+        record.media_type = 'cdRom';
         break;
       case 'k': // Two-dimensional nonprojectable graphic
       case 'r': // Three-dimensional artifact
-        record.media_type = 'i'; // Images
+        record.media_type = 'images';
         break;
       default:
-        record.media_type = 'u'; // Unknown
+        record.media_type = 'unknown';
     }
   } else {
-    record.media_type = 'u'; // Unknown
+    record.media_type = 'unknown';
   }
 
   return record;
@@ -453,10 +468,14 @@ export default function ImportIsoPage() {
   // Only import notices that have local fields (9xx) → will create a specimen
   const [onlyImportWithSpecimen, setOnlyImportWithSpecimen] = useState(false);
 
+  // UNIMARC batch duplicate handling (apply to all duplicates for current file)
+  const [batchDuplicateApplyToAll, setBatchDuplicateApplyToAll] = useState(false);
+  const [batchDuplicateAction, setBatchDuplicateAction] = useState<'replace' | 'new' | null>(null);
+
   const [replaceConfirmModal, setReplaceConfirmModal] = useState<{
     record: ParsedRecord;
     existingId: string;
-    message: string;
+    existingTitle?: string | null;
   } | null>(null);
   const [replaceConfirmLoading, setReplaceConfirmLoading] = useState(false);
   const [replaceConfirmError, setReplaceConfirmError] = useState<string | null>(null);
@@ -478,6 +497,35 @@ export default function ImportIsoPage() {
   useEffect(() => {
     fetchSources();
   }, [fetchSources]);
+
+  useEffect(() => {
+    if (!replaceConfirmModal) return;
+    if (replaceConfirmModal.existingTitle !== undefined) return; // already resolved (or attempted)
+
+    const existingId = replaceConfirmModal.existingId;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const existing = await api.getItem(existingId);
+        if (cancelled) return;
+        setReplaceConfirmModal((prev) => {
+          if (!prev || prev.existingId !== existingId) return prev;
+          return { ...prev, existingTitle: existing.title ?? null };
+        });
+      } catch {
+        if (cancelled) return;
+        setReplaceConfirmModal((prev) => {
+          if (!prev || prev.existingId !== existingId) return prev;
+          return { ...prev, existingTitle: null };
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [replaceConfirmModal]);
 
   const handleAddSource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -567,6 +615,8 @@ export default function ImportIsoPage() {
     setParseError('');
     setBatchId(null);
     setFileName(file.name);
+    setBatchDuplicateApplyToAll(false);
+    setBatchDuplicateAction(null);
 
     try {
       const { records: parsed, detectedFormat, batchId: newBatchId } = await parseFile(
@@ -607,7 +657,7 @@ export default function ImportIsoPage() {
       setParseError(t('importMarc.sourceRequired'));
       return;
     }
-    // For server-side UNIMARC batches, import the whole lot in one call
+    // For server-side UNIMARC batches, import one by one to handle duplicates (confirmation/allow duplicates)
     if (batchId) {
       let pendingRecords = records.filter((r) => r.status === 'pending' && r.recordIndex != null);
       if (pendingRecords.length === 0) return;
@@ -617,37 +667,13 @@ export default function ImportIsoPage() {
       setShowImportErrorList(false);
 
       try {
-        const report = await api.importMarcBatch(batchId, undefined, selectedSourceId);
-
-        // Map failing record indices → error messages, based on Redis keys marc:record:<batch_id>:<id>
-        const failedByIndex = new Map<number, string>();
-        for (const failed of report.failed) {
-          const parts = failed.record_key.split(':');
-          const idxStr = parts[parts.length - 1];
-          const idx = Number(idxStr);
-          if (!Number.isNaN(idx)) {
-            failedByIndex.set(idx, failed.error);
-          }
+        for (let i = 0; i < pendingRecords.length; i++) {
+          const record = pendingRecords[i];
+          await importRecord(record, { showErrorModal: false });
+          setImportProgress({ current: i + 1, total: pendingRecords.length });
         }
-
-        setRecords((prev) =>
-          prev.map((r) => {
-            if (r.recordIndex == null || r.status !== 'pending') return r;
-            if (failedByIndex.has(r.recordIndex)) {
-              return {
-                ...r,
-                status: 'error' as const,
-                error: failedByIndex.get(r.recordIndex) || t('importMarc.importErrorGeneric'),
-              };
-            }
-            return { ...r, status: 'imported' as const };
-          })
-        );
-
-        setImportProgress({ current: pendingRecords.length, total: pendingRecords.length });
-        if (report.failed.length > 0) {
-          setShowImportErrorList(true);
-        }
+        const stillErrors = records.some((r) => r.status === 'error');
+        if (stillErrors) setShowImportErrorList(true);
       } catch (error) {
         console.error('Error importing UNIMARC batch:', error);
         setParseError(getApiErrorMessage(error, t));
@@ -732,17 +758,59 @@ export default function ImportIsoPage() {
           );
           return;
         }
-        const errorMessage =
-          report.failed.map(f => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
+
+        const combinedError =
+          report.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
+        const duplicate = parseDuplicateFromErrorMessage(combinedError);
+        if (duplicate) {
+          // If user opted to apply a choice to all duplicates for this file, auto-apply
+          if (batchDuplicateAction === 'replace') {
+            const retry = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId, {
+              confirmReplaceExistingId: duplicate.existingId,
+            });
+            if (retry.imported > 0 && retry.failed.length === 0) {
+              setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'imported' as const } : r)));
+              return;
+            }
+            const retryError =
+              retry.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
+            setRecords((prev) =>
+              prev.map((r) => (r.id === record.id ? { ...r, status: 'error' as const, error: retryError } : r))
+            );
+            return;
+          }
+          if (batchDuplicateAction === 'new') {
+            const retry = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId, {
+              allowDuplicateIsbn: true,
+            });
+            if (retry.imported > 0 && retry.failed.length === 0) {
+              setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'imported' as const } : r)));
+              return;
+            }
+            const retryError =
+              retry.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
+            setRecords((prev) =>
+              prev.map((r) => (r.id === record.id ? { ...r, status: 'error' as const, error: retryError } : r))
+            );
+            return;
+          }
+
+          // Otherwise prompt the user (same dialog), and keep record pending
+          setReplaceConfirmError(null);
+          setReplaceConfirmModal({ record, existingId: duplicate.existingId, existingTitle: undefined });
+          setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'pending' as const } : r)));
+          return;
+        }
+
         setRecords(prev =>
           prev.map(r =>
-            r.id === record.id ? { ...r, status: 'error' as const, error: errorMessage } : r
+            r.id === record.id ? { ...r, status: 'error' as const, error: combinedError } : r
           )
         );
         if (showErrorModal) {
           setSingleErrorModal({
             title: record.title1 || record.identification || t('items.notSpecified'),
-            message: errorMessage,
+            message: combinedError,
           });
         }
         return;
@@ -755,7 +823,7 @@ export default function ImportIsoPage() {
       const confirm = getDuplicateConfirmationRequired(error);
       if (confirm) {
         setReplaceConfirmError(null);
-        setReplaceConfirmModal({ record, existingId: confirm.existing_id, message: confirm.message });
+        setReplaceConfirmModal({ record, existingId: confirm.existing_id, existingTitle: undefined });
         setRecords(prev => prev.map(r =>
           r.id === record.id ? { ...r, status: 'pending' as const } : r
         ));
@@ -781,13 +849,66 @@ export default function ImportIsoPage() {
     setReplaceConfirmError(null);
     try {
       const { record, existingId } = replaceConfirmModal;
+      if (batchId && record.recordIndex != null) {
+        const report = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId, {
+          confirmReplaceExistingId: existingId,
+        });
+        if (report.imported > 0 && report.failed.length === 0) {
+          setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'imported' as const } : r)));
+          if (batchDuplicateApplyToAll) setBatchDuplicateAction('replace');
+          setReplaceConfirmModal(null);
+          return;
+        }
+        const msg = report.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
+        setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'error' as const, error: msg } : r)));
+        setReplaceConfirmModal(null);
+        return;
+      }
+
       const { item, import_report } = await api.createItem(buildItemPayload(record), {
         confirmReplaceExistingId: existingId,
       });
       if (item.id != null) await completeImportWithItemId(record, item.id, import_report);
+      if (batchDuplicateApplyToAll) setBatchDuplicateAction('replace');
       setReplaceConfirmModal(null);
     } catch (err) {
       console.error('Error confirming replace existing item:', err);
+      setReplaceConfirmError(getApiErrorMessage(err, t));
+    } finally {
+      setReplaceConfirmLoading(false);
+    }
+  };
+
+  const handleCreateNewDuplicateIsbn = async () => {
+    if (!replaceConfirmModal) return;
+    setReplaceConfirmLoading(true);
+    setReplaceConfirmError(null);
+    try {
+      const { record } = replaceConfirmModal;
+      if (batchId && record.recordIndex != null) {
+        const report = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId, {
+          allowDuplicateIsbn: true,
+        });
+        if (report.imported > 0 && report.failed.length === 0) {
+          setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'imported' as const } : r)));
+          if (batchDuplicateApplyToAll) setBatchDuplicateAction('new');
+          setReplaceConfirmModal(null);
+          return;
+        }
+        const msg = report.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
+        setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'error' as const, error: msg } : r)));
+        setReplaceConfirmModal(null);
+        return;
+      }
+
+      const { item, import_report } = await api.createItem(buildItemPayload(record), {
+        allowDuplicateIsbn: true,
+      });
+      if (item.id != null) await completeImportWithItemId(record, item.id, import_report);
+      if (batchDuplicateApplyToAll) setBatchDuplicateAction('new');
+      setReplaceConfirmModal(null);
+    } catch (err) {
+      console.error('Error creating item with duplicate ISBN:', err);
       setReplaceConfirmError(getApiErrorMessage(err, t));
     } finally {
       setReplaceConfirmLoading(false);
@@ -834,12 +955,18 @@ export default function ImportIsoPage() {
     setFileName('');
     setParseError('');
     setBatchId(null);
+    setBatchDuplicateApplyToAll(false);
+    setBatchDuplicateAction(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const showSourceSelect = records.length > 0;
+
+  const duplicateExistingCount = records.filter(
+    (r) => r.status === 'error' && typeof r.error === 'string' && parseDuplicateFromErrorMessage(r.error) != null
+  ).length;
 
   const formatAuthors = (authors?: Author[]) => {
     if (!authors || authors.length === 0) return '-';
@@ -1123,6 +1250,11 @@ export default function ImportIsoPage() {
                   )}
                   {errorCount > 0 && (
                     <Badge variant="danger">{t('importMarc.errors', { count: errorCount })}</Badge>
+                  )}
+                  {duplicateExistingCount > 0 && (
+                    <Badge variant="warning">
+                      {t('importMarc.duplicateExistingCount', { count: duplicateExistingCount })}
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -1510,6 +1642,15 @@ export default function ImportIsoPage() {
         onClose={() => setSingleErrorModal(null)}
         title={t('importMarc.importErrorTitle')}
         size="md"
+        footer={
+          singleErrorModal ? (
+            <div className="flex justify-end">
+              <Button variant="primary" onClick={() => setSingleErrorModal(null)}>
+                {t('common.close')}
+              </Button>
+            </div>
+          ) : undefined
+        }
       >
         {singleErrorModal && (
           <div className="space-y-4">
@@ -1518,11 +1659,6 @@ export default function ImportIsoPage() {
             </p>
             <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
               {singleErrorModal.message}
-            </div>
-            <div className="flex justify-end">
-              <Button variant="primary" onClick={() => setSingleErrorModal(null)}>
-                {t('common.close')}
-              </Button>
             </div>
           </div>
         )}
@@ -1536,29 +1672,11 @@ export default function ImportIsoPage() {
           setReplaceConfirmModal(null);
           setReplaceConfirmError(null);
         }}
-        title={t('importMarc.confirmReplaceTitle')}
+        title={t('importMarc.duplicateIsbnTitle')}
         size="lg"
-      >
-        {replaceConfirmModal && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {replaceConfirmModal.message}
-            </p>
-            <div className="text-sm text-gray-700 dark:text-gray-300">
-              <div className="font-medium mb-1">
-                {t('importMarc.confirmReplaceExistingId', { id: replaceConfirmModal.existingId })}
-              </div>
-              <div className="text-gray-600 dark:text-gray-400">
-                {t('importMarc.confirmReplaceExplanation')}
-              </div>
-            </div>
-            {replaceConfirmError && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                {replaceConfirmError}
-              </div>
-            )}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+        footer={
+          replaceConfirmModal ? (
+            <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -1569,10 +1687,42 @@ export default function ImportIsoPage() {
               >
                 {t('common.cancel')}
               </Button>
+              <Button variant="secondary" onClick={handleCreateNewDuplicateIsbn} isLoading={replaceConfirmLoading}>
+                {t('importMarc.duplicateIsbnCreateNew')}
+              </Button>
               <Button onClick={handleConfirmReplaceExisting} isLoading={replaceConfirmLoading}>
-                {t('importMarc.confirmReplaceConfirm')}
+                {t('importMarc.duplicateIsbnReplace')}
               </Button>
             </div>
+          ) : undefined
+        }
+      >
+        {replaceConfirmModal && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {t('importMarc.duplicateIsbnPrompt', {
+                isbn: replaceConfirmModal.record.identification || '-',
+                title: replaceConfirmModal.existingTitle || t('items.notSpecified'),
+              })}
+            </p>
+            {batchId && replaceConfirmModal.record.recordIndex != null && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={batchDuplicateApplyToAll}
+                  onChange={(e) => setBatchDuplicateApplyToAll(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500"
+                  disabled={replaceConfirmLoading}
+                />
+                {t('importMarc.duplicateIsbnApplyToAll')}
+              </label>
+            )}
+            {replaceConfirmError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {replaceConfirmError}
+              </div>
+            )}
           </div>
         )}
       </Modal>

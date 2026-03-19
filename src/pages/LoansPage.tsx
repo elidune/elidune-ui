@@ -27,10 +27,11 @@ export default function LoansPage() {
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
-  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchDraft, setUserSearchDraft] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<UserShort[]>([]);
-  const [, setIsSearchingUsers] = useState(false);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
+  const [isBorrowLoading, setIsBorrowLoading] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const userBarcodeInputRef = useRef<HTMLInputElement>(null);
@@ -42,32 +43,26 @@ export default function LoansPage() {
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   const [returnError, setReturnError] = useState('');
 
-  // Search users by name or barcode
-  useEffect(() => {
-    if (!userSearchQuery.trim()) {
+  const handleUserSearch = async () => {
+    const query = userSearchDraft.trim();
+    if (!query) {
       setUserSearchResults([]);
       return;
     }
-
-    const searchUsers = async () => {
-      setIsSearchingUsers(true);
-      try {
-        const response = await api.getUsers({
-          name: userSearchQuery.trim(),
-          per_page: 10,
-        });
-        setUserSearchResults(response.items);
-      } catch (error) {
-        console.error('Error searching users:', error);
-        setUserSearchResults([]);
-      } finally {
-        setIsSearchingUsers(false);
-      }
-    };
-
-    const timeoutId = setTimeout(searchUsers, 300);
-    return () => clearTimeout(timeoutId);
-  }, [userSearchQuery]);
+    setIsSearchingUsers(true);
+    try {
+      const response = await api.getUsers({
+        name: query,
+        per_page: 10,
+      });
+      setUserSearchResults(response.items);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      setUserSearchResults([]);
+    } finally {
+      setIsSearchingUsers(false);
+    }
+  };
 
   // Load user details and loans when user is selected
   useEffect(() => {
@@ -95,7 +90,7 @@ export default function LoansPage() {
     try {
       const fullUser = await api.getUser(user.id);
       setSelectedUser(fullUser);
-      setUserSearchQuery('');
+      setUserSearchDraft('');
       setUserSearchResults([]);
     } catch (error) {
       console.error('Error loading user:', error);
@@ -114,7 +109,7 @@ export default function LoansPage() {
       if (response.items.length > 0) {
         const fullUser = await api.getUser(response.items[0].id);
         setSelectedUser(fullUser);
-        setUserSearchQuery('');
+        setUserSearchDraft('');
         setUserSearchResults([]);
         if (userBarcodeInputRef.current) {
           userBarcodeInputRef.current.value = '';
@@ -128,7 +123,7 @@ export default function LoansPage() {
     }
   };
 
-  const handleBorrow = async (specimenBarcode: string) => {
+  const handleBorrow = async (specimenBarcode: string, force = false) => {
     if (!selectedUser || !specimenBarcode.trim()) {
       throw new Error(t('loans.noUserSelected'));
     }
@@ -137,13 +132,21 @@ export default function LoansPage() {
       await api.createLoan({
         user_id: selectedUser.id,
         specimen_identification: specimenBarcode.trim(),
+        force: force || undefined,
       });
       // Refresh loans
       const loansData = await api.getUserLoans(selectedUser.id);
       setLoans(loansData);
     } catch (error: unknown) {
-      console.error('Error creating loan:', error);
-      throw new Error(getApiErrorMessage(error, t) || t('loans.errorCreatingLoan'));
+      const axiosData = (error as { response?: { data?: { message?: string } } })?.response?.data;
+      const rawMessage = typeof axiosData?.message === 'string' ? axiosData.message : '';
+      const isMaxLoans = /maximum\s*(total\s*)?loans(\s+for this document type)?\s*reached/i.test(rawMessage);
+      const displayMsg = getApiErrorMessage(error, t) || t('loans.errorCreatingLoan');
+      const confirmMsg = rawMessage || displayMsg;
+      if (isMaxLoans && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
+        return handleBorrow(specimenBarcode, true);
+      }
+      throw new Error(displayMsg);
     }
   };
 
@@ -209,7 +212,7 @@ export default function LoansPage() {
                   {t('items.isbn')}: <span className="font-mono">{loan.item.isbn}</span>
                 </p>
               )}
-              <p className="font-mono">{specimenBarcode ?? '-'}</p>
+              <p>{t('items.barcode')}: <span className="font-mono">{specimenBarcode ?? '-'}</span></p>
             </div>
           </div>
         );
@@ -222,11 +225,11 @@ export default function LoansPage() {
         new Date(loan.start_date).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'issue_date',
+      key: 'issue_at',
       header: t('loans.dueDate'),
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.issue_date).toLocaleDateString('fr-FR')}</span>
+          <span>{new Date(loan.issue_at).toLocaleDateString('fr-FR')}</span>
           {loan.is_overdue && <Badge variant="danger">{t('loans.overdue')}</Badge>}
         </div>
       ),
@@ -384,12 +387,28 @@ export default function LoansPage() {
                   {t('loans.searchByName')}
                 </label>
                 <div className="relative">
-                  <Input
-                    value={userSearchQuery}
-                    onChange={(e) => setUserSearchQuery(e.target.value)}
-                    placeholder={t('loans.searchUserPlaceholder')}
-                    leftIcon={<Search className="h-4 w-4" />}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={userSearchDraft}
+                      onChange={(e) => setUserSearchDraft(e.target.value)}
+                      placeholder={t('loans.searchUserPlaceholder')}
+                      leftIcon={<Search className="h-4 w-4" />}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void handleUserSearch();
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void handleUserSearch()}
+                      leftIcon={<Search className="h-4 w-4" />}
+                      disabled={isSearchingUsers}
+                    >
+                      {t('common.search')}
+                    </Button>
+                  </div>
                   {userSearchResults.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {userSearchResults.map((user) => (
@@ -444,7 +463,7 @@ export default function LoansPage() {
                       onClick={() => {
                         setSelectedUser(null);
                         setLoans([]);
-                        setUserSearchQuery('');
+                        setUserSearchDraft('');
                       }}
                       leftIcon={<X className="h-4 w-4" />}
                     >
@@ -499,12 +518,21 @@ export default function LoansPage() {
               setBarcodeInput('');
             }}
             title={t('loans.newLoan')}
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button type="submit" form="loans-borrow-form" isLoading={isBorrowLoading}>
+                  {t('loans.borrow')}
+                </Button>
+              </div>
+            }
           >
             <BorrowForm
+              formId="loans-borrow-form"
               onBorrow={handleBorrow}
               barcodeInput={barcodeInput}
               setBarcodeInput={setBarcodeInput}
               barcodeInputRef={barcodeInputRef}
+              onLoadingChange={setIsBorrowLoading}
               onSuccess={() => {
                 setShowBorrowModal(false);
                 setBarcodeInput('');
@@ -652,7 +680,7 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.dueDate')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(returnResult.loan.issue_date).toLocaleDateString('fr-FR', {
+                          {new Date(returnResult.loan.issue_at).toLocaleDateString('fr-FR', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
@@ -691,16 +719,17 @@ export default function LoansPage() {
 }
 
 interface BorrowFormProps {
+  formId: string;
   onBorrow: (barcode: string) => Promise<void>;
   barcodeInput: string;
   setBarcodeInput: (value: string) => void;
   barcodeInputRef: React.RefObject<HTMLInputElement | null>;
+  onLoadingChange: (loading: boolean) => void;
   onSuccess?: () => void;
 }
 
-function BorrowForm({ onBorrow, barcodeInput, setBarcodeInput, barcodeInputRef, onSuccess }: BorrowFormProps) {
+function BorrowForm({ formId, onBorrow, barcodeInput, setBarcodeInput, barcodeInputRef, onLoadingChange, onSuccess }: BorrowFormProps) {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -708,7 +737,7 @@ function BorrowForm({ onBorrow, barcodeInput, setBarcodeInput, barcodeInputRef, 
     if (!barcodeInput.trim()) return;
 
     setError('');
-    setIsLoading(true);
+    onLoadingChange(true);
     try {
       await onBorrow(barcodeInput);
       setBarcodeInput('');
@@ -718,23 +747,19 @@ function BorrowForm({ onBorrow, barcodeInput, setBarcodeInput, barcodeInputRef, 
       } else {
         barcodeInputRef.current?.focus();
       }
-    } catch (err: any) {
-      const errorMessage = err?.message || 
-                          err?.response?.data?.message || 
-                          err?.response?.data?.error || 
-                          t('loans.errorCreatingLoan');
-      setError(errorMessage);
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t) || t('loans.errorCreatingLoan'));
       setTimeout(() => {
         barcodeInputRef.current?.focus();
         barcodeInputRef.current?.select();
       }, 100);
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <Input
         ref={barcodeInputRef}
         label={t('loans.specimenBarcode')}
@@ -758,11 +783,6 @@ function BorrowForm({ onBorrow, barcodeInput, setBarcodeInput, barcodeInputRef, 
           <p className="text-sm font-medium text-red-800 dark:text-red-200">{error}</p>
         </div>
       )}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          {t('loans.borrow')}
-        </Button>
-      </div>
     </form>
   );
 }

@@ -6,6 +6,7 @@ import {
   Edit,
   Trash2,
   User,
+  Users,
   Mail,
   Phone,
   Calendar,
@@ -19,6 +20,13 @@ import {
   Hash,
   Filter,
   X,
+  BookOpen,
+  Newspaper,
+  Video,
+  Music,
+  Disc,
+  Image,
+  FileText,
 } from 'lucide-react';
 import {
   XAxis,
@@ -32,8 +40,9 @@ import {
 } from 'recharts';
 import { Card, CardHeader, Button, Badge, Modal, Input, Table } from '@/components/common';
 import api from '@/services/api';
-import type { User as UserType, Loan, LoanStatsResponse, AdvancedStatsParams, StatsInterval } from '@/types';
-import { PUBLIC_TYPE_OPTIONS, STATUS_OPTIONS } from '@/utils/codeLabels';
+import { getApiErrorMessage } from '@/utils/apiError';
+import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType } from '@/types';
+import { STATUS_OPTIONS } from '@/utils/codeLabels';
 
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,13 +50,21 @@ export default function UserDetailPage() {
   const { t, i18n } = useTranslation();
 
   const [user, setUser] = useState<UserType | null>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);
+  const [activeLoans, setActiveLoans] = useState<Loan[]>([]);
+  const [pastLoans, setPastLoans] = useState<Loan[]>([]);
+  const [activeLoansTab, setActiveLoansTab] = useState<'active' | 'past'>('active');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPastLoans, setIsLoadingPastLoans] = useState(false);
+  const [hasLoadedPastLoans, setHasLoadedPastLoans] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(false);
+  const [isBorrowLoading, setIsBorrowLoading] = useState(false);
+  const [loanDetails, setLoanDetails] = useState<Loan | null>(null);
 
   // Stats state
+  const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
   const [showStats, setShowStats] = useState(false);
   const [loanStats, setLoanStats] = useState<LoanStatsResponse | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -70,15 +87,21 @@ export default function UserDetailPage() {
   };
 
   useEffect(() => {
+    api.getPublicTypes().then(setPublicTypes).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
       try {
-        const [userData, loansData] = await Promise.all([
+        const [userData, activeLoansData] = await Promise.all([
           api.getUser(id),
           api.getUserLoans(id),
         ]);
         setUser(userData);
-        setLoans(loansData);
+        setActiveLoans(activeLoansData);
+        setPastLoans([]);
+        setHasLoadedPastLoans(false);
       } catch (error) {
         console.error('Error fetching user:', error);
         navigate('/users');
@@ -89,6 +112,35 @@ export default function UserDetailPage() {
 
     fetchData();
   }, [id, navigate]);
+
+  const refreshLoans = async () => {
+    if (!user?.id) return;
+    const activeLoansData = await api.getUserLoans(user.id);
+    setActiveLoans(activeLoansData);
+    if (hasLoadedPastLoans) {
+      const pastLoansData = await api.getUserLoans(user.id, { archived: true });
+      setPastLoans(pastLoansData);
+    }
+  };
+
+  useEffect(() => {
+    const loadPast = async () => {
+      if (!user?.id) return;
+      if (activeLoansTab !== 'past') return;
+      if (hasLoadedPastLoans) return;
+      setIsLoadingPastLoans(true);
+      try {
+        const pastLoansData = await api.getUserLoans(user.id, { archived: true });
+        setPastLoans(pastLoansData);
+        setHasLoadedPastLoans(true);
+      } catch (error) {
+        console.error('Error fetching past loans:', error);
+      } finally {
+        setIsLoadingPastLoans(false);
+      }
+    };
+    loadPast();
+  }, [activeLoansTab, user?.id, hasLoadedPastLoans]);
 
   // Init default filters when stats section is expanded
   useEffect(() => {
@@ -189,11 +241,7 @@ export default function UserDetailPage() {
   const handleReturnLoan = async (loanId: string) => {
     try {
       await api.returnLoan(loanId);
-      // Refresh loans
-      if (user) {
-        const loansData = await api.getUserLoans(user.id);
-        setLoans(loansData);
-      }
+      await refreshLoans();
     } catch (error) {
       console.error('Error returning loan:', error);
     }
@@ -202,11 +250,7 @@ export default function UserDetailPage() {
   const handleRenewLoan = async (loanId: string) => {
     try {
       await api.renewLoan(loanId);
-      // Refresh loans
-      if (user) {
-        const loansData = await api.getUserLoans(user.id);
-        setLoans(loansData);
-      }
+      await refreshLoans();
     } catch (error) {
       console.error('Error renewing loan:', error);
     }
@@ -228,29 +272,66 @@ export default function UserDetailPage() {
     );
   }
 
-  const overdueLoans = loans.filter((l) => l.is_overdue);
+  const overdueLoans = activeLoans.filter((l) => l.is_overdue);
 
-  const loanColumns = [
+  const renderLoanTitle = (loan: Loan) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setLoanDetails(loan);
+      }}
+      className="text-left font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+    >
+      {loan.item.title || 'Sans titre'}
+    </button>
+  );
+
+  const formatAuthor = (author?: Author | null) => {
+    if (!author) return '-';
+    return `${author.firstname || ''} ${author.lastname || ''}`.trim() || '-';
+  };
+
+  const getMediaTypeIcon = (mediaType?: MediaType) => {
+    const iconClass = 'h-5 w-5';
+    const colorClass = 'text-amber-600 dark:text-amber-400';
+    switch (mediaType) {
+      case 'printedText':
+      case 'comics':
+        return <BookOpen className={`${iconClass} ${colorClass}`} />;
+      case 'periodic':
+        return <Newspaper className={`${iconClass} ${colorClass}`} />;
+      case 'video':
+      case 'videoTape':
+      case 'videoDvd':
+        return <Video className={`${iconClass} text-red-600 dark:text-red-400`} />;
+      case 'audio':
+      case 'audioMusic':
+      case 'audioMusicTape':
+      case 'audioMusicCd':
+      case 'audioNonMusic':
+      case 'audioNonMusicTape':
+      case 'audioNonMusicCd':
+        return <Music className={`${iconClass} text-blue-600 dark:text-blue-400`} />;
+      case 'cdRom':
+        return <Disc className={`${iconClass} text-purple-600 dark:text-purple-400`} />;
+      case 'images':
+        return <Image className={`${iconClass} text-green-600 dark:text-green-400`} />;
+      case 'multimedia':
+        return <FileText className={`${iconClass} text-indigo-600 dark:text-indigo-400`} />;
+      default:
+        return <BookOpen className={`${iconClass} text-gray-600 dark:text-gray-400`} />;
+    }
+  };
+
+  const loanColumnsActive = [
     {
       key: 'title',
       header: 'Document',
       render: (loan: Loan) => {
-        const specs = loan.item?.specimens;
-        const spec = specs?.length ? (specs.find((s) => s.availability === 1) ?? specs[0]) : null;
-        const specimenBarcode = spec ? (spec.barcode ?? spec.id) : loan.specimen_identification;
         return (
           <div>
-            <p className="font-medium text-gray-900 dark:text-white">
-              {loan.item.title || 'Sans titre'}
-            </p>
-            <div className="text-sm text-gray-500 dark:text-gray-400 space-y-0.5 mt-0.5">
-              {loan.item.isbn && (
-                <p>
-                  {t('items.isbn')}: <span className="font-mono">{loan.item.isbn}</span>
-                </p>
-              )}
-              <p className="font-mono">{specimenBarcode ?? '-'}</p>
-            </div>
+            {renderLoanTitle(loan)}
           </div>
         );
       },
@@ -262,12 +343,11 @@ export default function UserDetailPage() {
         new Date(loan.start_date).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'issue_date',
+      key: 'issue_at',
       header: 'Échéance',
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.issue_date).toLocaleDateString('fr-FR')}</span>
-          {loan.is_overdue && <Badge variant="danger">Retard</Badge>}
+          <span>{new Date(loan.issue_at).toLocaleDateString('fr-FR')}</span>
         </div>
       ),
     },
@@ -308,6 +388,30 @@ export default function UserDetailPage() {
     },
   ];
 
+  const loanColumnsPast = [
+    {
+      key: 'title',
+      header: 'Document',
+      render: (loan: Loan) => <div>{renderLoanTitle(loan)}</div>,
+    },
+    {
+      key: 'date',
+      header: 'Date emprunt',
+      render: (loan: Loan) => new Date(loan.start_date).toLocaleDateString('fr-FR'),
+    },
+    {
+      key: 'returned_at',
+      header: 'Date retour',
+      render: (loan: Loan) =>
+        loan.returned_at ? new Date(loan.returned_at).toLocaleDateString('fr-FR') : '-',
+    },
+    {
+      key: 'renews',
+      header: 'Prolongations',
+      render: (loan: Loan) => loan.nb_renews,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -329,7 +433,11 @@ export default function UserDetailPage() {
               {user.firstname} {user.lastname}
             </h1>
             <div className="flex items-center gap-2 mt-1">
-              <Badge>{user.account_type}</Badge>
+              {isAdmin(user.account_type) && <Badge>{user.account_type}</Badge>}
+              {user.public_type != null && user.public_type !== '' && (() => {
+                const pt = publicTypes.find((p) => p.id === String(user.public_type));
+                return pt ? <Badge variant="info">{pt.label}</Badge> : null;
+              })()}
               {overdueLoans.length > 0 && (
                 <Badge variant="danger">{overdueLoans.length} retard{overdueLoans.length > 1 ? 's' : ''}</Badge>
               )}
@@ -359,11 +467,18 @@ export default function UserDetailPage() {
             <InfoRow icon={Mail} label={t('profile.email')} value={user.email} />
             <InfoRow icon={Phone} label={t('profile.phone')} value={user.phone} />
             <InfoRow icon={Hash} label={t('profile.barcode')} value={user.barcode} />
-            {user.crea_date && (
+            {user.public_type != null && user.public_type !== '' && (
+              <InfoRow
+                icon={Users}
+                label={t('users.publicType')}
+                value={publicTypes.find((p) => p.id === String(user.public_type))?.label ?? String(user.public_type)}
+              />
+            )}
+            {user.created_at && (
               <InfoRow
                 icon={Calendar}
                 label={t('users.createdAt')}
-                value={new Date(user.crea_date).toLocaleDateString(i18n.language, {
+                value={new Date(user.created_at).toLocaleDateString(i18n.language, {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -377,19 +492,128 @@ export default function UserDetailPage() {
         <div className="lg:col-span-2">
           <Card padding="none">
             <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
-              <CardHeader
-                title={t('loans.activeLoans')}
+              <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-900">
+                <button
+                  type="button"
+                  onClick={() => setActiveLoansTab('active')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${
+                    activeLoansTab === 'active'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Emprunts en cours
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLoansTab('past')}
+                  className={`ml-1 px-3 py-1.5 text-sm font-medium rounded-md ${
+                    activeLoansTab === 'past'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Emprunts passés
+                </button>
+              </div>
+            </div>
+            <div className="h-[60vh] overflow-y-auto">
+              <Table
+                columns={activeLoansTab === 'active' ? loanColumnsActive : loanColumnsPast}
+                data={
+                  activeLoansTab === 'active'
+                    ? activeLoans
+                    : isLoadingPastLoans
+                      ? []
+                      : pastLoans
+                }
+                keyExtractor={(loan) => loan.id}
+                emptyMessage={activeLoansTab === 'past' && isLoadingPastLoans ? 'Chargement…' : t('loans.noLoans')}
               />
             </div>
-            <Table
-              columns={loanColumns}
-              data={loans}
-              keyExtractor={(loan) => loan.id}
-              emptyMessage={t('loans.noLoans')}
-            />
           </Card>
         </div>
       </div>
+
+      {/* Loan details modal */}
+      <Modal
+        isOpen={loanDetails !== null}
+        onClose={() => setLoanDetails(null)}
+        title="Détails de l'emprunt"
+        size="md"
+      >
+        {loanDetails && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Document</p>
+              <div className="flex items-start gap-3 mt-1">
+                <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900/30 flex items-center justify-center">
+                  {getMediaTypeIcon(loanDetails.item.media_type as MediaType)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-gray-900 dark:text-white font-medium">
+                    {loanDetails.item.title || 'Sans titre'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {formatAuthor(loanDetails.item.author)}
+                  </p>
+                  {loanDetails.item.isbn && (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      {t('items.isbn')}: <span className="font-mono">{loanDetails.item.isbn}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Début</p>
+                <p className="text-gray-900 dark:text-white">
+                  {new Date(loanDetails.start_date).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {loanDetails.returned_at ? 'Retour' : 'Échéance'}
+                </p>
+                <p className="text-gray-900 dark:text-white">
+                  {loanDetails.returned_at
+                    ? new Date(loanDetails.returned_at).toLocaleDateString('fr-FR')
+                    : new Date(loanDetails.issue_at).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Exemplaire emprunté</p>
+              {(() => {
+                const ident = loanDetails.specimen_identification;
+                const spec = loanDetails.item?.specimens?.find(
+                  (s) => (s.barcode != null && ident != null && s.barcode === ident) || s.id === ident
+                );
+                const barcode = spec?.barcode ?? ident ?? '-';
+                const sourceName = spec?.source_name ?? loanDetails.item.source_name ?? '-';
+                return (
+                  <div className="mt-1 space-y-1">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {t('items.barcode')}: <span className="font-mono">{barcode}</span>
+                    </p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Source: <span className="font-medium">{sourceName}</span>
+                    </p>
+                    {spec?.call_number && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Cote: <span className="font-mono">{spec.call_number}</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Loan statistics section */}
       <Card>
@@ -608,23 +832,25 @@ export default function UserDetailPage() {
         onClose={() => setShowDeleteModal(false)}
         title="Confirmer la suppression"
         size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+              Annuler
+            </Button>
+            <Button variant="danger" onClick={handleDelete}>
+              Supprimer
+            </Button>
+          </div>
+        }
       >
-        <p className="text-gray-600 dark:text-gray-300 mb-6">
+        <p className="text-gray-600 dark:text-gray-300">
           Êtes-vous sûr de vouloir supprimer le compte de {user.firstname} {user.lastname} ?
-          {loans.length > 0 && (
+          {activeLoans.length > 0 && (
             <span className="block mt-2 text-amber-600 dark:text-amber-400">
-              ⚠️ Cet usager a encore {loans.length} emprunt(s) en cours.
+              ⚠️ Cet usager a encore {activeLoans.length} emprunt(s) en cours.
             </span>
           )}
         </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-            Annuler
-          </Button>
-          <Button variant="danger" onClick={handleDelete}>
-            Supprimer
-          </Button>
-        </div>
       </Modal>
 
       {/* Edit modal */}
@@ -633,9 +859,19 @@ export default function UserDetailPage() {
         onClose={() => setShowEditModal(false)}
         title="Modifier l'usager"
         size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="submit" form="edit-user-form" isLoading={isEditLoading}>
+              {t('common.save')}
+            </Button>
+          </div>
+        }
       >
         <EditUserForm
+          formId="edit-user-form"
           user={user}
+          publicTypes={publicTypes}
+          onLoadingChange={setIsEditLoading}
           onSuccess={(updatedUser) => {
             setUser(updatedUser);
             setShowEditModal(false);
@@ -648,13 +884,21 @@ export default function UserDetailPage() {
         isOpen={showBorrowModal}
         onClose={() => setShowBorrowModal(false)}
         title="Nouvel emprunt"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="submit" form="borrow-user-form" isLoading={isBorrowLoading}>
+              Emprunter
+            </Button>
+          </div>
+        }
       >
         <BorrowForm
+          formId="borrow-user-form"
           userId={user.id}
+          onLoadingChange={setIsBorrowLoading}
           onSuccess={() => {
             setShowBorrowModal(false);
-            // Refresh loans
-            api.getUserLoans(user.id).then(setLoans);
+            refreshLoans();
           }}
         />
       </Modal>
@@ -681,13 +925,15 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
 }
 
 interface EditUserFormProps {
+  formId: string;
   user: UserType;
+  publicTypes: PublicType[];
+  onLoadingChange: (loading: boolean) => void;
   onSuccess: (user: UserType) => void;
 }
 
-function EditUserForm({ user, onSuccess }: EditUserFormProps) {
+function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }: EditUserFormProps) {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     login: user.login || '',
     firstname: user.firstname || '',
@@ -717,7 +963,7 @@ function EditUserForm({ user, onSuccess }: EditUserFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    onLoadingChange(true);
     try {
       const updateData: Record<string, unknown> = {
         login: formData.login || undefined,
@@ -733,7 +979,7 @@ function EditUserForm({ user, onSuccess }: EditUserFormProps) {
         notes: formData.notes || undefined,
         fee: formData.fee || undefined,
         group_id: formData.group_id ? parseInt(formData.group_id) : undefined,
-        public_type: formData.public_type ? parseInt(formData.public_type) : undefined,
+        public_type: formData.public_type || undefined,
         status: formData.status ? parseInt(formData.status) : undefined,
         account_type: formData.account_type || undefined,
       };
@@ -745,12 +991,12 @@ function EditUserForm({ user, onSuccess }: EditUserFormProps) {
     } catch (error) {
       console.error('Error updating user:', error);
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       {/* Identity */}
       <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         {t('users.identity')}
@@ -882,9 +1128,9 @@ function EditUserForm({ user, onSuccess }: EditUserFormProps) {
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             <option value="">{t('common.select')}</option>
-            {PUBLIC_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
+            {publicTypes.map((pt) => (
+              <option key={pt.id} value={pt.id}>
+                {pt.label}
               </option>
             ))}
           </select>
@@ -921,60 +1167,72 @@ function EditUserForm({ user, onSuccess }: EditUserFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          {t('common.save')}
-        </Button>
-      </div>
     </form>
   );
 }
 
 interface BorrowFormProps {
+  formId: string;
   userId: string;
+  onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
 }
 
-function BorrowForm({ userId, onSuccess }: BorrowFormProps) {
-  const [isLoading, setIsLoading] = useState(false);
+function BorrowForm({ formId, userId, onLoadingChange, onSuccess }: BorrowFormProps) {
+  const { t } = useTranslation();
   const [specimenCode, setSpecimenCode] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
+  const doCreateLoan = async (force = false) => {
     try {
       await api.createLoan({
         user_id: userId,
         specimen_identification: specimenCode,
+        force: force || undefined,
       });
+      setError('');
       onSuccess();
-    } catch (err) {
-      setError('Impossible de créer l\'emprunt. Vérifiez le code-barre.');
+    } catch (err: unknown) {
+      const axiosData = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const rawMessage = typeof axiosData?.message === 'string' ? axiosData.message : '';
+      const isMaxLoans = /maximum\s*(total\s*)?loans(\s+for this document type)?\s*reached/i.test(rawMessage);
+      const displayMsg = getApiErrorMessage(err, t) || t('loans.errorCreatingLoan');
+      const confirmMsg = rawMessage || displayMsg;
+      if (isMaxLoans && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
+        return doCreateLoan(true);
+      }
+      setError(displayMsg);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!specimenCode.trim()) return;
+    setError('');
+    onLoadingChange(true);
+    try {
+      await doCreateLoan();
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <Input
-        label="Code-barre de l'exemplaire"
+        label={t('loans.specimenBarcode')}
         value={specimenCode}
-        onChange={(e) => setSpecimenCode(e.target.value)}
-        placeholder="Scanner ou saisir le code-barre"
+        onChange={(e) => {
+          setSpecimenCode(e.target.value);
+          if (error) setError('');
+        }}
+        placeholder={t('loans.scanOrEnterBarcode')}
         autoFocus
         required
       />
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          Emprunter
-        </Button>
-      </div>
     </form>
   );
 }

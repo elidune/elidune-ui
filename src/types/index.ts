@@ -21,13 +21,13 @@ export interface User {
   notes?: string;
   fee?: string;
   group_id?: number;
-  public_type?: number;
+  public_type?: string | null;
   status?: number;
   // Date fields
-  crea_date?: string;
-  modif_date?: string;
-  archived_date?: string;
-  issue_date?: string;
+  created_at?: string;
+  update_at?: string;
+  archived_at?: string;
+  issue_at?: string;
   // 2FA fields
   two_factor_enabled?: boolean;
   two_factor_method?: string;
@@ -55,7 +55,7 @@ export interface UserShort {
   firstname?: string;
   lastname?: string;
   account_type?: string;
-  public_type?: number;
+  public_type?: string | null;
   /** @deprecated prefer counting loans.length (specimens) */
   nb_loans?: number;
   nb_late_loans?: number;
@@ -118,23 +118,26 @@ export interface VerifyRecoveryRequest {
   code: string;
 }
 
-// Media type enum matching server definition
+// Media type enum matching server definition (camelCase strings)
 export type MediaType =
-  | 'u'  // Unknown
-  | 'b'  // PrintedText
-  | 'bc' // Comics
-  | 'p'  // Periodic
-  | 'v'  // Video
-  | 'vt' // VideoTape
-  | 'vd' // VideoDvd
-  | 'a'  // Audio
-  | 'am' // AudioMusic
-  | 'amt' // AudioMusicTape
-  | 'amc' // AudioMusicCd
-  | 'an' // AudioNonMusic
-  | 'c'  // CdRom
-  | 'i'  // Images
-  | 'm'; // Multimedia
+  | 'all'
+  | 'unknown'
+  | 'printedText'
+  | 'multimedia'
+  | 'comics'
+  | 'periodic'
+  | 'video'
+  | 'videoTape'
+  | 'videoDvd'
+  | 'audio'
+  | 'audioMusic'
+  | 'audioMusicTape'
+  | 'audioMusicCd'
+  | 'audioNonMusic'
+  | 'audioNonMusicTape'
+  | 'audioNonMusicCd'
+  | 'cdRom'
+  | 'images';
 
 export interface MediaTypeOption {
   value: MediaType | '';
@@ -222,7 +225,7 @@ export interface SpecimenShort {
   id: string;
   barcode?: string | null;
   call_number?: string | null;
-  borrow_status?: number | null;
+  borrowable?: boolean | null;
   source_name?: string | null;
   availability?: number | null;
 }
@@ -251,7 +254,7 @@ export interface Specimen {
   call_number?: string | null;
   volume_designation?: string | null;
   place?: number | null;
-  borrow_status?: number | null;
+  borrowable?: boolean | null;
   circulation_status?: number | null;
   notes?: string | null;
   price?: string | null;
@@ -275,7 +278,7 @@ export interface CreateSpecimen {
   call_number?: string | null;
   volume_designation?: string | null;
   place?: number | null;
-  borrow_status?: number | null;
+  borrowable?: boolean | null;
   notes?: string | null;
   price?: string | null;
   source_id?: string | null;
@@ -288,7 +291,7 @@ export interface UpdateSpecimen {
   call_number?: string | null;
   volume_designation?: string | null;
   place?: number | null;
-  borrow_status?: number | null;
+  borrowable?: boolean | null;
   notes?: string | null;
   price?: string | null;
   source_id?: string | null;
@@ -298,8 +301,10 @@ export interface UpdateSpecimen {
 export interface Loan {
   id: string;
   start_date: string;
-  issue_date: string;
-  renewal_date?: string;
+  issue_at: string;
+  /** Present when the loan has been returned */
+  returned_at?: string | null;
+  renew_at?: string;
   nb_renews: number;
   item: ItemShort;
   user?: UserShort;
@@ -396,7 +401,7 @@ export interface AdvancedStatsParams {
   interval?: StatsInterval;
   media_type?: MediaType;
   user_id?: string;
-  public_type?: number;
+  public_type?: string;
 }
 
 export interface LoanStatsTimeSeries {
@@ -494,21 +499,74 @@ export interface Z3950Server {
   is_active: boolean;
 }
 
+// Public types (audience types for users)
+export interface PublicType {
+  id: string;
+  name: string;
+  label: string;
+  subscription_duration_days?: number | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  subscription_price?: number | null;
+  max_loans?: number | null;
+  loan_duration_days?: number | null;
+}
+
+export interface PublicTypeLoanSettings {
+  id: string;
+  public_type_id: string;
+  media_type: MediaType;
+  duration: number;
+  nb_max: number;
+  nb_renews: number;
+}
+
+export interface CreatePublicType {
+  name: string;
+  label: string;
+  subscription_duration_days?: number | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  subscription_price?: number | null;
+  max_loans?: number | null;
+  loan_duration_days?: number | null;
+}
+
+export interface UpdatePublicType {
+  name?: string;
+  label?: string;
+  subscription_duration_days?: number | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  subscription_price?: number | null;
+  max_loans?: number | null;
+  loan_duration_days?: number | null;
+}
+
+export interface UpsertLoanSettingRequest {
+  media_type: MediaType;
+  duration?: number | null;
+  nb_max?: number | null;
+  nb_renews?: number | null;
+}
+
 // Source type
 export interface Source {
   id: string;
   key: string | null;
   name: string | null;
   is_archive: number | null;
-  archive_date: string | null;
+  archived_at: string | null;
   default?: boolean;
 }
 
 // Account types for permissions
 export type AccountType = 'Guest' | 'Reader' | 'Librarian' | 'Administrator';
 
-export const isAdmin = (accountType?: string): boolean => 
-  accountType?.trim().toLowerCase() === 'admin';
+export const isAdmin = (accountType?: string): boolean => {
+  const n = accountType?.trim().toLowerCase();
+  return n === 'admin' || n === 'administrator';
+};
 
 export const isLibrarian = (accountType?: string): boolean => {
   const normalized = accountType?.trim().toLowerCase();

@@ -21,25 +21,28 @@ import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber
 import type { AxiosError } from 'axios';
 
 // Helper function to get translation key for media type
-function getMediaTypeTranslationKey(mediaType: MediaType): string {
-  const keyMap: Record<MediaType, string> = {
-    'u': 'unknown',
-    'b': 'printedText',
-    'bc': 'comics',
-    'p': 'periodic',
-    'v': 'video',
-    'vt': 'videoTape',
-    'vd': 'videoDvd',
-    'a': 'audio',
-    'am': 'audioMusic',
-    'amt': 'audioMusicTape',
-    'amc': 'audioMusicCd',
-    'an': 'audioNonMusic',
-    'c': 'cdRom',
-    'i': 'images',
-    'm': 'multimedia',
+function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
+  if (!mediaType) return 'unknown';
+  const legacyMap: Record<string, string> = {
+    u: 'unknown',
+    b: 'printedText',
+    bc: 'comics',
+    p: 'periodic',
+    v: 'video',
+    vt: 'videoTape',
+    vd: 'videoDvd',
+    a: 'audio',
+    am: 'audioMusic',
+    amt: 'audioMusicTape',
+    amc: 'audioMusicCd',
+    an: 'audioNonMusic',
+    ant: 'audioNonMusicTape',
+    anc: 'audioNonMusicCd',
+    c: 'cdRom',
+    i: 'images',
+    m: 'multimedia',
   };
-  return keyMap[mediaType] || 'unknown';
+  return legacyMap[String(mediaType)] ?? String(mediaType);
 }
 
 function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmationRequired | null {
@@ -537,6 +540,24 @@ export default function Z3950SearchPage() {
         onClose={() => setShowImportModal(false)}
         title={t('z3950.importTitle')}
         size="lg"
+        footer={
+          !importSuccess ? (
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setShowImportModal(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleImport}
+                isLoading={isImporting}
+                disabled={!selectedSourceId || sources.length === 0}
+                leftIcon={<Download className="h-4 w-4" />}
+              >
+                {t('z3950.import')}
+              </Button>
+            </div>
+          ) : undefined
+        }
       >
         {importSuccess ? (
           <div className="text-center py-6">
@@ -632,11 +653,11 @@ export default function Z3950SearchPage() {
                 </label>
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
                   onClick={handleAddSpecimen}
                   leftIcon={<Plus className="h-4 w-4" />}
                 >
-                  {t('common.add')}
+                  {t('items.addSpecimen')}
                 </Button>
               </div>
 
@@ -689,22 +710,6 @@ export default function Z3950SearchPage() {
                 {importError}
               </div>
             )}
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button variant="secondary" onClick={() => setShowImportModal(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleImport}
-                isLoading={isImporting}
-                disabled={!selectedSourceId || sources.length === 0}
-                leftIcon={<Download className="h-4 w-4" />}
-              >
-                {t('z3950.import')}
-              </Button>
-            </div>
           </div>
         )}
       </Modal>
@@ -718,6 +723,25 @@ export default function Z3950SearchPage() {
         }}
         title={t('z3950.confirmReplaceTitle')}
         size="lg"
+        footer={
+          confirmReplaceModal ? (
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (confirmReplaceLoading) return;
+                  setConfirmReplaceModal(null);
+                  setConfirmReplaceError(null);
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleConfirmReplaceExisting} isLoading={confirmReplaceLoading}>
+                {t('z3950.confirmReplaceConfirm')}
+              </Button>
+            </div>
+          ) : undefined
+        }
       >
         {confirmReplaceModal && (
           <div className="space-y-4">
@@ -738,21 +762,6 @@ export default function Z3950SearchPage() {
                 {confirmReplaceError}
               </div>
             )}
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (confirmReplaceLoading) return;
-                  setConfirmReplaceModal(null);
-                  setConfirmReplaceError(null);
-                }}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleConfirmReplaceExisting} isLoading={confirmReplaceLoading}>
-                {t('z3950.confirmReplaceConfirm')}
-              </Button>
-            </div>
           </div>
         )}
       </Modal>

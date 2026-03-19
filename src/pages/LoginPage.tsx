@@ -243,7 +243,6 @@ export default function LoginPage() {
               <img src="/elidune_logo.png" alt="Elidune" className="h-24 w-24" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('auth.loginTitle')}</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">{t('auth.loginSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

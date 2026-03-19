@@ -552,21 +552,8 @@ export default function ProfilePage() {
         isOpen={show2FAModal}
         onClose={handleClose2FAModal}
         title={user?.two_factor_enabled ? t('profile.2fa.disableTitle') : t('profile.2fa.setupTitle')}
-      >
-        {user?.two_factor_enabled ? (
-          // Disable 2FA
-          <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              {t('profile.2fa.disableWarning')}
-            </p>
-
-            {twoFAError && (
-              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
-                <AlertCircle className="h-4 w-4" />
-                {twoFAError}
-              </div>
-            )}
-
+        footer={
+          user?.two_factor_enabled ? (
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={handleClose2FAModal}>
                 {t('common.cancel')}
@@ -580,9 +567,41 @@ export default function ProfilePage() {
                 {t('profile.2fa.confirmDisable')}
               </Button>
             </div>
+          ) : twoFASetupData ? (
+            <div className="flex justify-end">
+              <Button onClick={handleClose2FAModal}>
+                {t('common.close')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={handleClose2FAModal}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                onClick={handleSetup2FA}
+                isLoading={isSettingUp2FA}
+                leftIcon={<Shield className="h-4 w-4" />}
+              >
+                {t('profile.2fa.setup')}
+              </Button>
+            </div>
+          )
+        }
+      >
+        {user?.two_factor_enabled ? (
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              {t('profile.2fa.disableWarning')}
+            </p>
+            {twoFAError && (
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+                <AlertCircle className="h-4 w-4" />
+                {twoFAError}
+              </div>
+            )}
           </div>
         ) : twoFASetupData ? (
-          // Show QR code and recovery codes
           <div className="space-y-6">
             {twoFASetupData.provisioning_uri && (
               <div className="text-center">
@@ -625,15 +644,8 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
-
-            <div className="flex justify-end">
-              <Button onClick={handleClose2FAModal}>
-                {t('common.close')}
-              </Button>
-            </div>
           </div>
         ) : (
-          // Choose 2FA method
           <div className="space-y-6">
             <p className="text-gray-600 dark:text-gray-400">
               {t('profile.2fa.chooseMethod')}
@@ -689,19 +701,6 @@ export default function ProfilePage() {
                 {twoFAError}
               </div>
             )}
-
-            <div className="flex justify-end gap-3">
-              <Button variant="secondary" onClick={handleClose2FAModal}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleSetup2FA}
-                isLoading={isSettingUp2FA}
-                leftIcon={<Shield className="h-4 w-4" />}
-              >
-                {t('profile.2fa.setup')}
-              </Button>
-            </div>
           </div>
         )}
       </Modal>

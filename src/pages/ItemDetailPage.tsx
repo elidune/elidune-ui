@@ -14,6 +14,7 @@ import {
   Tag,
   Plus,
   Minus,
+  AlertCircle,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
@@ -23,29 +24,34 @@ import { canManageItems, type MediaType } from '@/types';
 import api from '@/services/api';
 import type { Item, Specimen, Author, Source } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS, STATUS_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
+import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
+import { getApiErrorCode } from '@/utils/apiError';
 import type { MediaTypeOption } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Helper function to get translation key for media type
-function getMediaTypeTranslationKey(mediaType: MediaType): string {
-  const keyMap: Record<MediaType, string> = {
-    'u': 'unknown',
-    'b': 'printedText',
-    'bc': 'comics',
-    'p': 'periodic',
-    'v': 'video',
-    'vt': 'videoTape',
-    'vd': 'videoDvd',
-    'a': 'audio',
-    'am': 'audioMusic',
-    'amt': 'audioMusicTape',
-    'amc': 'audioMusicCd',
-    'an': 'audioNonMusic',
-    'c': 'cdRom',
-    'i': 'images',
-    'm': 'multimedia',
+function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
+  if (!mediaType) return 'unknown';
+  const legacyMap: Record<string, string> = {
+    u: 'unknown',
+    b: 'printedText',
+    bc: 'comics',
+    p: 'periodic',
+    v: 'video',
+    vt: 'videoTape',
+    vd: 'videoDvd',
+    a: 'audio',
+    am: 'audioMusic',
+    amt: 'audioMusicTape',
+    amc: 'audioMusicCd',
+    an: 'audioNonMusic',
+    ant: 'audioNonMusicTape',
+    anc: 'audioNonMusicCd',
+    c: 'cdRom',
+    i: 'images',
+    m: 'multimedia',
   };
-  return keyMap[mediaType] || 'unknown';
+  return legacyMap[String(mediaType)] ?? String(mediaType);
 }
 
 /** Derive suggested call number from item: [CATEGORY]-[YEAR]-[AUTHOR]. */
@@ -70,6 +76,7 @@ export default function ItemDetailPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [item, setItem] = useState<Item | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,9 +85,14 @@ export default function ItemDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditSpecimenModal, setShowEditSpecimenModal] = useState(false);
   const [showDeleteSpecimenModal, setShowDeleteSpecimenModal] = useState(false);
+  const [isEditItemLoading, setIsEditItemLoading] = useState(false);
+  const [isAddSpecimenLoading, setIsAddSpecimenLoading] = useState(false);
+  const [isEditSpecimenLoading, setIsEditSpecimenLoading] = useState(false);
   const [selectedSpecimen, setSelectedSpecimen] = useState<Specimen | null>(null);
   const [deleteSpecimenBorrowedError, setDeleteSpecimenBorrowedError] = useState(false);
   const [deleteSpecimenLoading, setDeleteSpecimenLoading] = useState(false);
+  const [deleteItemBorrowedError, setDeleteItemBorrowedError] = useState(false);
+  const [deleteItemLoading, setDeleteItemLoading] = useState(false);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -99,13 +111,48 @@ export default function ItemDetailPage() {
     fetchItem();
   }, [id, navigate]);
 
-  const handleDelete = async () => {
+  const handleDelete = async (force = false) => {
     if (!item || item.id == null) return;
+    if (deleteItemLoading) return;
+    setDeleteItemLoading(true);
     try {
-      await api.deleteItem(item.id);
+      await api.deleteItem(item.id, force);
+      // Ensure deleted item disappears from cached catalog searches immediately.
+      queryClient.setQueriesData({ queryKey: ['items'] }, (old: any) => {
+        if (!old?.pages?.length) return old;
+        return {
+          ...old,
+          pages: old.pages.map((p: any) => {
+            if (!p?.items?.length) return p;
+            const nextItems = p.items.filter((it: any) => it?.id !== item.id);
+            const nextTotal = typeof p.total === 'number' ? Math.max(0, p.total - (p.items.length - nextItems.length)) : p.total;
+            return { ...p, items: nextItems, total: nextTotal };
+          }),
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ['items'] });
       navigate('/items');
-    } catch (error) {
-      console.error('Error deleting item:', error);
+    } catch (error: unknown) {
+      const code = getApiErrorCode(error);
+      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+      if (
+        !force &&
+        (
+          code === 13 ||
+          code === 21 ||
+          (
+            typeof msg === 'string' &&
+            msg.includes('borrowed specimens') &&
+            msg.includes('force=true')
+          )
+        )
+      ) {
+        setDeleteItemBorrowedError(true);
+      } else {
+        console.error('Error deleting item:', error);
+      }
+    } finally {
+      setDeleteItemLoading(false);
     }
   };
 
@@ -118,6 +165,35 @@ export default function ItemDetailPage() {
         return func ? `${name} (${func})` : name;
       })
       .join(', ');
+  };
+
+  const handleDeleteSpecimen = async (force: boolean) => {
+    if (!selectedSpecimen || !item || item.id == null) return;
+    setDeleteSpecimenLoading(true);
+    try {
+      await api.deleteSpecimen(item.id, selectedSpecimen.id, force);
+      setShowDeleteSpecimenModal(false);
+      setSelectedSpecimen(null);
+      setDeleteSpecimenBorrowedError(false);
+      api.getItem(item.id).then(setItem);
+    } catch (error: unknown) {
+      if (!force) {
+        const code = getApiErrorCode(error);
+        const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+        if (
+          code === 13 ||
+          (typeof msg === 'string' && (msg.includes('borrowed') || msg.includes('force=true')))
+        ) {
+          setDeleteSpecimenBorrowedError(true);
+        } else {
+          console.error('Error deleting specimen:', error);
+        }
+      } else {
+        console.error('Error force-deleting specimen:', error);
+      }
+    } finally {
+      setDeleteSpecimenLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -157,7 +233,7 @@ export default function ItemDetailPage() {
             <div className="flex items-center gap-2 mt-2">
               <Badge>
                 {item.media_type 
-                  ? t(`items.mediaType.${getMediaTypeTranslationKey(item.media_type as MediaType)}`)
+                  ? t(`items.mediaType.${getMediaTypeTranslationKey(item.media_type)}`)
                   : t('items.document')
                 }
               </Badge>
@@ -321,21 +397,42 @@ export default function ItemDetailPage() {
       {/* Delete confirmation modal */}
       <Modal
         isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
+        onClose={() => {
+          if (deleteItemLoading) return;
+          setShowDeleteModal(false);
+          setDeleteItemBorrowedError(false);
+        }}
         title="Confirmer la suppression"
         size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (deleteItemLoading) return;
+                setShowDeleteModal(false);
+                setDeleteItemBorrowedError(false);
+              }}
+            >
+              Annuler
+            </Button>
+            {deleteItemBorrowedError ? (
+              <Button variant="danger" disabled={deleteItemLoading} onClick={() => handleDelete(true)}>
+                {t('items.forceDeleteItem')}
+              </Button>
+            ) : (
+              <Button variant="danger" disabled={deleteItemLoading} onClick={() => handleDelete(false)}>
+                Supprimer
+              </Button>
+            )}
+          </div>
+        }
       >
-        <p className="text-gray-600 dark:text-gray-300 mb-6">
-          Êtes-vous sûr de vouloir supprimer "{item.title}" ? Cette action est irréversible.
+        <p className="text-gray-600 dark:text-gray-300">
+          {deleteItemBorrowedError
+            ? t('items.itemBorrowedForceDelete')
+            : t('items.deleteConfirm', { title: item.title || 'Sans titre' })}
         </p>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-            Annuler
-          </Button>
-          <Button variant="danger" onClick={handleDelete}>
-            Supprimer
-          </Button>
-        </div>
       </Modal>
 
       {/* Edit modal */}
@@ -344,9 +441,18 @@ export default function ItemDetailPage() {
         onClose={() => setShowEditModal(false)}
         title="Modifier le document"
         size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="submit" form="edit-item-form" isLoading={isEditItemLoading}>
+              {t('common.save')}
+            </Button>
+          </div>
+        }
       >
         <EditItemForm
+          formId="edit-item-form"
           item={item}
+          onLoadingChange={setIsEditItemLoading}
           onSuccess={(updatedItem) => {
             setItem(updatedItem);
             setShowEditModal(false);
@@ -359,12 +465,20 @@ export default function ItemDetailPage() {
         isOpen={showAddSpecimenModal}
         onClose={() => setShowAddSpecimenModal(false)}
         title={t('items.addSpecimen')}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="submit" form="add-specimen-form" isLoading={isAddSpecimenLoading}>
+              {t('common.add')}
+            </Button>
+          </div>
+        }
       >
         <AddSpecimenForm
+          formId="add-specimen-form"
           item={item}
+          onLoadingChange={setIsAddSpecimenLoading}
           onSuccess={() => {
             setShowAddSpecimenModal(false);
-            // Refresh item data
             if (item.id) api.getItem(item.id).then(setItem);
           }}
         />
@@ -378,15 +492,23 @@ export default function ItemDetailPage() {
           setSelectedSpecimen(null);
         }}
         title={t('items.editSpecimen')}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="submit" form="edit-specimen-form" isLoading={isEditSpecimenLoading}>
+              {t('common.save')}
+            </Button>
+          </div>
+        }
       >
         {selectedSpecimen && (
           <EditSpecimenForm
+            formId="edit-specimen-form"
             item={item}
             specimen={selectedSpecimen}
+            onLoadingChange={setIsEditSpecimenLoading}
             onSuccess={() => {
               setShowEditSpecimenModal(false);
               setSelectedSpecimen(null);
-              // Refresh item data
               if (item.id) api.getItem(item.id).then(setItem);
             }}
           />
@@ -403,76 +525,34 @@ export default function ItemDetailPage() {
         }}
         title={t('common.confirm')}
         size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowDeleteSpecimenModal(false);
+                setSelectedSpecimen(null);
+                setDeleteSpecimenBorrowedError(false);
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              disabled={deleteSpecimenLoading}
+              onClick={() => handleDeleteSpecimen(deleteSpecimenBorrowedError)}
+            >
+              {deleteSpecimenBorrowedError ? t('items.forceDeleteSpecimen') : t('common.delete')}
+            </Button>
+          </div>
+        }
       >
         {selectedSpecimen && (
-          <>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              {deleteSpecimenBorrowedError
-                ? t('items.specimenBorrowedForceDelete')
-                : t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setShowDeleteSpecimenModal(false);
-                  setSelectedSpecimen(null);
-                  setDeleteSpecimenBorrowedError(false);
-                }}
-              >
-                {t('common.cancel')}
-              </Button>
-              {deleteSpecimenBorrowedError ? (
-                <Button
-                  variant="danger"
-                  disabled={deleteSpecimenLoading}
-                  onClick={async () => {
-                    if (!selectedSpecimen || item.id == null) return;
-                    setDeleteSpecimenLoading(true);
-                    try {
-                      await api.deleteSpecimen(item.id, selectedSpecimen.id, true);
-                      setShowDeleteSpecimenModal(false);
-                      setSelectedSpecimen(null);
-                      setDeleteSpecimenBorrowedError(false);
-                      api.getItem(item.id).then(setItem);
-                    } catch (error) {
-                      console.error('Error force-deleting specimen:', error);
-                    } finally {
-                      setDeleteSpecimenLoading(false);
-                    }
-                  }}
-                >
-                  {t('items.forceDeleteSpecimen')}
-                </Button>
-              ) : (
-                <Button
-                  variant="danger"
-                  disabled={deleteSpecimenLoading}
-                  onClick={async () => {
-                    if (!selectedSpecimen || item.id == null) return;
-                    setDeleteSpecimenLoading(true);
-                    try {
-                      await api.deleteSpecimen(item.id, selectedSpecimen.id);
-                      setShowDeleteSpecimenModal(false);
-                      setSelectedSpecimen(null);
-                      api.getItem(item.id).then(setItem);
-                    } catch (error: unknown) {
-                      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
-                      if (typeof msg === 'string' && (msg.includes('borrowed') || msg.includes('force=true'))) {
-                        setDeleteSpecimenBorrowedError(true);
-                      } else {
-                        console.error('Error deleting specimen:', error);
-                      }
-                    } finally {
-                      setDeleteSpecimenLoading(false);
-                    }
-                  }}
-                >
-                  {t('common.delete')}
-                </Button>
-              )}
-            </div>
-          </>
+          <p className="text-gray-600 dark:text-gray-300">
+            {deleteSpecimenBorrowedError
+              ? t('items.specimenBorrowedForceDelete')
+              : t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
+          </p>
         )}
       </Modal>
     </div>
@@ -507,16 +587,18 @@ interface SpecimenCardProps {
 function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardProps) {
   const { t } = useTranslation();
 
-  const borrowStatusLabel =
-    specimen.borrow_status != null
-      ? STATUS_OPTIONS.find((o) => o.value === String(specimen.borrow_status))?.labelKey
-      : null;
-
   const getAvailabilityBadge = (availability?: number | null) => {
     if (availability === 0) return <Badge variant="success">{t('items.available')}</Badge>;
     if (availability === 1) return <Badge variant="warning">{t('items.borrowed')}</Badge>;
     return <Badge>{t('items.unavailable')}</Badge>;
   };
+
+  const borrowableBadge =
+    specimen.borrowable == null
+      ? null
+      : specimen.borrowable
+        ? <Badge variant="success">{t('items.borrowableYes')}</Badge>
+        : <Badge variant="danger">{t('items.borrowableNo')}</Badge>;
 
   return (
     <div className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -526,6 +608,7 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
         </p>
         <div className="flex items-center gap-2">
           {getAvailabilityBadge(specimen.availability)}
+          {borrowableBadge}
           {canManage && (
             <div className="flex gap-1">
               <button
@@ -552,9 +635,7 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
       {specimen.volume_designation && (
         <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.volumeDesignation')}: {specimen.volume_designation}</p>
       )}
-      {borrowStatusLabel != null && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.borrowStatus')}: {t(borrowStatusLabel)}</p>
-      )}
+     
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {t('items.source')}: {specimen.source_name ?? '—'}
       </p>
@@ -563,15 +644,16 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
 }
 
 interface EditItemFormProps {
+  formId: string;
   item: Item;
+  onLoadingChange: (loading: boolean) => void;
   onSuccess: (item: Item) => void;
 }
 
 type AuthorForm = { id: string; lastname: string; firstname: string; function: string };
 
-function EditItemForm({ item, onSuccess }: EditItemFormProps) {
+function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemFormProps) {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const toAuthorForm = (a: Author): AuthorForm => ({
     id: a.id,
@@ -587,7 +669,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
     abstract_: item.abstract_ || '',
     keywords: item.keywords || '',
     subject: item.subject || '',
-    media_type: (item.media_type || 'b') as MediaType,
+    media_type: (item.media_type || 'printedText') as MediaType,
     audience_type: item.audience_type?.toString() ?? '',
     lang: item.lang?.toString() ?? '',
     edition_publisher: item.edition?.publisher_name ?? '',
@@ -602,21 +684,21 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
   });
 
   const MEDIA_TYPES: MediaTypeOption[] = [
-    { value: 'u', label: t('items.mediaType.unknown') },
-    { value: 'b', label: t('items.mediaType.printedText') },
-    { value: 'bc', label: t('items.mediaType.comics') },
-    { value: 'p', label: t('items.mediaType.periodic') },
-    { value: 'v', label: t('items.mediaType.video') },
-    { value: 'vt', label: t('items.mediaType.videoTape') },
-    { value: 'vd', label: t('items.mediaType.videoDvd') },
-    { value: 'a', label: t('items.mediaType.audio') },
-    { value: 'am', label: t('items.mediaType.audioMusic') },
-    { value: 'amt', label: t('items.mediaType.audioMusicTape') },
-    { value: 'amc', label: t('items.mediaType.audioMusicCd') },
-    { value: 'an', label: t('items.mediaType.audioNonMusic') },
-    { value: 'c', label: t('items.mediaType.cdRom') },
-    { value: 'i', label: t('items.mediaType.images') },
-    { value: 'm', label: t('items.mediaType.multimedia') },
+    { value: 'unknown', label: t('items.mediaType.unknown') },
+    { value: 'printedText', label: t('items.mediaType.printedText') },
+    { value: 'comics', label: t('items.mediaType.comics') },
+    { value: 'periodic', label: t('items.mediaType.periodic') },
+    { value: 'video', label: t('items.mediaType.video') },
+    { value: 'videoTape', label: t('items.mediaType.videoTape') },
+    { value: 'videoDvd', label: t('items.mediaType.videoDvd') },
+    { value: 'audio', label: t('items.mediaType.audio') },
+    { value: 'audioMusic', label: t('items.mediaType.audioMusic') },
+    { value: 'audioMusicTape', label: t('items.mediaType.audioMusicTape') },
+    { value: 'audioMusicCd', label: t('items.mediaType.audioMusicCd') },
+    { value: 'audioNonMusic', label: t('items.mediaType.audioNonMusic') },
+    { value: 'cdRom', label: t('items.mediaType.cdRom') },
+    { value: 'images', label: t('items.mediaType.images') },
+    { value: 'multimedia', label: t('items.mediaType.multimedia') },
   ];
 
   const updateAuthor = (index: number, field: keyof AuthorForm, value: string) => {
@@ -637,7 +719,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (item.id == null) return;
-    setIsLoading(true);
+    onLoadingChange(true);
     try {
       const authorsPayload: Author[] = formData.authors.map((a) => ({
         id: a.id,
@@ -675,7 +757,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
     } catch (error) {
       console.error('Error updating item:', error);
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
@@ -727,7 +809,7 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <Input
         label={t('items.titleField')}
         value={formData.title}
@@ -885,30 +967,27 @@ function EditItemForm({ item, onSuccess }: EditItemFormProps) {
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          {t('common.save')}
-        </Button>
-      </div>
     </form>
   );
 }
 
 interface AddSpecimenFormProps {
+  formId: string;
   item: Item;
+  onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
 }
 
-function AddSpecimenForm({ item, onSuccess }: AddSpecimenFormProps) {
+function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecimenFormProps) {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
     barcode: '',
     call_number: '',
     volume_designation: '',
-    borrow_status: '' as string,
+    borrowable: '' as '' | 'true' | 'false',
     source_id: '',
   });
 
@@ -919,31 +998,48 @@ function AddSpecimenForm({ item, onSuccess }: AddSpecimenFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (item.id == null) return;
+    if (formData.barcode.trim() === '') {
+      setError(t('items.specimenBarcodeRequired'));
+      return;
+    }
     if (!validateCallNumber(formData.call_number)) return;
-    setIsLoading(true);
+    onLoadingChange(true);
+    setError(null);
     try {
       await api.createSpecimen(item.id, {
-        barcode: formData.barcode || undefined,
+        barcode: formData.barcode.trim(),
         call_number: formData.call_number || undefined,
         volume_designation: formData.volume_designation || undefined,
-        borrow_status: formData.borrow_status ? parseInt(formData.borrow_status, 10) : undefined,
+        borrowable:
+          formData.borrowable === ''
+            ? undefined
+            : formData.borrowable === 'true',
         source_id: formData.source_id || undefined,
       });
       onSuccess();
     } catch (error) {
       console.error('Error adding specimen:', error);
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <Input
         label={t('items.specimenBarcode')}
         value={formData.barcode}
-        onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+        onChange={(e) => {
+          setError(null);
+          setFormData({ ...formData, barcode: e.target.value });
+        }}
       />
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
       <CallNumberField
         label={t('items.callNumber')}
         value={formData.call_number}
@@ -977,46 +1073,40 @@ function AddSpecimenForm({ item, onSuccess }: AddSpecimenFormProps) {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('items.borrowStatus')}
+          {t('items.borrowable')}
         </label>
         <select
-          value={formData.borrow_status}
-          onChange={(e) => setFormData({ ...formData, borrow_status: e.target.value })}
+          value={formData.borrowable}
+          onChange={(e) => setFormData({ ...formData, borrowable: e.target.value as '' | 'true' | 'false' })}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         >
           <option value="">{t('items.notSpecified')}</option>
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t(opt.labelKey)}
-            </option>
-          ))}
+          <option value="true">{t('items.borrowableYes')}</option>
+          <option value="false">{t('items.borrowableNo')}</option>
         </select>
-      </div>
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          {t('common.add')}
-        </Button>
       </div>
     </form>
   );
 }
 
 interface EditSpecimenFormProps {
+  formId: string;
   item: Item;
   specimen: Specimen;
+  onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
 }
 
-function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) {
+function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }: EditSpecimenFormProps) {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
     barcode: specimen.barcode || '',
     call_number: specimen.call_number || '',
     volume_designation: specimen.volume_designation || '',
-    borrow_status: specimen.borrow_status != null ? String(specimen.borrow_status) : '',
+    borrowable: specimen.borrowable == null ? '' : specimen.borrowable ? 'true' : 'false',
     place: specimen.place != null ? String(specimen.place) : '',
     notes: specimen.notes || '',
     price: specimen.price || '',
@@ -1030,14 +1120,22 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (item.id == null) return;
+    if (formData.barcode.trim() === '') {
+      setError(t('items.specimenBarcodeRequired'));
+      return;
+    }
     if (!validateCallNumber(formData.call_number)) return;
-    setIsLoading(true);
+    onLoadingChange(true);
+    setError(null);
     try {
       await api.updateSpecimen(item.id, specimen.id, {
-        barcode: formData.barcode || undefined,
+        barcode: formData.barcode.trim(),
         call_number: formData.call_number || undefined,
         volume_designation: formData.volume_designation || undefined,
-        borrow_status: formData.borrow_status ? parseInt(formData.borrow_status, 10) : undefined,
+        borrowable:
+          formData.borrowable === ''
+            ? undefined
+            : formData.borrowable === 'true',
         place: formData.place ? parseInt(formData.place, 10) : undefined,
         notes: formData.notes || undefined,
         price: formData.price || undefined,
@@ -1047,17 +1145,26 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
     } catch (error) {
       console.error('Error updating specimen:', error);
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <Input
         label={t('items.specimenBarcode')}
         value={formData.barcode}
-        onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+        onChange={(e) => {
+          setError(null);
+          setFormData({ ...formData, barcode: e.target.value });
+        }}
       />
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
       <CallNumberField
         label={t('items.callNumber')}
         value={formData.call_number}
@@ -1092,19 +1199,16 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('items.borrowStatus')}
+          {t('items.borrowable')}
         </label>
         <select
-          value={formData.borrow_status}
-          onChange={(e) => setFormData({ ...formData, borrow_status: e.target.value })}
+          value={formData.borrowable}
+          onChange={(e) => setFormData({ ...formData, borrowable: e.target.value as '' | 'true' | 'false' })}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         >
           <option value="">{t('items.notSpecified')}</option>
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t(opt.labelKey)}
-            </option>
-          ))}
+          <option value="true">{t('items.borrowableYes')}</option>
+          <option value="false">{t('items.borrowableNo')}</option>
         </select>
       </div>
       <Input
@@ -1117,11 +1221,6 @@ function EditSpecimenForm({ item, specimen, onSuccess }: EditSpecimenFormProps) 
         value={formData.price}
         onChange={(e) => setFormData({ ...formData, price: e.target.value })}
       />
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          {t('common.save')}
-        </Button>
-      </div>
     </form>
   );
 }

@@ -4,8 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Mail, Phone, BookMarked, AlertTriangle, MapPin } from 'lucide-react';
 import { Card, Button, Table, Badge, Pagination, SearchInput, Modal, Input } from '@/components/common';
 import api from '@/services/api';
-import type { UserShort } from '@/types';
-import { PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
+import type { UserShort, PublicType } from '@/types';
 
 const USERS_PER_PAGE = 20;
 
@@ -14,11 +13,18 @@ export default function UsersPage() {
   const navigate = useNavigate();
 
   const [users, setUsers] = useState<UserShort[]>([]);
+  const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalUsers, setTotalUsers] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreateLoading, setIsCreateLoading] = useState(false);
+
+  useEffect(() => {
+    api.getPublicTypes().then(setPublicTypes).catch(() => {});
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -43,6 +49,7 @@ export default function UsersPage() {
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
+    setSearchDraft(value);
     setCurrentPage(1);
   };
 
@@ -67,9 +74,10 @@ export default function UsersPage() {
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {user.account_type}
-              {user.public_type && (
-                <> · {getCodeLabel(t, PUBLIC_TYPE_OPTIONS, user.public_type)}</>
-              )}
+              {user.public_type && (() => {
+                const pt = publicTypes.find((p) => p.id === user.public_type);
+                return pt ? <> · {pt.label}</> : null;
+              })()}
             </p>
           </div>
         </div>
@@ -128,9 +136,13 @@ export default function UsersPage() {
       {/* Search */}
       <Card>
         <SearchInput
-          value={searchQuery}
-          onChange={handleSearch}
+          value={searchDraft}
+          onChange={setSearchDraft}
           placeholder={t('users.searchPlaceholder')}
+          submitMode
+          onSubmit={handleSearch}
+          showSubmitButton
+          submitLabel={t('common.search')}
         />
       </Card>
 
@@ -161,23 +173,37 @@ export default function UsersPage() {
         onClose={() => setShowCreateModal(false)}
         title={t('users.newUser')}
         size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="submit" form="create-user-form" isLoading={isCreateLoading}>
+              {t('common.create')}
+            </Button>
+          </div>
+        }
       >
-        <CreateUserForm onSuccess={() => {
-          setShowCreateModal(false);
-          fetchUsers();
-        }} />
+        <CreateUserForm
+          formId="create-user-form"
+          publicTypes={publicTypes}
+          onLoadingChange={setIsCreateLoading}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            fetchUsers();
+          }}
+        />
       </Modal>
     </div>
   );
 }
 
 interface CreateUserFormProps {
+  formId: string;
+  publicTypes: PublicType[];
+  onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
 }
 
-function CreateUserForm({ onSuccess }: CreateUserFormProps) {
+function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: CreateUserFormProps) {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     login: '',
     password: '',
@@ -206,7 +232,7 @@ function CreateUserForm({ onSuccess }: CreateUserFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    onLoadingChange(true);
     try {
       const createData: Record<string, unknown> = {
         login: formData.login,
@@ -223,20 +249,20 @@ function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         addr_city: formData.addr_city || undefined,
         notes: formData.notes || undefined,
         fee: formData.fee || undefined,
-        group_id: formData.group_id ? parseInt(formData.group_id) : undefined,
-        public_type: formData.public_type ? parseInt(formData.public_type) : undefined,
+        group_id: formData.group_id ? formData.group_id : undefined,
+        public_type: formData.public_type || undefined,
       };
       await api.createUser(createData);
       onSuccess();
     } catch (error) {
       console.error('Error creating user:', error);
     } finally {
-      setIsLoading(false);
+      onLoadingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       {/* Identity */}
       <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
         {t('users.identity')}
@@ -368,9 +394,9 @@ function CreateUserForm({ onSuccess }: CreateUserFormProps) {
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             <option value="">{t('common.select')}</option>
-            {PUBLIC_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
+            {publicTypes.map((pt) => (
+              <option key={pt.id} value={pt.id}>
+                {pt.label}
               </option>
             ))}
           </select>
@@ -390,11 +416,6 @@ function CreateUserForm({ onSuccess }: CreateUserFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="submit" isLoading={isLoading}>
-          {t('common.create')}
-        </Button>
-      </div>
     </form>
   );
 }

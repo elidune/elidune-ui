@@ -1,6 +1,14 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, LANGUAGE_FLAGS, type SupportedLanguage } from '@/locales';
+import {
+  SUPPORTED_LANGUAGES,
+  LANGUAGE_NAMES,
+  LANGUAGE_FLAGS,
+  fromI18nLanguage,
+  fromServerLanguage,
+  toServerLanguage,
+  type SupportedLanguage,
+} from '@/locales';
 import { useAuth } from './AuthContext';
 import api from '@/services/api';
 
@@ -17,39 +25,29 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const { user, isAuthenticated } = useAuth();
-  const [language, setLanguageState] = useState<SupportedLanguage>(
-    (i18n.language?.substring(0, 2) as SupportedLanguage) || 'en'
-  );
+  const language = fromI18nLanguage(i18n.resolvedLanguage ?? i18n.language);
 
   // Sync language with user profile when authenticated
   useEffect(() => {
     if (isAuthenticated && user?.language) {
-      const userLang = user.language as SupportedLanguage;
+      const userLang = fromServerLanguage(user.language);
+      if (!userLang) return;
       if (SUPPORTED_LANGUAGES.includes(userLang) && userLang !== language) {
-        setLanguageState(userLang);
         i18n.changeLanguage(userLang);
       }
     }
   }, [isAuthenticated, user?.language, i18n, language]);
 
-  // Update i18n when language changes
-  useEffect(() => {
-    if (i18n.language !== language) {
-      i18n.changeLanguage(language);
-    }
-  }, [language, i18n]);
-
   const setLanguage = useCallback(async (lang: SupportedLanguage) => {
     if (!SUPPORTED_LANGUAGES.includes(lang)) return;
 
-    setLanguageState(lang);
     await i18n.changeLanguage(lang);
     localStorage.setItem('i18nextLng', lang);
 
     // Save to server if authenticated
     if (isAuthenticated) {
       try {
-        await api.updateProfile({ language: lang });
+        await api.updateProfile({ language: toServerLanguage(lang) });
       } catch (error) {
         console.error('Failed to save language preference to server:', error);
       }

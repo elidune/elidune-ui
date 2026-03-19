@@ -1,31 +1,64 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, Trash2, Server, BookOpen, Archive, Pencil, Merge, Package, Check, X, AlertTriangle } from 'lucide-react';
+import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen } from 'lucide-react';
 import { Card, CardHeader, Button, Input, Badge } from '@/components/common';
 import api from '@/services/api';
-import { getApiErrorMessage } from '@/utils/apiError';
-import type { Settings, LoanSettings, Z3950Server, MediaType, Source } from '@/types';
+import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
+import type {
+  Settings,
+  LoanSettings,
+  Z3950Server,
+  MediaType,
+  Source,
+  PublicType,
+  PublicTypeLoanSettings,
+  CreatePublicType,
+  UpdatePublicType,
+} from '@/types';
+
+const MEDIA_TYPE_VALUES: MediaType[] = [
+  'unknown',
+  'printedText',
+  'multimedia',
+  'comics',
+  'periodic',
+  'video',
+  'videoTape',
+  'videoDvd',
+  'audio',
+  'audioMusic',
+  'audioMusicTape',
+  'audioMusicCd',
+  'audioNonMusic',
+  'audioNonMusicTape',
+  'audioNonMusicCd',
+  'cdRom',
+  'images',
+];
 
 // Helper function to get translation key for media type
-function getMediaTypeTranslationKey(mediaType: MediaType): string {
-  const keyMap: Record<MediaType, string> = {
-    'u': 'unknown',
-    'b': 'printedText',
-    'bc': 'comics',
-    'p': 'periodic',
-    'v': 'video',
-    'vt': 'videoTape',
-    'vd': 'videoDvd',
-    'a': 'audio',
-    'am': 'audioMusic',
-    'amt': 'audioMusicTape',
-    'amc': 'audioMusicCd',
-    'an': 'audioNonMusic',
-    'c': 'cdRom',
-    'i': 'images',
-    'm': 'multimedia',
+function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
+  if (!mediaType) return 'unknown';
+  const legacyMap: Record<string, string> = {
+    u: 'unknown',
+    b: 'printedText',
+    bc: 'comics',
+    p: 'periodic',
+    v: 'video',
+    vt: 'videoTape',
+    vd: 'videoDvd',
+    a: 'audio',
+    am: 'audioMusic',
+    amt: 'audioMusicTape',
+    amc: 'audioMusicCd',
+    an: 'audioNonMusic',
+    ant: 'audioNonMusicTape',
+    anc: 'audioNonMusicCd',
+    c: 'cdRom',
+    i: 'images',
+    m: 'multimedia',
   };
-  return keyMap[mediaType] || 'unknown';
+  return legacyMap[String(mediaType)] ?? String(mediaType);
 }
 
 // ─── Source Editor Component ───────────────────────────────────────────────────
@@ -419,9 +452,567 @@ function SourceEditor() {
   );
 }
 
+// ─── Public Types Editor ───────────────────────────────────────────────────────
+function PublicTypesEditor() {
+  const { t } = useTranslation();
+  const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailsTab, setDetailsTab] = useState<'general' | 'overrides'>('general');
+  const [loanOverrides, setLoanOverrides] = useState<Record<string, PublicTypeLoanSettings[]>>({});
+
+  const clearMessages = () => {
+    setError(null);
+    setSuccessMsg(null);
+  };
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const fetchPublicTypes = useCallback(async () => {
+    try {
+      const data = await api.getPublicTypes();
+      setPublicTypes(data);
+      setError(null);
+    } catch {
+      setError(t('settings.publicTypes.errorLoad'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    fetchPublicTypes();
+  }, [fetchPublicTypes]);
+
+  const fetchOverrides = useCallback(async (id: string) => {
+    try {
+      const [, overrides] = await api.getPublicType(id);
+      setLoanOverrides((prev) => ({ ...prev, [id]: overrides }));
+    } catch {
+      setLoanOverrides((prev) => ({ ...prev, [id]: [] }));
+    }
+  }, []);
+
+  const toggleExpand = (id: string) => {
+    setExpandedId((prev) => {
+      const next = prev === id ? null : id;
+      if (next && next !== prev) setDetailsTab('general');
+      return next;
+    });
+    if (!loanOverrides[id]) fetchOverrides(id);
+  };
+
+  const handleCreate = async (data: CreatePublicType) => {
+    try {
+      await api.createPublicType(data);
+      showSuccess(t('settings.publicTypes.createSuccess'));
+      setShowCreateModal(false);
+      fetchPublicTypes();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t));
+    }
+  };
+
+  const handleUpdate = async (id: string, data: UpdatePublicType) => {
+    try {
+      await api.updatePublicType(id, data);
+      showSuccess(t('settings.publicTypes.updateSuccess'));
+      fetchPublicTypes();
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t));
+    }
+  };
+
+  const handleDelete = async (pt: PublicType) => {
+    if (!confirm(t('settings.publicTypes.deleteConfirm', { label: pt.label }))) return;
+    clearMessages();
+    try {
+      await api.deletePublicType(pt.id);
+      showSuccess(t('settings.publicTypes.deleteSuccess'));
+      setExpandedId((prev) => (prev === pt.id ? null : prev));
+      fetchPublicTypes();
+    } catch (err: unknown) {
+      if (getApiErrorCode(err) === 18) {
+        setError(t('settings.publicTypes.deleteError'));
+      } else {
+        setError(getApiErrorMessage(err, t));
+      }
+    }
+  };
+
+  const handleUpsertOverride = async (publicTypeId: string, mediaType: MediaType, duration: number, nbMax: number, nbRenews: number) => {
+    try {
+      await api.upsertPublicTypeLoanSetting(publicTypeId, {
+        media_type: mediaType,
+        duration: duration || null,
+        nb_max: nbMax || null,
+        nb_renews: nbRenews || null,
+      });
+      showSuccess(t('settings.publicTypes.overrideSuccess'));
+      fetchOverrides(publicTypeId);
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t));
+    }
+  };
+
+  const handleDeleteOverride = async (publicTypeId: string, mediaType: MediaType) => {
+    try {
+      await api.deletePublicTypeLoanSetting(publicTypeId, mediaType);
+      showSuccess(t('settings.publicTypes.overrideDeleted'));
+      fetchOverrides(publicTypeId);
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, t));
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader title={t('settings.publicTypes.title')} />
+        <div className="flex items-center justify-center h-24">
+          <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={t('settings.publicTypes.title')}
+        action={
+          <Button
+            size="sm"
+            variant="primary"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              clearMessages();
+              setShowCreateModal(true);
+            }}
+          >
+            {t('settings.publicTypes.add')}
+          </Button>
+        }
+      />
+      {error && (
+        <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {successMsg && (
+        <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+          <Check className="h-4 w-4 shrink-0" />
+          {successMsg}
+        </div>
+      )}
+      <div className="px-4 pb-4 space-y-2">
+        {publicTypes.length === 0 ? (
+          <p className="text-center text-gray-500 dark:text-gray-400 py-4">{t('settings.publicTypes.noTypes')}</p>
+        ) : (
+          publicTypes.map((pt) => (
+            <div
+              key={pt.id}
+              className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 overflow-hidden"
+            >
+              <div
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                onClick={() => toggleExpand(pt.id)}
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="h-4 w-4 text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-white">{pt.label}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">({pt.name})</span>
+                  <span className="text-xs text-gray-400">
+                    {pt.age_min != null && pt.age_max != null
+                      ? t('settings.publicTypes.ageRange', { min: pt.age_min, max: pt.age_max })
+                      : pt.subscription_price != null
+                        ? `${(pt.subscription_price / 100).toFixed(2)}€`
+                        : ''}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(pt)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                  <ChevronDown
+                    className={`h-4 w-4 text-gray-400 transition-transform ${expandedId === pt.id ? 'rotate-180' : ''}`}
+                  />
+                </div>
+              </div>
+              {expandedId === pt.id && (
+                <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-900/50">
+                  <div className="border-b border-gray-200 dark:border-gray-800 mb-4">
+                    <nav className="-mb-px flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setDetailsTab('general')}
+                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                          detailsTab === 'general'
+                            ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        {t('settings.publicTypes.general')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDetailsTab('overrides')}
+                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                          detailsTab === 'overrides'
+                            ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        {t('settings.publicTypes.loanOverrides')}
+                      </button>
+                    </nav>
+                  </div>
+
+                  {detailsTab === 'general' ? (
+                    <PublicTypeEditForm pt={pt} onSave={(data) => handleUpdate(pt.id, data)} />
+                  ) : (
+                    <LoanOverridesForm
+                      publicTypeId={pt.id}
+                      overrides={loanOverrides[pt.id] || []}
+                      onUpsert={handleUpsertOverride}
+                      onDelete={handleDeleteOverride}
+                      getMediaTypeKey={getMediaTypeTranslationKey}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      {showCreateModal && (
+        <PublicTypeCreateModal
+          onSave={handleCreate}
+          onCancel={() => setShowCreateModal(false)}
+        />
+      )}
+    </Card>
+  );
+}
+
+function PublicTypeEditForm({
+  pt,
+  onSave,
+}: {
+  pt: PublicType;
+  onSave: (data: UpdatePublicType) => void;
+}) {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({
+    name: pt.name,
+    label: pt.label,
+    subscription_duration_days: pt.subscription_duration_days ?? '',
+    age_min: pt.age_min ?? '',
+    age_max: pt.age_max ?? '',
+    subscription_price: pt.subscription_price != null ? (pt.subscription_price / 100).toString() : '',
+    max_loans: pt.max_loans ?? '',
+    loan_duration_days: pt.loan_duration_days ?? '',
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.name')}</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.label')}</label>
+          <input
+            type="text"
+            value={form.label}
+            onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {t('settings.publicTypes.subscriptionDurationDays')}
+          </label>
+          <input
+            type="number"
+            min="0"
+            placeholder="—"
+            value={form.subscription_duration_days}
+            onChange={(e) => setForm((f) => ({ ...f, subscription_duration_days: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.loanDurationDays')}</label>
+          <input
+            type="number"
+            min="0"
+            placeholder="—"
+            value={form.loan_duration_days}
+            onChange={(e) => setForm((f) => ({ ...f, loan_duration_days: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.ageMin')}</label>
+          <input
+            type="number"
+            min="0"
+            placeholder="—"
+            value={form.age_min}
+            onChange={(e) => setForm((f) => ({ ...f, age_min: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.ageMax')}</label>
+          <input
+            type="number"
+            min="0"
+            placeholder="—"
+            value={form.age_max}
+            onChange={(e) => setForm((f) => ({ ...f, age_max: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.subscriptionPrice')}</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="—"
+            value={form.subscription_price}
+            onChange={(e) => setForm((f) => ({ ...f, subscription_price: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.maxLoans')}</label>
+          <input
+            type="number"
+            min="0"
+            placeholder="—"
+            value={form.max_loans}
+            onChange={(e) => setForm((f) => ({ ...f, max_loans: e.target.value }))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="primary"
+          leftIcon={<Save className="h-4 w-4" />}
+          onClick={() =>
+            onSave({
+              name: form.name?.trim() || undefined,
+              label: form.label?.trim() || undefined,
+              subscription_duration_days: form.subscription_duration_days ? Number(form.subscription_duration_days) : null,
+              age_min: form.age_min ? Number(form.age_min) : null,
+              age_max: form.age_max ? Number(form.age_max) : null,
+              subscription_price: form.subscription_price ? Math.round(parseFloat(form.subscription_price) * 100) : null,
+              max_loans: form.max_loans ? Number(form.max_loans) : null,
+              loan_duration_days: form.loan_duration_days ? Number(form.loan_duration_days) : null,
+            })
+          }
+        >
+          {t('common.save')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function LoanOverridesForm({
+  publicTypeId,
+  overrides,
+  onUpsert,
+  onDelete,
+  getMediaTypeKey,
+}: {
+  publicTypeId: string;
+  overrides: PublicTypeLoanSettings[];
+  onUpsert: (id: string, mt: MediaType, duration: number, nbMax: number, nbRenews: number) => void;
+  onDelete: (id: string, mt: MediaType) => void;
+  getMediaTypeKey: (mt: MediaType | string) => string;
+}) {
+  const { t } = useTranslation();
+  const [newMediaType, setNewMediaType] = useState<MediaType>('periodic');
+  const [newDuration, setNewDuration] = useState(14);
+  const [newNbMax, setNewNbMax] = useState(3);
+  const [newNbRenews, setNewNbRenews] = useState(1);
+  const usedMediaTypes = new Set(overrides.map((o) => o.media_type));
+  const availableMediaTypes = MEDIA_TYPE_VALUES.filter((m) => !usedMediaTypes.has(m));
+
+  const handleAdd = () => {
+    if (!usedMediaTypes.has(newMediaType)) {
+      onUpsert(publicTypeId, newMediaType, newDuration, newNbMax, newNbRenews);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.publicTypes.loanOverrides')}</p>
+      {overrides.length > 0 && (
+        <ul className="space-y-1">
+          {overrides.map((o) => (
+            <li key={o.id} className="flex items-start gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => onDelete(publicTypeId, o.media_type)}
+                className="text-red-500 hover:text-red-700"
+                title={t('common.delete')}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <div className="flex-1">
+                <div className="font-medium text-gray-900 dark:text-gray-100">
+                  {t(`items.mediaType.${getMediaTypeKey(o.media_type)}`)}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                  <span>
+                    {t('settings.publicTypes.duration')}: <span className="font-medium">{o.duration}</span>
+                  </span>
+                  <span>
+                    {t('settings.publicTypes.nbMax')}: <span className="font-medium">{o.nb_max}</span>
+                  </span>
+                  <span>
+                    {t('settings.publicTypes.nbRenews')}: <span className="font-medium">{o.nb_renews}</span>
+                  </span>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {availableMediaTypes.length > 0 && (
+        <div className="flex items-end gap-4 flex-wrap">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.mediaType')}</label>
+            <select
+              value={newMediaType}
+              onChange={(e) => setNewMediaType(e.target.value as MediaType)}
+              className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm min-w-[120px]"
+            >
+              {availableMediaTypes.map((mt) => (
+                <option key={mt} value={mt}>{t(`items.mediaType.${getMediaTypeKey(mt)}`)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.duration')}</label>
+            <input
+              type="number"
+              value={newDuration}
+              onChange={(e) => setNewDuration(parseInt(e.target.value) || 0)}
+              className="w-16 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.nbMax')}</label>
+            <input
+              type="number"
+              value={newNbMax}
+              onChange={(e) => setNewNbMax(parseInt(e.target.value) || 0)}
+              className="w-14 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.nbRenews')}</label>
+            <input
+              type="number"
+              value={newNbRenews}
+              onChange={(e) => setNewNbRenews(parseInt(e.target.value) || 0)}
+              className="w-14 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            />
+          </div>
+          <Button size="sm" variant="secondary" onClick={handleAdd}>
+            {t('settings.publicTypes.addOverride')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePublicType) => void; onCancel: () => void }) {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({
+    name: '',
+    label: '',
+    subscription_duration_days: '',
+    age_min: '',
+    age_max: '',
+    subscription_price: '',
+    max_loans: '',
+    loan_duration_days: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.label.trim()) return;
+    onSave({
+      name: form.name.trim(),
+      label: form.label.trim(),
+      subscription_duration_days: form.subscription_duration_days ? Number(form.subscription_duration_days) : null,
+      age_min: form.age_min ? Number(form.age_min) : null,
+      age_max: form.age_max ? Number(form.age_max) : null,
+      subscription_price: form.subscription_price ? Math.round(parseFloat(form.subscription_price) * 100) : null,
+      max_loans: form.max_loans ? Number(form.max_loans) : null,
+      loan_duration_days: form.loan_duration_days ? Number(form.loan_duration_days) : null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t('settings.publicTypes.add')}</h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <Input label={t('settings.publicTypes.name')} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+          <Input label={t('settings.publicTypes.label')} value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} required />
+          <Input label={t('settings.publicTypes.subscriptionDurationDays')} type="number" value={form.subscription_duration_days} onChange={(e) => setForm((f) => ({ ...f, subscription_duration_days: e.target.value }))} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('settings.publicTypes.ageMin')} type="number" value={form.age_min} onChange={(e) => setForm((f) => ({ ...f, age_min: e.target.value }))} />
+            <Input label={t('settings.publicTypes.ageMax')} type="number" value={form.age_max} onChange={(e) => setForm((f) => ({ ...f, age_max: e.target.value }))} />
+          </div>
+          <Input label={t('settings.publicTypes.subscriptionPrice')} type="number" step="0.01" min="0" value={form.subscription_price} onChange={(e) => setForm((f) => ({ ...f, subscription_price: e.target.value }))} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label={t('settings.publicTypes.maxLoans')} type="number" value={form.max_loans} onChange={(e) => setForm((f) => ({ ...f, max_loans: e.target.value }))} />
+            <Input label={t('settings.publicTypes.loanDurationDays')} type="number" value={form.loan_duration_days} onChange={(e) => setForm((f) => ({ ...f, loan_duration_days: e.target.value }))} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={onCancel}>{t('common.cancel')}</Button>
+            <Button type="submit" variant="primary">{t('common.create')}</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+type SettingsTab = 'loans' | 'sources' | 'publicTypes' | 'z3950';
+
 // ─── Settings Page ─────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('loans');
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -489,6 +1080,13 @@ export default function SettingsPage() {
     );
   }
 
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'loans', label: t('settings.loanSettings'), icon: <BookOpen className="h-5 w-5" /> },
+    { id: 'publicTypes', label: t('settings.publicTypes.title'), icon: <Users className="h-5 w-5" /> },
+    { id: 'sources', label: t('settings.sources.title'), icon: <Package className="h-5 w-5" /> },
+    { id: 'z3950', label: t('settings.z3950Servers'), icon: <Server className="h-5 w-5" /> },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -496,15 +1094,65 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400">{t('settings.subtitle')}</p>
         </div>
-        <Button onClick={handleSave} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>
-          {t('common.save')}
-        </Button>
+        {(activeTab === 'loans' || activeTab === 'z3950') && (
+          <Button onClick={handleSave} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>
+            {t('common.save')}
+          </Button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-800">
+        <nav className="-mb-px flex flex-wrap gap-1 sm:gap-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                activeTab === tab.id
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* Loan settings */}
+      {activeTab === 'loans' && (
       <Card>
         <CardHeader
           title={t('settings.loanSettings')}
+          action={
+            <Button
+              size="sm"
+              variant="secondary"
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={() => {
+                const usedTypes = new Set(settings.loan_settings.map((s) => s.media_type));
+                const firstUnused = MEDIA_TYPE_VALUES.find((m) => !usedTypes.has(m));
+                if (firstUnused) {
+                  setSettings({
+                    ...settings,
+                    loan_settings: [
+                      ...settings.loan_settings,
+                      {
+                        media_type: firstUnused,
+                        max_loans: 5,
+                        max_renewals: 2,
+                        duration_days: 21,
+                      },
+                    ],
+                  });
+                }
+              }}
+            >
+              {t('common.add')}
+            </Button>
+          }
         />
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -522,24 +1170,30 @@ export default function SettingsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                   {t('settings.maxRenewals')}
                 </th>
+                <th className="px-4 py-3 w-12" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {settings.loan_settings.map((setting, index) => (
-                <tr key={setting.media_type}>
+                <tr key={`${setting.media_type}-${index}`}>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-gray-400" />
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {t(`items.mediaType.${getMediaTypeTranslationKey(setting.media_type)}`)}
-                      </span>
-                    </div>
+                    <select
+                      value={setting.media_type}
+                      onChange={(e) => updateLoanSetting(index, 'media_type', e.target.value as MediaType)}
+                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[140px]"
+                    >
+                      {MEDIA_TYPE_VALUES.map((mt) => (
+                        <option key={mt} value={mt}>
+                          {t(`items.mediaType.${getMediaTypeTranslationKey(mt)}`)}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"
                       value={setting.duration_days}
-                      onChange={(e) => updateLoanSetting(index, 'duration_days', parseInt(e.target.value))}
+                      onChange={(e) => updateLoanSetting(index, 'duration_days', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={1}
                     />
@@ -548,7 +1202,7 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       value={setting.max_loans}
-                      onChange={(e) => updateLoanSetting(index, 'max_loans', parseInt(e.target.value))}
+                      onChange={(e) => updateLoanSetting(index, 'max_loans', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={1}
                     />
@@ -557,10 +1211,25 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       value={setting.max_renewals}
-                      onChange={(e) => updateLoanSetting(index, 'max_renewals', parseInt(e.target.value))}
+                      onChange={(e) => updateLoanSetting(index, 'max_renewals', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={0}
                     />
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettings({
+                          ...settings,
+                          loan_settings: settings.loan_settings.filter((_, i) => i !== index),
+                        });
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                      title={t('common.delete')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -568,11 +1237,16 @@ export default function SettingsPage() {
           </table>
         </div>
       </Card>
+      )}
 
       {/* Sources */}
-      <SourceEditor />
+      {activeTab === 'sources' && <SourceEditor />}
+
+      {/* Public types */}
+      {activeTab === 'publicTypes' && <PublicTypesEditor />}
 
       {/* Z39.50 servers */}
+      {activeTab === 'z3950' && (
       <Card>
         <CardHeader
           title={t('settings.z3950Servers')}
@@ -689,6 +1363,7 @@ export default function SettingsPage() {
           ))}
         </div>
       </Card>
+      )}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/common';
 import { validateCallNumber } from '@/utils/callNumber';
 
 interface CallNumberFieldProps {
@@ -60,7 +59,7 @@ export default function CallNumberField({
           {label}
         </label>
       )}
-      <div className="relative flex items-center gap-1">
+      <div className="relative">
         <input
           id={inputId}
           value={displayValue}
@@ -81,16 +80,14 @@ export default function CallNumberField({
           `}
         />
         {showAutofillButton && (
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
             onClick={handleResetToSuggestion}
-            className="shrink-0 p-1.5 rounded-md text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-800"
             title={value === '' ? t('items.fillCallNumber') : t('items.resetCallNumber')}
           >
             <RotateCcw className="h-4 w-4" />
-          </Button>
+          </button>
         )}
       </div>
       {validationError && (

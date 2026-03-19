@@ -27,25 +27,28 @@ import type { Stats, AdvancedStatsParams, MediaType, MediaTypeOption, StatsInter
 import { translateStatLabel } from '@/utils/codeLabels';
 
 // Helper function to get translation key for media type
-function getMediaTypeTranslationKey(mediaType: MediaType): string {
-  const keyMap: Record<MediaType, string> = {
-    'u': 'unknown',
-    'b': 'printedText',
-    'bc': 'comics',
-    'p': 'periodic',
-    'v': 'video',
-    'vt': 'videoTape',
-    'vd': 'videoDvd',
-    'a': 'audio',
-    'am': 'audioMusic',
-    'amt': 'audioMusicTape',
-    'amc': 'audioMusicCd',
-    'an': 'audioNonMusic',
-    'c': 'cdRom',
-    'i': 'images',
-    'm': 'multimedia',
+function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
+  if (!mediaType) return 'unknown';
+  const legacyMap: Record<string, string> = {
+    u: 'unknown',
+    b: 'printedText',
+    bc: 'comics',
+    p: 'periodic',
+    v: 'video',
+    vt: 'videoTape',
+    vd: 'videoDvd',
+    a: 'audio',
+    am: 'audioMusic',
+    amt: 'audioMusicTape',
+    amc: 'audioMusicCd',
+    an: 'audioNonMusic',
+    ant: 'audioNonMusicTape',
+    anc: 'audioNonMusicCd',
+    c: 'cdRom',
+    i: 'images',
+    m: 'multimedia',
   };
-  return keyMap[mediaType] || 'unknown';
+  return legacyMap[String(mediaType)] ?? String(mediaType);
 }
 
 interface LoanTimeData {
@@ -109,21 +112,21 @@ export default function StatsPage() {
 
   const MEDIA_TYPES: MediaTypeOption[] = [
     { value: '', label: t('stats.allTypes') },
-    { value: 'u', label: t('items.mediaType.unknown') },
-    { value: 'b', label: t('items.mediaType.printedText') },
-    { value: 'bc', label: t('items.mediaType.comics') },
-    { value: 'p', label: t('items.mediaType.periodic') },
-    { value: 'v', label: t('items.mediaType.video') },
-    { value: 'vt', label: t('items.mediaType.videoTape') },
-    { value: 'vd', label: t('items.mediaType.videoDvd') },
-    { value: 'a', label: t('items.mediaType.audio') },
-    { value: 'am', label: t('items.mediaType.audioMusic') },
-    { value: 'amt', label: t('items.mediaType.audioMusicTape') },
-    { value: 'amc', label: t('items.mediaType.audioMusicCd') },
-    { value: 'an', label: t('items.mediaType.audioNonMusic') },
-    { value: 'c', label: t('items.mediaType.cdRom') },
-    { value: 'i', label: t('items.mediaType.images') },
-    { value: 'm', label: t('items.mediaType.multimedia') },
+    { value: 'unknown', label: t('items.mediaType.unknown') },
+    { value: 'printedText', label: t('items.mediaType.printedText') },
+    { value: 'comics', label: t('items.mediaType.comics') },
+    { value: 'periodic', label: t('items.mediaType.periodic') },
+    { value: 'video', label: t('items.mediaType.video') },
+    { value: 'videoTape', label: t('items.mediaType.videoTape') },
+    { value: 'videoDvd', label: t('items.mediaType.videoDvd') },
+    { value: 'audio', label: t('items.mediaType.audio') },
+    { value: 'audioMusic', label: t('items.mediaType.audioMusic') },
+    { value: 'audioMusicTape', label: t('items.mediaType.audioMusicTape') },
+    { value: 'audioMusicCd', label: t('items.mediaType.audioMusicCd') },
+    { value: 'audioNonMusic', label: t('items.mediaType.audioNonMusic') },
+    { value: 'cdRom', label: t('items.mediaType.cdRom') },
+    { value: 'images', label: t('items.mediaType.images') },
+    { value: 'multimedia', label: t('items.mediaType.multimedia') },
   ];
 
   const INTERVALS: { value: StatsInterval; label: string }[] = [
