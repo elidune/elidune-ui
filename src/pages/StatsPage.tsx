@@ -10,6 +10,7 @@ import {
   Library,
   ChevronDown,
   ChevronRight,
+  TrendingUp,
 } from 'lucide-react';
 import {
   XAxis,
@@ -59,6 +60,7 @@ interface LoanTimeData {
 
 type UserStatsData = UserLoanStats;
 
+type StatsDetailTab = 'catalog' | 'users' | 'loans';
 
 export default function StatsPage() {
   const { t, i18n } = useTranslation();
@@ -85,7 +87,7 @@ export default function StatsPage() {
   
   // Timeline state
   const [timelineData, setTimelineData] = useState<LoanTimeData[]>([]);
-  const [isLoadingTimeline, setIsLoadingTimeline] = useState(true);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
 
   const currentYear = new Date().getFullYear();
 
@@ -102,11 +104,12 @@ export default function StatsPage() {
   const [userStatsMode, setUserStatsMode] = useState<UserStatsMode>('aggregate');
   const [userStats, setUserStats] = useState<UserStatsData[]>([]);
   const [userStatsAggregate, setUserStatsAggregate] = useState<UserAggregateStats | null>(null);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [userSortBy, setUserSortBy] = useState<'total_loans' | 'active_loans' | 'overdue_loans'>('total_loans');
   const [userStatsLimit, setUserStatsLimit] = useState(20);
   const [userStatsLeaderboardYear, setUserStatsLeaderboardYear] = useState<number | 'all'>('all');
   const [userStatsAggregateYear, setUserStatsAggregateYear] = useState<number | 'all'>('all');
+  const [statsDetailTab, setStatsDetailTab] = useState<StatsDetailTab>('catalog');
 
   const yearOptions = Array.from({ length: 5 }, (_, index) => currentYear - index);
 
@@ -171,15 +174,16 @@ export default function StatsPage() {
     fetchStats();
   }, []);
 
-  // Fetch advanced stats
+  // Fetch advanced stats (loans tab only)
   useEffect(() => {
-    if (!statsParams) {
+    if (statsDetailTab !== 'loans' || !statsParams) {
       return;
     }
 
+    setIsLoadingAdvancedStats(true);
+    setIsLoadingTimeline(true);
+
     const fetchAdvancedStats = async () => {
-      setIsLoadingAdvancedStats(true);
-      setIsLoadingTimeline(true);
       try {
         const response = await api.getLoanStats(statsParams);
         setTimelineData(response.time_series.map(item => ({
@@ -197,7 +201,7 @@ export default function StatsPage() {
     };
 
     fetchAdvancedStats();
-  }, [statsParams]);
+  }, [statsDetailTab, statsParams]);
 
   // Helper function to convert year to start_date and end_date
   const yearToDateRange = (year: number) => {
@@ -211,8 +215,12 @@ export default function StatsPage() {
     };
   };
 
-  // Fetch catalog stats from API
+  // Fetch catalog stats from API (catalog tab only)
   useEffect(() => {
+    if (statsDetailTab !== 'catalog') {
+      return;
+    }
+
     const fetchCatalogStats = async () => {
       setIsLoadingCatalogStats(true);
       try {
@@ -246,12 +254,17 @@ export default function StatsPage() {
     };
 
     fetchCatalogStats();
-  }, [catalogStatsYear, catalogStatsBySource, catalogStatsByMediaType, catalogStatsByPublicType]);
+  }, [statsDetailTab, catalogStatsYear, catalogStatsBySource, catalogStatsByMediaType, catalogStatsByPublicType]);
 
-  // Fetch user stats from API (leaderboard or aggregate)
+  // Fetch user stats from API (users tab only)
   useEffect(() => {
+    if (statsDetailTab !== 'users') {
+      return;
+    }
+
+    setIsLoadingUsers(true);
+
     const fetchUserStats = async () => {
-      setIsLoadingUsers(true);
       try {
         if (userStatsMode === 'aggregate') {
           const params: {
@@ -302,7 +315,7 @@ export default function StatsPage() {
     };
 
     fetchUserStats();
-  }, [userStatsMode, userSortBy, userStatsLimit, userStatsLeaderboardYear, userStatsAggregateYear]);
+  }, [statsDetailTab, userStatsMode, userSortBy, userStatsLimit, userStatsLeaderboardYear, userStatsAggregateYear]);
 
   const formatDate = (dateStr: string) => {
     const interval = statsParams?.interval || 'day';
@@ -436,7 +449,56 @@ export default function StatsPage() {
         />
       </div>
 
-      {/* Catalog statistics (GET /stats/catalog) */}
+      <div>
+        <div className="border-b border-gray-200 dark:border-gray-800">
+          <nav className="-mb-px flex flex-wrap gap-x-2 sm:gap-x-8" aria-label={t('stats.title')}>
+            <button
+              type="button"
+              onClick={() => setStatsDetailTab('catalog')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                statsDetailTab === 'catalog'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Library className="h-5 w-5 shrink-0" />
+                {t('stats.catalogSection.title')}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsDetailTab('users')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                statsDetailTab === 'users'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 shrink-0" />
+                {t('stats.usersSection.title')}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsDetailTab('loans')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                statsDetailTab === 'loans'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 shrink-0" />
+                {t('stats.loansEvolution')}
+              </div>
+            </button>
+          </nav>
+        </div>
+
+        <div className="pt-4">
+      {statsDetailTab === 'catalog' && (
       <Card padding="none">
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex flex-col gap-4">
@@ -541,8 +603,9 @@ export default function StatsPage() {
           </div>
         )}
       </Card>
+      )}
 
-      {/* User statistics (GET /stats/users: leaderboard or aggregate) */}
+      {statsDetailTab === 'users' && (
       <Card padding="none">
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex flex-col gap-4">
@@ -722,8 +785,9 @@ export default function StatsPage() {
           />
         )}
       </Card>
+      )}
 
-      {/* Timeline chart */}
+      {statsDetailTab === 'loans' && (
       <Card>
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
           <CardHeader
@@ -873,6 +937,9 @@ export default function StatsPage() {
           </div>
         </div>
       </Card>
+      )}
+        </div>
+      </div>
     </div>
   );
 }

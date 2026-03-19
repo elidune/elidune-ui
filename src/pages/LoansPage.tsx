@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   User,
   BookMarked,
@@ -11,16 +12,34 @@ import {
   AlertTriangle,
   Calendar,
   BookOpen,
+  Bell,
+  Send,
+  FlaskConical,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Table, Input, Modal } from '@/components/common';
+import Pagination from '@/components/common/Pagination';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
-import type { User as UserType, Loan, UserShort } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/types';
+import type { User as UserType, Loan, UserShort, OverdueLoanInfo, ReminderReport } from '@/types';
 
-type TabType = 'borrow' | 'return';
+type TabType = 'borrow' | 'return' | 'overdue';
+
+function maxReminderSentAt(loans: OverdueLoanInfo[]): string | null {
+  let best: string | null = null;
+  for (const l of loans) {
+    const t = l.last_reminder_sent_at;
+    if (!t) continue;
+    if (!best || t > best) best = t;
+  }
+  return best;
+}
 
 export default function LoansPage() {
   const { t } = useTranslation();
+  const { user: authUser } = useAuth();
+  const userIsAdmin = isAdmin(authUser?.account_type);
   const [activeTab, setActiveTab] = useState<TabType>('borrow');
   
   // Borrow section state
@@ -42,6 +61,68 @@ export default function LoansPage() {
   const [returnResult, setReturnResult] = useState<{ status: string; loan: Loan } | null>(null);
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   const [returnError, setReturnError] = useState('');
+
+  const [overduePage, setOverduePage] = useState(1);
+  const [overduePerPage, setOverduePerPage] = useState(50);
+  const [overdueData, setOverdueData] = useState<{ loans: OverdueLoanInfo[]; total: number } | null>(null);
+  const [overdueLoading, setOverdueLoading] = useState(false);
+  const [overdueError, setOverdueError] = useState<string | null>(null);
+  const [reminderReport, setReminderReport] = useState<ReminderReport | null>(null);
+  const [reminderSending, setReminderSending] = useState(false);
+
+  const loadOverdue = useCallback(async () => {
+    setOverdueLoading(true);
+    setOverdueError(null);
+    try {
+      const data = await api.getOverdueLoans({ page: overduePage, per_page: overduePerPage });
+      setOverdueData({ loans: data.loans, total: Number(data.total) });
+    } catch (e: unknown) {
+      setOverdueError(getApiErrorMessage(e, t) || t('loans.overdueLoadError'));
+      setOverdueData(null);
+    } finally {
+      setOverdueLoading(false);
+    }
+  }, [t, overduePage, overduePerPage]);
+
+  useEffect(() => {
+    if (activeTab !== 'overdue') return;
+    void loadOverdue();
+  }, [activeTab, loadOverdue]);
+
+  const overdueByUser = useMemo(() => {
+    if (!overdueData?.loans.length) return [];
+    const m = new Map<number, OverdueLoanInfo[]>();
+    for (const loan of overdueData.loans) {
+      const list = m.get(loan.user_id) ?? [];
+      list.push(loan);
+      m.set(loan.user_id, list);
+    }
+    return Array.from(m.entries()).sort((a, b) => {
+      const fa = `${a[1][0]?.lastname ?? ''} ${a[1][0]?.firstname ?? ''}`.trim();
+      const fb = `${b[1][0]?.lastname ?? ''} ${b[1][0]?.firstname ?? ''}`.trim();
+      return fa.localeCompare(fb, undefined, { sensitivity: 'base' });
+    });
+  }, [overdueData?.loans]);
+
+  const overdueTotalPages = overdueData
+    ? Math.max(1, Math.ceil(overdueData.total / overduePerPage))
+    : 1;
+
+  const handleSendReminders = async (dryRun: boolean) => {
+    if (!dryRun && !confirm(t('loans.sendRemindersConfirm'))) return;
+    setReminderSending(true);
+    setReminderReport(null);
+    setOverdueError(null);
+    try {
+      const report = await api.sendOverdueReminders({ dry_run: dryRun });
+      setReminderReport(report);
+      if (!dryRun) void loadOverdue();
+    } catch (e: unknown) {
+      setOverdueError(getApiErrorMessage(e, t) || t('loans.sendRemindersError'));
+    } finally {
+      setReminderSending(false);
+    }
+  };
 
   const handleUserSearch = async () => {
     const query = userSearchDraft.trim();
@@ -307,6 +388,7 @@ export default function LoansPage() {
               setActiveTab('borrow');
               setReturnResult(null);
               setReturnError('');
+              setReminderReport(null);
             }}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'borrow'
@@ -324,6 +406,7 @@ export default function LoansPage() {
               setActiveTab('return');
               setReturnResult(null);
               setReturnError('');
+              setReminderReport(null);
             }}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'return'
@@ -334,6 +417,24 @@ export default function LoansPage() {
             <div className="flex items-center gap-2">
               <Check className="h-5 w-5" />
               {t('loans.return')}
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('overdue');
+              setReturnResult(null);
+              setReturnError('');
+              setReminderReport(null);
+            }}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'overdue'
+                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              {t('loans.overdueTab')}
             </div>
           </button>
         </nav>
@@ -713,6 +814,194 @@ export default function LoansPage() {
             )}
           </div>
         </Card>
+      )}
+
+      {activeTab === 'overdue' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader
+              title={t('loans.overdueTab')}
+              action={
+                userIsAdmin ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<FlaskConical className="h-4 w-4" />}
+                      isLoading={reminderSending}
+                      onClick={() => void handleSendReminders(true)}
+                    >
+                      {t('loans.remindersDryRun')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      leftIcon={<Send className="h-4 w-4" />}
+                      isLoading={reminderSending}
+                      onClick={() => void handleSendReminders(false)}
+                    >
+                      {t('loans.sendOverdueReminders')}
+                    </Button>
+                  </div>
+                ) : null
+              }
+            />
+            <div className="px-4 pb-2 space-y-2">
+              {!userIsAdmin && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.remindersAdminOnly')}</p>
+              )}
+              {overdueError && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  {overdueError}
+                </div>
+              )}
+            </div>
+            {reminderReport && (
+              <div className="mx-4 mb-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-900/20 p-4 text-sm space-y-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {reminderReport.dry_run ? t('loans.reminderDryRunResult') : t('loans.reminderSendResult')}
+                </p>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {t('loans.reminderReportEmails', { count: reminderReport.emails_sent })} ·{' '}
+                  {t('loans.reminderReportLoans', { count: reminderReport.loans_reminded })}
+                </p>
+                {reminderReport.details.length > 0 && (
+                  <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 max-h-40 overflow-y-auto">
+                    {reminderReport.details.map((d) => (
+                      <li key={d.user_id}>
+                        {d.firstname} {d.lastname} ({d.email}) — {d.loan_count}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {reminderReport.errors.length > 0 && (
+                  <ul className="text-red-700 dark:text-red-400 text-xs space-y-1">
+                    {reminderReport.errors.map((e) => (
+                      <li key={`${e.user_id}-${e.email}`}>
+                        {e.email}: {e.error_message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <div className="px-4 pb-4 space-y-4">
+              {overdueLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : overdueByUser.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">{t('loans.noOverdueLoans')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {overdueByUser.map(([uid, loans]) => {
+                    const u = loans[0];
+                    const lastAny = maxReminderSentAt(loans);
+                    return (
+                      <details
+                        key={uid}
+                        className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 overflow-hidden"
+                      >
+                        <summary className="cursor-pointer list-none px-4 py-3 flex flex-wrap items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800">
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            <Link
+                              to={`/users/${uid}`}
+                              className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {u.firstname} {u.lastname}
+                            </Link>
+                          </span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{u.user_email ?? '—'}</span>
+                          <Badge variant="danger">
+                            {t('loans.overdueLoansCount', { count: loans.length })}
+                          </Badge>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('loans.lastReminderAny')}:{' '}
+                            {lastAny
+                              ? new Date(lastAny).toLocaleString('fr-FR')
+                              : t('loans.neverReminded')}
+                          </span>
+                        </summary>
+                        <div className="border-t border-gray-200 dark:border-gray-700 overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gray-50 dark:bg-gray-900/50 text-left text-gray-600 dark:text-gray-400">
+                                <th className="px-3 py-2">{t('loans.document')}</th>
+                                <th className="px-3 py-2">{t('loans.specimenBarcode')}</th>
+                                <th className="px-3 py-2">{t('loans.dueDate')}</th>
+                                <th className="px-3 py-2">{t('loans.lastReminderAt')}</th>
+                                <th className="px-3 py-2">{t('loans.reminderCount')}</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                              {loans.map((row) => (
+                                <tr key={row.loan_id}>
+                                  <td className="px-3 py-2">
+                                    <div className="font-medium text-gray-900 dark:text-white">
+                                      {row.title || t('loans.noTitle')}
+                                    </div>
+                                    {row.authors && (
+                                      <div className="text-xs text-gray-500 dark:text-gray-400">{row.authors}</div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 font-mono text-xs">{row.specimen_barcode ?? '—'}</td>
+                                  <td className="px-3 py-2 whitespace-nowrap">
+                                    {row.issue_at
+                                      ? new Date(row.issue_at).toLocaleDateString('fr-FR')
+                                      : '—'}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap">
+                                    {row.last_reminder_sent_at
+                                      ? new Date(row.last_reminder_sent_at).toLocaleString('fr-FR')
+                                      : t('loans.neverReminded')}
+                                  </td>
+                                  <td className="px-3 py-2">{row.reminder_count}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              )}
+              {overdueData && overdueData.total > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('loans.overdueTotal', { total: overdueData.total })}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      {t('common.perPage')}
+                      <select
+                        value={overduePerPage}
+                        onChange={(e) => {
+                          setOverduePerPage(Number(e.target.value));
+                          setOverduePage(1);
+                        }}
+                        className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-sm"
+                      >
+                        {[25, 50, 100, 200].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Pagination
+                      currentPage={overduePage}
+                      totalPages={overdueTotalPages}
+                      onPageChange={setOverduePage}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   );

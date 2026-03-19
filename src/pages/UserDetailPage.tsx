@@ -978,8 +978,8 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
         addr_city: formData.addr_city || undefined,
         notes: formData.notes || undefined,
         fee: formData.fee || undefined,
-        group_id: formData.group_id ? parseInt(formData.group_id) : undefined,
-        public_type: formData.public_type || undefined,
+        group_id: formData.group_id ? String(formData.group_id) : undefined,
+        public_type: formData.public_type ? String(formData.public_type) : undefined,
         status: formData.status ? parseInt(formData.status) : undefined,
         account_type: formData.account_type || undefined,
       };
@@ -1129,7 +1129,7 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
           >
             <option value="">{t('common.select')}</option>
             {publicTypes.map((pt) => (
-              <option key={pt.id} value={pt.id}>
+              <option key={pt.id} value={String(pt.id)}>
                 {pt.label}
               </option>
             ))}

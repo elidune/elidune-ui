@@ -588,4 +588,83 @@ export const canViewStats = (accountType?: string): boolean =>
 export const canManageSettings = (accountType?: string): boolean => 
   isAdmin(accountType);
 
+// Admin dynamic config (GET/PUT/DELETE /admin/config)
+export type AdminConfigSectionKey = 'email' | 'logging' | 'reminders' | 'audit';
+
+export interface ConfigSectionInfo {
+  key: string;
+  value: Record<string, unknown>;
+  overridden: boolean;
+  overridable: boolean;
+}
+
+export interface AdminConfigResponse {
+  sections: ConfigSectionInfo[];
+}
+
+// Audit log
+export interface AuditLogEntry {
+  id: number;
+  event_type: string;
+  user_id: number | null;
+  entity_type: string | null;
+  entity_id: number | null;
+  ip_address: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface AuditLogPage {
+  entries: AuditLogEntry[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+// Overdue loans dashboard
+export interface OverdueLoanInfo {
+  loan_id: number;
+  user_id: number;
+  firstname?: string;
+  lastname?: string;
+  user_email?: string;
+  item_id: number;
+  title?: string;
+  authors?: string;
+  specimen_barcode?: string;
+  loan_date: string;
+  issue_at: string | null;
+  last_reminder_sent_at: string | null;
+  reminder_count: number;
+}
+
+export interface OverdueLoansPage {
+  loans: OverdueLoanInfo[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface ReminderDetail {
+  user_id: number;
+  email: string;
+  firstname?: string;
+  lastname?: string;
+  loan_count: number;
+}
+
+export interface ReminderError {
+  user_id: number;
+  email: string;
+  error_message: string;
+}
+
+export interface ReminderReport {
+  dry_run: boolean;
+  emails_sent: number;
+  loans_reminded: number;
+  details: ReminderDetail[];
+  errors: ReminderError[];
+}
+
 

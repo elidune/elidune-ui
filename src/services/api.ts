@@ -36,6 +36,12 @@ import type {
   CreatePublicType,
   UpdatePublicType,
   UpsertLoanSettingRequest,
+  AdminConfigSectionKey,
+  ConfigSectionInfo,
+  AdminConfigResponse,
+  AuditLogPage,
+  OverdueLoansPage,
+  ReminderReport,
 } from '@/types';
 
 const API_BASE_URL = '/api/v1';
@@ -548,6 +554,72 @@ class ApiService {
       '/items/import-marc',
       null,
       { params }
+    );
+    return response.data;
+  }
+
+  // Admin: dynamic server config (runtime overrides)
+  async getAdminConfig(): Promise<AdminConfigResponse> {
+    const response = await this.client.get<AdminConfigResponse>('/admin/config');
+    return response.data;
+  }
+
+  async putAdminConfigSection(
+    section: AdminConfigSectionKey,
+    value: Record<string, unknown>
+  ): Promise<ConfigSectionInfo> {
+    const response = await this.client.put<ConfigSectionInfo>(`/admin/config/${section}`, {
+      value,
+    });
+    return response.data;
+  }
+
+  async deleteAdminConfigSection(section: AdminConfigSectionKey): Promise<ConfigSectionInfo> {
+    const response = await this.client.delete<ConfigSectionInfo>(`/admin/config/${section}`);
+    return response.data;
+  }
+
+  async postAdminEmailTest(to: string): Promise<void> {
+    await this.client.post('/admin/config/email/test', { to });
+  }
+
+  async getAuditLog(params?: {
+    event_type?: string;
+    entity_type?: string;
+    entity_id?: number;
+    user_id?: number;
+    from_date?: string;
+    to_date?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<AuditLogPage> {
+    const response = await this.client.get<AuditLogPage>('/audit', { params });
+    return response.data;
+  }
+
+  async exportAuditLog(params?: {
+    format?: 'json' | 'csv';
+    event_type?: string;
+    from_date?: string;
+    to_date?: string;
+  }): Promise<Blob> {
+    const response = await this.client.get('/audit/export', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  async getOverdueLoans(params?: { page?: number; per_page?: number }): Promise<OverdueLoansPage> {
+    const response = await this.client.get<OverdueLoansPage>('/loans/overdue', { params });
+    return response.data;
+  }
+
+  async sendOverdueReminders(options?: { dry_run?: boolean }): Promise<ReminderReport> {
+    const response = await this.client.post<ReminderReport>(
+      '/loans/send-overdue-reminders',
+      {},
+      { params: { dry_run: options?.dry_run === true } }
     );
     return response.data;
   }

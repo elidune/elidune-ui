@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen } from 'lucide-react';
+import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText } from 'lucide-react';
+import AdminServerSettings from '@/components/settings/AdminServerSettings';
+import AuditLogViewer from '@/components/settings/AuditLogViewer';
 import { Card, CardHeader, Button, Input, Badge } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
@@ -1007,7 +1009,7 @@ function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePubl
   );
 }
 
-type SettingsTab = 'loans' | 'sources' | 'publicTypes' | 'z3950';
+type SettingsTab = 'loans' | 'server' | 'audit' | 'sources' | 'publicTypes' | 'z3950';
 
 // ─── Settings Page ─────────────────────────────────────────────────────────────
 export default function SettingsPage() {
@@ -1085,6 +1087,8 @@ export default function SettingsPage() {
     { id: 'publicTypes', label: t('settings.publicTypes.title'), icon: <Users className="h-5 w-5" /> },
     { id: 'sources', label: t('settings.sources.title'), icon: <Package className="h-5 w-5" /> },
     { id: 'z3950', label: t('settings.z3950Servers'), icon: <Server className="h-5 w-5" /> },
+    { id: 'server', label: t('settings.server.title'), icon: <Cog className="h-5 w-5" /> },
+    { id: 'audit', label: t('settings.audit.title'), icon: <ScrollText className="h-5 w-5" /> },
   ];
 
   return (
@@ -1364,6 +1368,10 @@ export default function SettingsPage() {
         </div>
       </Card>
       )}
+
+      {activeTab === 'server' && <AdminServerSettings />}
+
+      {activeTab === 'audit' && <AuditLogViewer />}
     </div>
   );
 }

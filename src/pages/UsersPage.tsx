@@ -75,7 +75,7 @@ export default function UsersPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {user.account_type}
               {user.public_type && (() => {
-                const pt = publicTypes.find((p) => p.id === user.public_type);
+                const pt = publicTypes.find((p) => p.id === String(user.public_type));
                 return pt ? <> · {pt.label}</> : null;
               })()}
             </p>
@@ -249,8 +249,8 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
         addr_city: formData.addr_city || undefined,
         notes: formData.notes || undefined,
         fee: formData.fee || undefined,
-        group_id: formData.group_id ? formData.group_id : undefined,
-        public_type: formData.public_type || undefined,
+        group_id: formData.group_id ? String(formData.group_id) : undefined,
+        public_type: formData.public_type ? String(formData.public_type) : undefined,
       };
       await api.createUser(createData);
       onSuccess();
@@ -395,7 +395,7 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
           >
             <option value="">{t('common.select')}</option>
             {publicTypes.map((pt) => (
-              <option key={pt.id} value={pt.id}>
+              <option key={pt.id} value={String(pt.id)}>
                 {pt.label}
               </option>
             ))}
