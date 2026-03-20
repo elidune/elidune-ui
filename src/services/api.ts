@@ -669,7 +669,7 @@ class ApiService {
   }
 
   async sendEventAnnouncement(id: string): Promise<void> {
-    await this.client.post(`/events/${id}/send-announcement`);
+    await this.client.post(`/events/${id}/send-announcement`, {});
   }
 
   // Library info

@@ -5,12 +5,14 @@ import { Card, CardHeader, Button, Badge } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import type { Loan } from '@/types';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export default function MyLoansPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [renewError, setRenewError] = useState('');
 
   useEffect(() => {
     const fetchLoans = async () => {
@@ -29,15 +31,16 @@ export default function MyLoansPage() {
   }, [user?.id]);
 
   const handleRenewLoan = async (loanId: string) => {
+    setRenewError('');
     try {
       await api.renewLoan(loanId);
-      // Refresh loans
       if (user?.id) {
         const data = await api.getUserLoans(user.id);
         setLoans(data);
       }
     } catch (error) {
       console.error('Error renewing loan:', error);
+      setRenewError(getApiErrorMessage(error, t) || t('loans.errorRenewingLoan'));
     }
   };
 
@@ -71,6 +74,14 @@ export default function MyLoansPage() {
               {t('loans.overdueCount', { count: overdueLoans.length })}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Renew error */}
+      {renewError && (
+        <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+          <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="font-medium text-red-800 dark:text-red-200">{renewError}</p>
         </div>
       )}
 

@@ -27,6 +27,7 @@ import {
   Disc,
   Image,
   FileText,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   XAxis,
@@ -62,6 +63,7 @@ export default function UserDetailPage() {
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [isBorrowLoading, setIsBorrowLoading] = useState(false);
   const [loanDetails, setLoanDetails] = useState<Loan | null>(null);
+  const [renewError, setRenewError] = useState('');
 
   // Stats state
   const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
@@ -248,11 +250,13 @@ export default function UserDetailPage() {
   };
 
   const handleRenewLoan = async (loanId: string) => {
+    setRenewError('');
     try {
       await api.renewLoan(loanId);
       await refreshLoans();
     } catch (error) {
       console.error('Error renewing loan:', error);
+      setRenewError(getApiErrorMessage(error, t) || t('loans.errorRenewingLoan'));
     }
   };
 
@@ -516,6 +520,12 @@ export default function UserDetailPage() {
                   Emprunts passés
                 </button>
               </div>
+              {renewError && (
+                <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">{renewError}</p>
+                </div>
+              )}
             </div>
             <div className="h-[60vh] overflow-y-auto">
               <Table

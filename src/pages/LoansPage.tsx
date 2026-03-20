@@ -61,6 +61,7 @@ export default function LoansPage() {
   const [returnResult, setReturnResult] = useState<{ status: string; loan: Loan } | null>(null);
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   const [returnError, setReturnError] = useState('');
+  const [renewError, setRenewError] = useState('');
 
   const [overduePage, setOverduePage] = useState(1);
   const [overduePerPage, setOverduePerPage] = useState(50);
@@ -353,16 +354,16 @@ export default function LoansPage() {
   ];
 
   const handleRenewLoan = async (loanId: string) => {
+    setRenewError('');
     try {
       await api.renewLoan(loanId);
-      // Refresh loans
       if (selectedUser) {
         const loansData = await api.getUserLoans(selectedUser.id);
         setLoans(loansData);
       }
     } catch (error: unknown) {
       console.error('Error renewing loan:', error);
-      alert(getApiErrorMessage(error, t) || t('loans.errorRenewingLoan'));
+      setRenewError(getApiErrorMessage(error, t) || t('loans.errorRenewingLoan'));
     }
   };
 
@@ -600,6 +601,12 @@ export default function LoansPage() {
                     {t('loans.borrow')}
                   </Button>
                 </div>
+                {renewError && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200">{renewError}</p>
+                  </div>
+                )}
               </div>
               <Table
                 columns={loanColumns}

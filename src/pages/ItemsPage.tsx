@@ -89,16 +89,17 @@ export default function ItemsPage() {
         mediaType,
         audienceType,
         advancedFilters,
+        showFilters,
       },
     ],
     queryFn: async ({ pageParam }) => {
       return api.getItems({
-        freesearch: searchQuery || undefined,
+        freesearch: !showFilters ? (searchQuery || undefined) : undefined,
         media_type: mediaType || undefined,
         audience_type: audienceType ? parseInt(audienceType, 10) : undefined,
-        title: advancedFilters.title || undefined,
-        author: advancedFilters.author || undefined,
-        isbn: advancedFilters.isbn || undefined,
+        title: showFilters ? (advancedFilters.title || undefined) : undefined,
+        author: showFilters ? (advancedFilters.author || undefined) : undefined,
+        isbn: showFilters ? (advancedFilters.isbn || undefined) : undefined,
         page: pageParam,
         per_page: PAGE_SIZE,
       });
