@@ -42,6 +42,19 @@ import type {
   AuditLogPage,
   OverdueLoansPage,
   ReminderReport,
+  Event,
+  EventsListResponse,
+  CreateEvent,
+  UpdateEvent,
+  SchedulePeriod,
+  ScheduleSlot,
+  ScheduleClosure,
+  CreateSchedulePeriod,
+  UpdateSchedulePeriod,
+  CreateScheduleSlot,
+  CreateScheduleClosure,
+  LibraryInfo,
+  UpdateLibraryInfoRequest,
 } from '@/types';
 
 const API_BASE_URL = '/api/v1';
@@ -621,6 +634,108 @@ class ApiService {
       {},
       { params: { dry_run: options?.dry_run === true } }
     );
+    return response.data;
+  }
+
+  // Events
+  async getEvents(params?: {
+    start_date?: string;
+    end_date?: string;
+    event_type?: number;
+    page?: number;
+    per_page?: number;
+  }): Promise<EventsListResponse> {
+    const response = await this.client.get<EventsListResponse>('/events', { params });
+    return response.data;
+  }
+
+  async getEvent(id: string): Promise<Event> {
+    const response = await this.client.get<Event>(`/events/${id}`);
+    return response.data;
+  }
+
+  async createEvent(data: CreateEvent): Promise<Event> {
+    const response = await this.client.post<Event>('/events', data);
+    return response.data;
+  }
+
+  async updateEvent(id: string, data: UpdateEvent): Promise<Event> {
+    const response = await this.client.put<Event>(`/events/${id}`, data);
+    return response.data;
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    await this.client.delete(`/events/${id}`);
+  }
+
+  async sendEventAnnouncement(id: string): Promise<void> {
+    await this.client.post(`/events/${id}/send-announcement`);
+  }
+
+  // Library info
+  async getLibraryInfo(): Promise<LibraryInfo> {
+    const response = await this.client.get<LibraryInfo>('/library-info');
+    return response.data;
+  }
+
+  async updateLibraryInfo(data: UpdateLibraryInfoRequest): Promise<LibraryInfo> {
+    const response = await this.client.put<LibraryInfo>('/library-info', data);
+    return response.data;
+  }
+
+  // Schedules — Periods
+  async getSchedulePeriods(): Promise<SchedulePeriod[]> {
+    const response = await this.client.get<SchedulePeriod[]>('/schedules/periods');
+    return response.data;
+  }
+
+  async createSchedulePeriod(data: CreateSchedulePeriod): Promise<SchedulePeriod> {
+    const response = await this.client.post<SchedulePeriod>('/schedules/periods', data);
+    return response.data;
+  }
+
+  async updateSchedulePeriod(id: string, data: UpdateSchedulePeriod): Promise<SchedulePeriod> {
+    const response = await this.client.put<SchedulePeriod>(`/schedules/periods/${id}`, data);
+    return response.data;
+  }
+
+  async deleteSchedulePeriod(id: string): Promise<void> {
+    await this.client.delete(`/schedules/periods/${id}`);
+  }
+
+  // Schedules — Slots
+  async getScheduleSlots(periodId: string): Promise<ScheduleSlot[]> {
+    const response = await this.client.get<ScheduleSlot[]>(`/schedules/periods/${periodId}/slots`);
+    return response.data;
+  }
+
+  async createScheduleSlot(periodId: string, data: CreateScheduleSlot): Promise<ScheduleSlot> {
+    const response = await this.client.post<ScheduleSlot>(`/schedules/periods/${periodId}/slots`, data);
+    return response.data;
+  }
+
+  async deleteScheduleSlot(id: string): Promise<void> {
+    await this.client.delete(`/schedules/slots/${id}`);
+  }
+
+  // Schedules — Closures
+  async getScheduleClosures(params?: { start_date?: string; end_date?: string }): Promise<ScheduleClosure[]> {
+    const response = await this.client.get<ScheduleClosure[]>('/schedules/closures', { params });
+    return response.data;
+  }
+
+  async createScheduleClosure(data: CreateScheduleClosure): Promise<ScheduleClosure> {
+    const response = await this.client.post<ScheduleClosure>('/schedules/closures', data);
+    return response.data;
+  }
+
+  async deleteScheduleClosure(id: string): Promise<void> {
+    await this.client.delete(`/schedules/closures/${id}`);
+  }
+
+  // Health
+  async getHealth(): Promise<{ version?: string; [key: string]: unknown }> {
+    const response = await this.client.get('/health');
     return response.data;
   }
 }

@@ -955,10 +955,10 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
   });
 
   const ACCOUNT_TYPES = [
-    { value: 'Reader', label: t('users.reader') },
-    { value: 'Librarian', label: t('users.librarian') },
-    { value: 'Administrator', label: t('users.administrator') },
-    { value: 'Guest', label: t('users.guest') },
+    { value: 'reader', label: t('users.reader') },
+    { value: 'librarian', label: t('users.librarian') },
+    { value: 'admin', label: t('users.administrator') },
+    { value: 'guest', label: t('users.guest') },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

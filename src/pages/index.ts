@@ -11,5 +11,7 @@ export { default as SettingsPage } from './SettingsPage';
 export { default as Z3950SearchPage } from './Z3950SearchPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as ImportIsoPage } from './ImportIsoPage';
-
-
+export { default as LibraryPage } from './LibraryPage';
+export { default as EventsPage } from './EventsPage';
+export { default as AboutPage } from './AboutPage';
+export { default as PrivacyPage } from './PrivacyPage';

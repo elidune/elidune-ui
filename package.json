@@ -1,8 +1,19 @@
 {
   "name": "elidune-ui",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "homepage": "https://elidune.b-612.fr",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jcollonville/elidune-ui.git"
+  },
+  "author": "Jean Collonvillé",
+  "email": "jcollonville@b-612.fr",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/jcollonville/elidune-ui/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

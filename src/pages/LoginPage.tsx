@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LogIn, Shield, ArrowLeft, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLibrary } from '@/contexts/LibraryContext';
 import { Button, Input, Card } from '@/components/common';
 
 function TwoFactorVerification() {
@@ -202,6 +203,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { login, isAuthenticated, pending2FA } = useAuth();
+  const { libraryName } = useLibrary();
   const navigate = useNavigate();
 
   if (isAuthenticated) {
@@ -242,7 +244,9 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center mb-4">
               <img src="/elidune_logo.png" alt="Elidune" className="h-24 w-24" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('auth.loginTitle')}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {libraryName ?? t('auth.loginTitle')}
+            </h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

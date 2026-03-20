@@ -1,3 +1,79 @@
+// Library info types
+export interface LibraryInfo {
+  name?: string | null;
+  addr_line1?: string | null;
+  addr_line2?: string | null;
+  addr_postcode?: string | null;
+  addr_city?: string | null;
+  addr_country?: string | null;
+  email?: string | null;
+  phones: string[];
+  updated_at?: string | null;
+}
+
+export interface UpdateLibraryInfoRequest {
+  name?: string | null;
+  addr_line1?: string | null;
+  addr_line2?: string | null;
+  addr_postcode?: string | null;
+  addr_city?: string | null;
+  addr_country?: string | null;
+  email?: string | null;
+  phones?: string[] | null;
+}
+
+// Schedule types
+export interface SchedulePeriod {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  notes?: string | null;
+  created_at?: string | null;
+  update_at?: string | null;
+}
+
+export interface ScheduleSlot {
+  id: string;
+  period_id: string;
+  day_of_week: number; // 0=Monday, 6=Sunday
+  open_time: string;
+  close_time: string;
+  created_at?: string | null;
+}
+
+export interface ScheduleClosure {
+  id: string;
+  closure_date: string;
+  reason?: string | null;
+  created_at?: string | null;
+}
+
+export interface CreateSchedulePeriod {
+  name: string;
+  start_date: string;
+  end_date: string;
+  notes?: string | null;
+}
+
+export interface UpdateSchedulePeriod {
+  name?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateScheduleSlot {
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+}
+
+export interface CreateScheduleClosure {
+  closure_date: string;
+  reason?: string | null;
+}
+
 // User types
 export interface User {
   id: string;
@@ -667,4 +743,62 @@ export interface ReminderReport {
   errors: ReminderError[];
 }
 
+// Events
+// event_type: 0=animation, 1=school_visit, 2=exhibition, 3=conference, 4=workshop, 5=show, 6=other
+// target_public: 97=adult, 106=children, null=all
+export interface Event {
+  id: string;
+  name: string;
+  event_type: number;
+  event_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  description?: string | null;
+  partner_name?: string | null;
+  school_name?: string | null;
+  class_name?: string | null;
+  attendees_count?: number | null;
+  students_count?: number | null;
+  target_public?: number | null;
+  notes?: string | null;
+  announcement_sent_at?: string | null;
+  created_at?: string | null;
+  update_at?: string | null;
+}
 
+export interface CreateEvent {
+  name: string;
+  event_date: string;
+  event_type?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  description?: string | null;
+  partner_name?: string | null;
+  school_name?: string | null;
+  class_name?: string | null;
+  attendees_count?: number | null;
+  students_count?: number | null;
+  target_public?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdateEvent {
+  name?: string | null;
+  event_date?: string | null;
+  event_type?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  description?: string | null;
+  partner_name?: string | null;
+  school_name?: string | null;
+  class_name?: string | null;
+  attendees_count?: number | null;
+  students_count?: number | null;
+  target_public?: number | null;
+  notes?: string | null;
+}
+
+export interface EventsListResponse {
+  events: Event[];
+  total: number;
+}

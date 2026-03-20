@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Users, BookMarked, TrendingUp, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLibrary } from '@/contexts/LibraryContext';
 import { Card, CardHeader, Badge } from '@/components/common';
 import { isLibrarian } from '@/types';
 import api from '@/services/api';
@@ -11,6 +12,7 @@ import type { Stats, Loan } from '@/types';
 export default function HomePage() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { libraryName } = useLibrary();
   const [stats, setStats] = useState<Stats | null>(null);
   const [myLoans, setMyLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,17 +41,22 @@ export default function HomePage() {
   return (
     <div className="space-y-6">
       {/* Welcome section */}
-      <div className="bg-gradient-to-r from-gray-700 to-gray-900 rounded-2xl p-6 sm:p-8 text-white">
-        <div className="flex items-center gap-2">
-          <img src="/elidune_logo.png" alt="Elidune" className="h-30 w-30 mb-2" />
-          <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-            {t('nav.home')}, {user?.firstname || user?.username}
+      <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-7 sm:p-10">
+        <img
+          src="/elidune_logo.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute -right-6 -top-4 h-56 w-56 sm:h-64 sm:w-64 object-contain opacity-[0.07] dark:opacity-[0.05] select-none pointer-events-none"
+        />
+        <div className="relative">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1">
+            {libraryName
+              ? `${libraryName}, ${t('home.welcome')} ${[user?.firstname, user?.lastname].filter(Boolean).join(' ')}`
+              : `${t('nav.home')}, ${user?.firstname || user?.username}`}
           </h1>
-          <p className="text-gray-100">
+          <p className="text-gray-500 dark:text-gray-400">
             {t('auth.loginSubtitle')}
           </p>
-          </div>
         </div>
       </div>
 

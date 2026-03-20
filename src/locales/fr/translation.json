@@ -55,10 +55,72 @@
     "users": "Usagers",
     "z3950Search": "Recherche Z39.50",
     "importIso": "Import MARC",
+    "events": "Événements",
+    "library": "Ma bibliothèque",
     "stats": "Statistiques",
     "settings": "Paramètres",
     "profile": "Mon Profil",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "about": "À propos",
+    "privacy": "Confidentialité"
+  },
+  "home": {
+    "welcome": "bienvenue"
+  },
+  "library": {
+    "title": "Ma bibliothèque",
+    "subtitle": "Configurer les informations et les horaires de votre bibliothèque",
+    "tabs": {
+      "general": "Informations générales",
+      "hours": "Horaires d'ouverture"
+    },
+    "general": {
+      "saveSuccess": "Informations enregistrées avec succès",
+      "name": "Nom de la bibliothèque",
+      "namePlaceholder": "Ex. Médiathèque du Centre",
+      "address": "Adresse",
+      "addrLine1": "Adresse (ligne 1)",
+      "addrLine1Placeholder": "Ex. 12 rue des Lilas",
+      "addrLine2": "Complément d'adresse",
+      "addrLine2Placeholder": "Bâtiment, étage...",
+      "zipCode": "Code postal",
+      "city": "Ville",
+      "country": "Pays",
+      "email": "Email de contact",
+      "phones": "Téléphones",
+      "addPhone": "Ajouter un numéro",
+      "noPhones": "Aucun numéro de téléphone"
+    },
+    "hours": {
+      "periods": "Périodes d'ouverture",
+      "noPeriods": "Aucune période définie. Ajoutez une période pour configurer les horaires.",
+      "addPeriod": "Ajouter une période",
+      "editPeriod": "Modifier la période",
+      "periodName": "Nom de la période",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
+      "notes": "Notes",
+      "addSlot": "Ajouter un créneau",
+      "day": "Jour",
+      "openTime": "Ouverture",
+      "closeTime": "Fermeture",
+      "closed": "Fermé",
+      "closures": "Fermetures exceptionnelles",
+      "noClosures": "Aucune fermeture exceptionnelle définie.",
+      "addClosure": "Ajouter une fermeture",
+      "closureDate": "Date de fermeture",
+      "closureReason": "Motif",
+      "closureReasonPlaceholder": "Ex. Jour férié, travaux...",
+      "days": {
+        "0": "Lundi",
+        "1": "Mardi",
+        "2": "Mercredi",
+        "3": "Jeudi",
+        "4": "Vendredi",
+        "5": "Samedi",
+        "6": "Dimanche"
+      }
+    }
   },
   "auth": {
     "login": "Connexion",
@@ -928,6 +990,121 @@
   },
   "footer": {
     "copyright": "© 2026 Elidune - Système de gestion de bibliothèque"
+  },
+  "events": {
+    "title": "Événements",
+    "currentEvents": "Événements à venir",
+    "pastEvents": "Événements passés",
+    "count": "{{count}} événement(s)",
+    "newEvent": "Nouvel événement",
+    "editEvent": "Modifier l'événement",
+    "showPast": "Événements passés",
+    "showCurrent": "Événements à venir",
+    "noCurrentEvents": "Aucun événement à venir",
+    "noPastEvents": "Aucun événement passé",
+    "confirmDelete": "Supprimer l'événement « {{name}} » ?",
+    "type": "Type",
+    "date": "Date",
+    "attendees": "Participants",
+    "students": "élèves",
+    "basicInfo": "Informations générales",
+    "audienceInfo": "Public et partenaire",
+    "schoolInfo": "Informations scolaires",
+    "startTime": "Heure de début",
+    "endTime": "Heure de fin",
+    "targetPublicLabel": "Public cible",
+    "attendeesCount": "Nombre de participants",
+    "partnerName": "Partenaire",
+    "schoolName": "École",
+    "className": "Classe",
+    "studentsCount": "Nombre d'élèves",
+    "types": {
+      "animation": "Animation",
+      "schoolVisit": "Visite scolaire",
+      "exhibition": "Exposition",
+      "conference": "Conférence",
+      "workshop": "Atelier",
+      "show": "Spectacle",
+      "other": "Autre"
+    },
+    "targetPublic": {
+      "all": "Tous publics",
+      "adult": "Adultes",
+      "children": "Enfants"
+    },
+    "sendAnnouncement": "Envoyer l'annonce",
+    "announcementSent": "Annonce envoyée !",
+    "announcementAlreadySentTitle": "Annonce déjà envoyée",
+    "announcementAlreadySentBody": "Un mailing a déjà été envoyé pour « {{name}} » le {{date}}. Voulez-vous en envoyer un nouveau ?",
+    "sendAnywayBtn": "Envoyer quand même"
+  },
+  "about": {
+    "title": "À propos d'Elidune",
+    "description": "Elidune est le logiciel de gestion de bibliothèque développé sur mesure pour répondre à nos besoins.",
+    "uiVersion": "Version interface",
+    "serverVersion": "Version serveur",
+    "license": "Licence",
+    "lastUpdate": "Dernière mise à jour",
+    "developer": "Développeur",
+    "contact": "Contact",
+    "sourceCode": "Code source",
+    "legalNotice": "Mentions légales",
+    "legalNoticeLink": "Voir la politique de confidentialité",
+    "admin": {
+      "title": "Section administration",
+      "techInfo": "Informations techniques",
+      "frontendStack": "Interface (elidune-ui)",
+      "backendStack": "Serveur (elidune-server)",
+      "notableDeps": "Dépendances open source notables",
+      "bugReport": "Signaler un bug",
+      "bugReportLink": "Ouvrir une issue sur GitHub",
+      "loading": "Chargement des informations techniques...",
+      "error": "Impossible de charger les informations techniques"
+    }
+  },
+  "privacy": {
+    "title": "Politique de confidentialité",
+    "subtitle": "Informations relatives au traitement des données personnelles (RGPD)",
+    "lastUpdate": "Dernière mise à jour",
+    "dataController": {
+      "title": "Responsable du traitement",
+      "description": "Le responsable du traitement des données collectées via ce logiciel est :"
+    },
+    "dataCollected": {
+      "title": "Données collectées",
+      "description": "Dans le cadre de l'utilisation du logiciel de gestion de bibliothèque Elidune, les données personnelles suivantes sont collectées :",
+      "items": "Nom, prénom, nom d'utilisateur, adresse e-mail, type de compte (membre, bibliothécaire, administrateur), historique des emprunts et retours, activité dans le système (journal d'audit)."
+    },
+    "purpose": {
+      "title": "Finalités du traitement",
+      "description": "Les données sont traitées aux fins suivantes :",
+      "items": "Gestion des comptes utilisateurs et authentification, suivi des emprunts et retours de documents, administration de la bibliothèque, statistiques d'utilisation anonymisées, envoi de rappels pour les emprunts en retard."
+    },
+    "legalBasis": {
+      "title": "Base légale",
+      "description": "Le traitement est fondé sur l'exécution d'une mission d'intérêt public ou relevant de l'exercice de l'autorité publique (article 6.1.e du RGPD), ainsi que sur le contrat liant l'utilisateur à la bibliothèque (article 6.1.b)."
+    },
+    "retention": {
+      "title": "Durée de conservation",
+      "description": "Les données sont conservées pour la durée de l'adhésion à la bibliothèque et supprimées dans un délai raisonnable après la clôture du compte, sauf obligation légale de conservation plus longue."
+    },
+    "rights": {
+      "title": "Vos droits",
+      "description": "Conformément au RGPD, vous disposez des droits suivants :",
+      "items": "Droit d'accès à vos données, droit de rectification, droit à l'effacement (« droit à l'oubli »), droit à la limitation du traitement, droit d'opposition, droit à la portabilité des données."
+    },
+    "contact": {
+      "title": "Exercer vos droits",
+      "description": "Pour exercer vos droits ou pour toute question relative à la protection de vos données personnelles, contactez le responsable du traitement :"
+    },
+    "security": {
+      "title": "Sécurité",
+      "description": "Les données sont stockées localement sur le serveur de la bibliothèque. Des mesures techniques appropriées sont mises en œuvre pour garantir la confidentialité et l'intégrité des données (authentification par identifiant/mot de passe, chiffrement des mots de passe, journal d'audit)."
+    },
+    "noThirdParty": {
+      "title": "Absence de transfert à des tiers",
+      "description": "Les données personnelles ne sont pas transmises à des tiers, ni transférées en dehors du réseau interne de la bibliothèque."
+    }
   }
 }
 

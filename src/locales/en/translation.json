@@ -53,10 +53,72 @@
     "users": "Users",
     "z3950Search": "Z39.50 Search",
     "importIso": "MARC Import",
+    "events": "Events",
+    "library": "My Library",
     "stats": "Statistics",
     "settings": "Settings",
     "profile": "My Profile",
-    "logout": "Log out"
+    "logout": "Log out",
+    "about": "About",
+    "privacy": "Privacy"
+  },
+  "home": {
+    "welcome": "welcome"
+  },
+  "library": {
+    "title": "My Library",
+    "subtitle": "Configure your library information and opening hours",
+    "tabs": {
+      "general": "General information",
+      "hours": "Opening hours"
+    },
+    "general": {
+      "saveSuccess": "Information saved successfully",
+      "name": "Library name",
+      "namePlaceholder": "e.g. Central Library",
+      "address": "Address",
+      "addrLine1": "Address (line 1)",
+      "addrLine1Placeholder": "e.g. 12 Library Lane",
+      "addrLine2": "Address complement",
+      "addrLine2Placeholder": "Building, floor...",
+      "zipCode": "ZIP code",
+      "city": "City",
+      "country": "Country",
+      "email": "Contact email",
+      "phones": "Phone numbers",
+      "addPhone": "Add number",
+      "noPhones": "No phone number"
+    },
+    "hours": {
+      "periods": "Opening periods",
+      "noPeriods": "No period defined. Add a period to configure opening hours.",
+      "addPeriod": "Add period",
+      "editPeriod": "Edit period",
+      "periodName": "Period name",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "notes": "Notes",
+      "addSlot": "Add time slot",
+      "day": "Day",
+      "openTime": "Opening time",
+      "closeTime": "Closing time",
+      "closed": "Closed",
+      "closures": "Exceptional closures",
+      "noClosures": "No exceptional closure defined.",
+      "addClosure": "Add closure",
+      "closureDate": "Closure date",
+      "closureReason": "Reason",
+      "closureReasonPlaceholder": "e.g. Public holiday, maintenance...",
+      "days": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      }
+    }
   },
   "auth": {
     "login": "Log in",
@@ -909,6 +971,121 @@
   },
   "footer": {
     "copyright": "© 2026 Elidune - Library Management System"
+  },
+  "events": {
+    "title": "Events",
+    "currentEvents": "Upcoming events",
+    "pastEvents": "Past events",
+    "count": "{{count}} event(s)",
+    "newEvent": "New event",
+    "editEvent": "Edit event",
+    "showPast": "Past events",
+    "showCurrent": "Upcoming events",
+    "noCurrentEvents": "No upcoming events",
+    "noPastEvents": "No past events",
+    "confirmDelete": "Delete event \"{{name}}\"?",
+    "type": "Type",
+    "date": "Date",
+    "attendees": "Attendees",
+    "students": "students",
+    "basicInfo": "General information",
+    "audienceInfo": "Audience & partner",
+    "schoolInfo": "School information",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "targetPublicLabel": "Target audience",
+    "attendeesCount": "Number of attendees",
+    "partnerName": "Partner",
+    "schoolName": "School",
+    "className": "Class",
+    "studentsCount": "Number of students",
+    "types": {
+      "animation": "Animation",
+      "schoolVisit": "School visit",
+      "exhibition": "Exhibition",
+      "conference": "Conference",
+      "workshop": "Workshop",
+      "show": "Show",
+      "other": "Other"
+    },
+    "targetPublic": {
+      "all": "All audiences",
+      "adult": "Adults",
+      "children": "Children"
+    },
+    "sendAnnouncement": "Send announcement",
+    "announcementSent": "Announcement sent!",
+    "announcementAlreadySentTitle": "Announcement already sent",
+    "announcementAlreadySentBody": "An email has already been sent for \"{{name}}\" on {{date}}. Do you want to send a new one?",
+    "sendAnywayBtn": "Send anyway"
+  },
+  "about": {
+    "title": "About Elidune",
+    "description": "Elidune is the library management software developed to meet our specific needs.",
+    "uiVersion": "Interface version",
+    "serverVersion": "Server version",
+    "license": "License",
+    "lastUpdate": "Last updated",
+    "developer": "Developer",
+    "contact": "Contact",
+    "sourceCode": "Source code",
+    "legalNotice": "Legal notice",
+    "legalNoticeLink": "View privacy policy",
+    "admin": {
+      "title": "Administration section",
+      "techInfo": "Technical information",
+      "frontendStack": "Interface (elidune-ui)",
+      "backendStack": "Server (elidune-server)",
+      "notableDeps": "Notable open-source dependencies",
+      "bugReport": "Report a bug",
+      "bugReportLink": "Open an issue on GitHub",
+      "loading": "Loading technical information...",
+      "error": "Unable to load technical information"
+    }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "subtitle": "Information regarding personal data processing (GDPR)",
+    "lastUpdate": "Last updated",
+    "dataController": {
+      "title": "Data Controller",
+      "description": "The controller of the personal data collected through this software is:"
+    },
+    "dataCollected": {
+      "title": "Data Collected",
+      "description": "In the context of using the Elidune library management software, the following personal data is collected:",
+      "items": "Last name, first name, username, email address, account type (member, librarian, administrator), loan and return history, system activity (audit log)."
+    },
+    "purpose": {
+      "title": "Purposes of Processing",
+      "description": "Data is processed for the following purposes:",
+      "items": "User account management and authentication, loan and return tracking, library administration, anonymised usage statistics, sending reminders for overdue loans."
+    },
+    "legalBasis": {
+      "title": "Legal Basis",
+      "description": "Processing is based on the performance of a task in the public interest or in the exercise of official authority (Article 6.1.e GDPR), as well as on the contract between the user and the library (Article 6.1.b)."
+    },
+    "retention": {
+      "title": "Data Retention",
+      "description": "Data is retained for the duration of the library membership and deleted within a reasonable period after account closure, unless a longer retention period is legally required."
+    },
+    "rights": {
+      "title": "Your Rights",
+      "description": "In accordance with the GDPR, you have the following rights:",
+      "items": "Right of access, right to rectification, right to erasure (right to be forgotten), right to restriction of processing, right to object, right to data portability."
+    },
+    "contact": {
+      "title": "Exercising Your Rights",
+      "description": "To exercise your rights or for any question regarding the protection of your personal data, contact the data controller:"
+    },
+    "security": {
+      "title": "Security",
+      "description": "Data is stored locally on the library's server. Appropriate technical measures are implemented to ensure the confidentiality and integrity of data (username/password authentication, password encryption, audit log)."
+    },
+    "noThirdParty": {
+      "title": "No Third-Party Transfer",
+      "description": "Personal data is not transmitted to third parties, nor transferred outside the library's internal network."
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { LibraryProvider } from '@/contexts/LibraryContext';
 import { Layout } from '@/components/common';
 import {
   LoginPage,
@@ -18,6 +19,10 @@ import {
   Z3950SearchPage,
   ProfilePage,
   ImportIsoPage,
+  EventsPage,
+  LibraryPage,
+  AboutPage,
+  PrivacyPage,
 } from '@/pages';
 import { isLibrarian, isAdmin } from '@/types';
 
@@ -195,6 +200,46 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/events"
+        element={
+          <ProtectedRoute>
+            <LibrarianRoute>
+              <EventsPage />
+            </LibrarianRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/library"
+        element={
+          <ProtectedRoute>
+            <LibrarianRoute>
+              <LibraryPage />
+            </LibrarianRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/about"
+        element={
+          <ProtectedRoute>
+            <AboutPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/privacy"
+        element={
+          <ProtectedRoute>
+            <PrivacyPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -205,11 +250,13 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <LanguageProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </LanguageProvider>
+          <LibraryProvider>
+            <LanguageProvider>
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </LanguageProvider>
+          </LibraryProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -53,10 +53,72 @@
     "users": "Usuarios",
     "z3950Search": "Búsqueda Z39.50",
     "importIso": "Importar MARC",
+    "events": "Eventos",
+    "library": "Mi biblioteca",
     "stats": "Estadísticas",
     "settings": "Configuración",
     "profile": "Mi Perfil",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "about": "Acerca de",
+    "privacy": "Privacidad"
+  },
+  "home": {
+    "welcome": "bienvenido"
+  },
+  "library": {
+    "title": "Mi biblioteca",
+    "subtitle": "Configure la información y los horarios de su biblioteca",
+    "tabs": {
+      "general": "Información general",
+      "hours": "Horario de apertura"
+    },
+    "general": {
+      "saveSuccess": "Información guardada correctamente",
+      "name": "Nombre de la biblioteca",
+      "namePlaceholder": "Ej. Biblioteca Central",
+      "address": "Dirección",
+      "addrLine1": "Dirección (línea 1)",
+      "addrLine1Placeholder": "Ej. Calle Mayor, 12",
+      "addrLine2": "Complemento de dirección",
+      "addrLine2Placeholder": "Edificio, piso...",
+      "zipCode": "Código postal",
+      "city": "Ciudad",
+      "country": "País",
+      "email": "Email de contacto",
+      "phones": "Teléfonos",
+      "addPhone": "Añadir número",
+      "noPhones": "Ningún número de teléfono"
+    },
+    "hours": {
+      "periods": "Períodos de apertura",
+      "noPeriods": "No hay períodos definidos. Añada un período para configurar el horario.",
+      "addPeriod": "Añadir período",
+      "editPeriod": "Editar período",
+      "periodName": "Nombre del período",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
+      "notes": "Notas",
+      "addSlot": "Añadir franja horaria",
+      "day": "Día",
+      "openTime": "Apertura",
+      "closeTime": "Cierre",
+      "closed": "Cerrado",
+      "closures": "Cierres excepcionales",
+      "noClosures": "No hay cierres excepcionales definidos.",
+      "addClosure": "Añadir cierre",
+      "closureDate": "Fecha de cierre",
+      "closureReason": "Motivo",
+      "closureReasonPlaceholder": "Ej. Festivo, obras...",
+      "days": {
+        "0": "Lunes",
+        "1": "Martes",
+        "2": "Miércoles",
+        "3": "Jueves",
+        "4": "Viernes",
+        "5": "Sábado",
+        "6": "Domingo"
+      }
+    }
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -909,6 +971,121 @@
   },
   "footer": {
     "copyright": "© 2026 Elidune - Sistema de gestión de bibliotecas"
+  },
+  "events": {
+    "title": "Eventos",
+    "currentEvents": "Próximos eventos",
+    "pastEvents": "Eventos pasados",
+    "count": "{{count}} evento(s)",
+    "newEvent": "Nuevo evento",
+    "editEvent": "Editar evento",
+    "showPast": "Eventos pasados",
+    "showCurrent": "Próximos eventos",
+    "noCurrentEvents": "No hay próximos eventos",
+    "noPastEvents": "No hay eventos pasados",
+    "confirmDelete": "¿Eliminar el evento \"{{name}}\"?",
+    "type": "Tipo",
+    "date": "Fecha",
+    "attendees": "Asistentes",
+    "students": "alumnos",
+    "basicInfo": "Información general",
+    "audienceInfo": "Público y socio",
+    "schoolInfo": "Información escolar",
+    "startTime": "Hora de inicio",
+    "endTime": "Hora de fin",
+    "targetPublicLabel": "Público objetivo",
+    "attendeesCount": "Número de asistentes",
+    "partnerName": "Socio",
+    "schoolName": "Escuela",
+    "className": "Clase",
+    "studentsCount": "Número de alumnos",
+    "types": {
+      "animation": "Animación",
+      "schoolVisit": "Visita escolar",
+      "exhibition": "Exposición",
+      "conference": "Conferencia",
+      "workshop": "Taller",
+      "show": "Espectáculo",
+      "other": "Otro"
+    },
+    "targetPublic": {
+      "all": "Todos",
+      "adult": "Adultos",
+      "children": "Niños"
+    },
+    "sendAnnouncement": "Enviar anuncio",
+    "announcementSent": "¡Anuncio enviado!",
+    "announcementAlreadySentTitle": "Anuncio ya enviado",
+    "announcementAlreadySentBody": "Ya se envió un correo para «{{name}}» el {{date}}. ¿Desea enviar uno nuevo?",
+    "sendAnywayBtn": "Enviar de todos modos"
+  },
+  "about": {
+    "title": "Acerca de Elidune",
+    "description": "Elidune es el software de gestión de bibliotecas desarrollado a medida para satisfacer nuestras necesidades.",
+    "uiVersion": "Versión de la interfaz",
+    "serverVersion": "Versión del servidor",
+    "license": "Licencia",
+    "lastUpdate": "Última actualización",
+    "developer": "Desarrollador",
+    "contact": "Contacto",
+    "sourceCode": "Código fuente",
+    "legalNotice": "Aviso legal",
+    "legalNoticeLink": "Ver política de privacidad",
+    "admin": {
+      "title": "Sección de administración",
+      "techInfo": "Información técnica",
+      "frontendStack": "Interfaz (elidune-ui)",
+      "backendStack": "Servidor (elidune-server)",
+      "notableDeps": "Dependencias de código abierto destacadas",
+      "bugReport": "Reportar un error",
+      "bugReportLink": "Abrir un issue en GitHub",
+      "loading": "Cargando información técnica...",
+      "error": "No se pudo cargar la información técnica"
+    }
+  },
+  "privacy": {
+    "title": "Política de privacidad",
+    "subtitle": "Información sobre el tratamiento de datos personales (RGPD)",
+    "lastUpdate": "Última actualización",
+    "dataController": {
+      "title": "Responsable del tratamiento",
+      "description": "El responsable del tratamiento de los datos recopilados a través de este software es:"
+    },
+    "dataCollected": {
+      "title": "Datos recopilados",
+      "description": "En el marco del uso del software de gestión de bibliotecas Elidune, se recopilan los siguientes datos personales:",
+      "items": "Apellido, nombre, nombre de usuario, dirección de correo electrónico, tipo de cuenta (miembro, bibliotecario, administrador), historial de préstamos y devoluciones, actividad en el sistema (registro de auditoría)."
+    },
+    "purpose": {
+      "title": "Finalidades del tratamiento",
+      "description": "Los datos se tratan con las siguientes finalidades:",
+      "items": "Gestión de cuentas de usuario y autenticación, seguimiento de préstamos y devoluciones, administración de la biblioteca, estadísticas de uso anonimizadas, envío de recordatorios para préstamos vencidos."
+    },
+    "legalBasis": {
+      "title": "Base jurídica",
+      "description": "El tratamiento se basa en el cumplimiento de una misión de interés público o en el ejercicio de poderes públicos (artículo 6.1.e del RGPD), así como en el contrato entre el usuario y la biblioteca (artículo 6.1.b)."
+    },
+    "retention": {
+      "title": "Conservación de datos",
+      "description": "Los datos se conservan durante el tiempo que dure la membresía en la biblioteca y se eliminan en un plazo razonable tras el cierre de la cuenta, salvo obligación legal de conservación más prolongada."
+    },
+    "rights": {
+      "title": "Sus derechos",
+      "description": "De conformidad con el RGPD, usted tiene los siguientes derechos:",
+      "items": "Derecho de acceso, derecho de rectificación, derecho de supresión (derecho al olvido), derecho a la limitación del tratamiento, derecho de oposición, derecho a la portabilidad de los datos."
+    },
+    "contact": {
+      "title": "Ejercicio de sus derechos",
+      "description": "Para ejercer sus derechos o para cualquier pregunta relacionada con la protección de sus datos personales, contacte con el responsable del tratamiento:"
+    },
+    "security": {
+      "title": "Seguridad",
+      "description": "Los datos se almacenan localmente en el servidor de la biblioteca. Se implementan medidas técnicas adecuadas para garantizar la confidencialidad e integridad de los datos (autenticación, cifrado de contraseñas, registro de auditoría)."
+    },
+    "noThirdParty": {
+      "title": "Sin transferencia a terceros",
+      "description": "Los datos personales no se transmiten a terceros ni se transfieren fuera de la red interna de la biblioteca."
+    }
   }
 }
 
