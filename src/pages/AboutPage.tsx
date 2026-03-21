@@ -27,7 +27,7 @@ const FRONTEND_NOTABLE_DEPS: GithubDep[] = [
   { name: 'tailwindcss', version: '', license: 'MIT' },
 ];
 
-const BACKEND_RUNTIME = ['Rust', 'PostgreSQL', 'Redis'];
+const BACKEND_RUNTIME = ['Rust', 'PostgreSQL', 'Redis', 'Meilisearch'];
 
 const BACKEND_NOTABLE_DEPS: GithubDep[] = [
   { name: 'actix-web', version: '', license: 'MIT/Apache-2.0' },
@@ -35,6 +35,8 @@ const BACKEND_NOTABLE_DEPS: GithubDep[] = [
   { name: 'serde', version: '', license: 'MIT/Apache-2.0' },
   { name: 'tokio', version: '', license: 'MIT' },
   { name: 'jsonwebtoken', version: '', license: 'MIT' },
+  { name: 'z3950-rs', version: '', license: 'MIT/Apache-2.0' },
+  { name: 'marc-rs', version: '', license: 'MIT/Apache-2.0' },
 ];
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {

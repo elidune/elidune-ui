@@ -663,6 +663,20 @@
       "payload": "Payload",
       "clickForDetails": "Cliquer pour afficher ou masquer le détail (payload)"
     },
+    "maintenance": {
+      "title": "Maintenance",
+      "subtitle": "Index de recherche et autres opérations d'administration",
+      "searchIndexingTitle": "Indexation de la recherche (Meilisearch)",
+      "searchIndexingIntro": "La recherche du catalogue s'appuie sur Meilisearch. L'index contient une copie des champs consultables pour des requêtes plein texte rapides.",
+      "searchIndexingWhen": "Lancez une réindexation complète après le premier déploiement avec Meilisearch, après des imports massifs (ex. MARC), des migrations, ou si les résultats ne correspondent plus à la base.",
+      "searchIndexingAsync": "L'indexation est asynchrone : l'action se termine dès que les documents sont mis en file vers Meilisearch, pas à la fin de l'indexation. Pour moins d'environ 10 000 documents, cela prend en général quelques secondes.",
+      "reindexButton": "Réindexer le catalogue",
+      "reindexing": "Mise en file…",
+      "reindexSuccess": "{{count}} document(s) mis en file pour indexation.",
+      "meilisearchOn": "Meilisearch est configuré sur ce serveur.",
+      "meilisearchOff": "Meilisearch n'est pas configuré sur ce serveur.",
+      "reindexError": "Impossible de lancer la réindexation"
+    },
     "publicTypes": {
       "title": "Types de public",
       "subtitle": "Gérer les types d'audience et leurs dérogations de prêt",
@@ -1040,7 +1054,7 @@
   },
   "about": {
     "title": "À propos d'Elidune",
-    "description": "Elidune est le logiciel de gestion de bibliothèque développé sur mesure pour répondre à nos besoins.",
+    "description": "Elidune est le logiciel de gestion de bibliothèque développé sur mesure pour répondre à nos besoins. Le serveur s'appuie notamment sur z3950-rs pour le protocole Z39.50, marc-rs pour les notices MARC, et Meilisearch pour la recherche plein texte.",
     "uiVersion": "Version interface",
     "serverVersion": "Version serveur",
     "license": "Licence",

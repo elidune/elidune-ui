@@ -1021,7 +1021,7 @@
   },
   "about": {
     "title": "Über Elidune",
-    "description": "Elidune ist die Bibliotheksverwaltungssoftware, die speziell für unsere Bedürfnisse entwickelt wurde.",
+    "description": "Elidune ist die Bibliotheksverwaltungssoftware, die speziell für unsere Bedürfnisse entwickelt wurde. Der Server nutzt unter anderem z3950-rs für das Z39.50-Protokoll, marc-rs für MARC-Bibliografiedaten und Meilisearch für die Volltextsuche.",
     "uiVersion": "Oberflächen-Version",
     "serverVersion": "Server-Version",
     "license": "Lizenz",

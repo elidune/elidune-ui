@@ -678,6 +678,12 @@ export interface AdminConfigResponse {
   sections: ConfigSectionInfo[];
 }
 
+/** POST /admin/reindex-search */
+export interface ReindexSearchResponse {
+  items_queued: number;
+  meilisearch_available: boolean;
+}
+
 // Audit log
 export interface AuditLogEntry {
   id: number;

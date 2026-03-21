@@ -39,6 +39,7 @@ import type {
   AdminConfigSectionKey,
   ConfigSectionInfo,
   AdminConfigResponse,
+  ReindexSearchResponse,
   AuditLogPage,
   OverdueLoansPage,
   ReminderReport,
@@ -594,6 +595,11 @@ class ApiService {
 
   async postAdminEmailTest(to: string): Promise<void> {
     await this.client.post('/admin/config/email/test', { to });
+  }
+
+  async postAdminReindexSearch(): Promise<ReindexSearchResponse> {
+    const response = await this.client.post<ReindexSearchResponse>('/admin/reindex-search');
+    return response.data;
   }
 
   async getAuditLog(params?: {

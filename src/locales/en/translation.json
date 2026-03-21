@@ -644,6 +644,20 @@
       "payload": "Payload",
       "clickForDetails": "Click to show or hide event payload"
     },
+    "maintenance": {
+      "title": "Maintenance",
+      "subtitle": "Search index and other administrative tasks",
+      "searchIndexingTitle": "Search indexing (Meilisearch)",
+      "searchIndexingIntro": "Catalog search is powered by Meilisearch. The index stores a searchable copy of catalog fields for fast full-text queries.",
+      "searchIndexingWhen": "Run a full reindex after enabling Meilisearch on a new deployment, after bulk data imports (e.g. MARC), migrations, or if search results no longer match the database.",
+      "searchIndexingAsync": "Indexing is asynchronous: this action returns as soon as documents are queued with Meilisearch, not when indexing finishes. Catalogs under about 10,000 items typically complete within a few seconds.",
+      "reindexButton": "Reindex catalog",
+      "reindexing": "Queuing…",
+      "reindexSuccess": "{{count}} item(s) queued for indexing.",
+      "meilisearchOn": "Meilisearch is configured on this server.",
+      "meilisearchOff": "Meilisearch is not configured on this server.",
+      "reindexError": "Could not start reindex"
+    },
     "publicTypes": {
       "title": "Public Types",
       "subtitle": "Manage audience types and their loan overrides",
@@ -1021,7 +1035,7 @@
   },
   "about": {
     "title": "About Elidune",
-    "description": "Elidune is the library management software developed to meet our specific needs.",
+    "description": "Elidune is the library management software developed to meet our specific needs. The server stack includes z3950-rs for the Z39.50 protocol, marc-rs for MARC bibliographic records, and Meilisearch for full-text search.",
     "uiVersion": "Interface version",
     "serverVersion": "Server version",
     "license": "License",

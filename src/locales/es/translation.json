@@ -1021,7 +1021,7 @@
   },
   "about": {
     "title": "Acerca de Elidune",
-    "description": "Elidune es el software de gestión de bibliotecas desarrollado a medida para satisfacer nuestras necesidades.",
+    "description": "Elidune es el software de gestión de bibliotecas desarrollado a medida para satisfacer nuestras necesidades. El servidor se apoya entre otros en z3950-rs para el protocolo Z39.50, marc-rs para registros bibliográficos MARC y Meilisearch para la búsqueda de texto completo.",
     "uiVersion": "Versión de la interfaz",
     "serverVersion": "Versión del servidor",
     "license": "Licencia",
