@@ -43,8 +43,6 @@ import { Card, CardHeader, Button, Badge, Modal, Input, Table } from '@/componen
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType } from '@/types';
-import { STATUS_OPTIONS } from '@/utils/codeLabels';
-
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -959,7 +957,6 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
     fee: user.fee || '',
     group_id: user.group_id?.toString() || '',
     public_type: user.public_type?.toString() || '',
-    status: user.status?.toString() || '',
     account_type: user.account_type || 'Reader',
     password: '',
   });
@@ -990,7 +987,6 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
         fee: formData.fee || undefined,
         group_id: formData.group_id ? String(formData.group_id) : undefined,
         public_type: formData.public_type ? String(formData.public_type) : undefined,
-        status: formData.status ? parseInt(formData.status) : undefined,
         account_type: formData.account_type || undefined,
       };
       if (formData.password) {
@@ -1141,23 +1137,6 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
             {publicTypes.map((pt) => (
               <option key={pt.id} value={String(pt.id)}>
                 {pt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('users.statusField')}
-          </label>
-          <select
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">{t('common.select')}</option>
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
               </option>
             ))}
           </select>

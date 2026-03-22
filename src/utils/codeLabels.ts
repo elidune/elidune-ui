@@ -6,11 +6,18 @@ export interface CodeOption {
   labelKey: string;
 }
 
-// Public type (tab_public)
+// Public type (AudienceType enum from server, serialized as camelCase)
 export const PUBLIC_TYPE_OPTIONS: CodeOption[] = [
-  { value: '97', labelKey: 'codes.publicType.adult' },
-  { value: '106', labelKey: 'codes.publicType.children' },
-  { value: '117', labelKey: 'codes.publicType.unknown' },
+  { value: 'juvenile', labelKey: 'codes.publicType.juvenile' },
+  { value: 'preschool', labelKey: 'codes.publicType.preschool' },
+  { value: 'primary', labelKey: 'codes.publicType.primary' },
+  { value: 'children', labelKey: 'codes.publicType.children' },
+  { value: 'youngAdult', labelKey: 'codes.publicType.youngAdult' },
+  { value: 'adultSerious', labelKey: 'codes.publicType.adultSerious' },
+  { value: 'adult', labelKey: 'codes.publicType.adult' },
+  { value: 'general', labelKey: 'codes.publicType.general' },
+  { value: 'specialized', labelKey: 'codes.publicType.specialized' },
+  { value: 'unknown', labelKey: 'codes.publicType.unknown' },
 ];
 
 // User/specimen status (tab_status)
@@ -32,15 +39,15 @@ export const OCCUPATION_OPTIONS: CodeOption[] = [
   { value: '8', labelKey: 'codes.occupation.other' },
 ];
 
-// Language (tab_lang)
+// Language (lang enum from server)
 export const LANG_OPTIONS: CodeOption[] = [
-  { value: '0', labelKey: 'codes.lang.unknown' },
-  { value: '1', labelKey: 'codes.lang.fr' },
-  { value: '2', labelKey: 'codes.lang.en' },
-  { value: '3', labelKey: 'codes.lang.de' },
-  { value: '4', labelKey: 'codes.lang.jp' },
-  { value: '5', labelKey: 'codes.lang.es' },
-  { value: '6', labelKey: 'codes.lang.po' },
+  { value: 'unknown', labelKey: 'codes.lang.unknown' },
+  { value: 'french', labelKey: 'codes.lang.fr' },
+  { value: 'english', labelKey: 'codes.lang.en' },
+  { value: 'german', labelKey: 'codes.lang.de' },
+  { value: 'japanese', labelKey: 'codes.lang.jp' },
+  { value: 'spanish', labelKey: 'codes.lang.es' },
+  { value: 'portuguese', labelKey: 'codes.lang.po' },
 ];
 
 // Sex (tab_sex)
@@ -94,43 +101,16 @@ export const GENRE_OPTIONS: CodeOption[] = [
   { value: '205', labelKey: 'codes.genre.videoMusical' },
 ];
 
-// Author function (tab_functions) — most common ones
+// Author function (Function enum from server, serialized as camelCase)
 export const FUNCTION_OPTIONS: CodeOption[] = [
-  { value: '0', labelKey: 'codes.function.unknown' },
-  { value: '5', labelKey: 'codes.function.actor' },
-  { value: '10', labelKey: 'codes.function.adapter' },
-  { value: '20', labelKey: 'codes.function.annotator' },
-  { value: '30', labelKey: 'codes.function.arranger' },
-  { value: '40', labelKey: 'codes.function.artist' },
-  { value: '70', labelKey: 'codes.function.author' },
-  { value: '80', labelKey: 'codes.function.authorIntroduction' },
-  { value: '180', labelKey: 'codes.function.cartographer' },
-  { value: '200', labelKey: 'codes.function.choreographer' },
-  { value: '205', labelKey: 'codes.function.collaborator' },
-  { value: '210', labelKey: 'codes.function.commentator' },
-  { value: '220', labelKey: 'codes.function.compiler' },
-  { value: '230', labelKey: 'codes.function.composer' },
-  { value: '245', labelKey: 'codes.function.conceptor' },
-  { value: '250', labelKey: 'codes.function.conductor' },
-  { value: '270', labelKey: 'codes.function.corrector' },
-  { value: '300', labelKey: 'codes.function.director' },
-  { value: '340', labelKey: 'codes.function.editor' },
-  { value: '370', labelKey: 'codes.function.filmEditor' },
-  { value: '440', labelKey: 'codes.function.illustrator' },
-  { value: '460', labelKey: 'codes.function.interviewee' },
-  { value: '470', labelKey: 'codes.function.interviewer' },
-  { value: '480', labelKey: 'codes.function.librettist' },
-  { value: '520', labelKey: 'codes.function.lyricist' },
-  { value: '545', labelKey: 'codes.function.musician' },
-  { value: '550', labelKey: 'codes.function.narrator' },
-  { value: '570', labelKey: 'codes.function.other' },
-  { value: '590', labelKey: 'codes.function.performer' },
-  { value: '600', labelKey: 'codes.function.photographer' },
-  { value: '630', labelKey: 'codes.function.producer' },
-  { value: '650', labelKey: 'codes.function.publisher' },
-  { value: '690', labelKey: 'codes.function.scenarist' },
-  { value: '721', labelKey: 'codes.function.singer' },
-  { value: '730', labelKey: 'codes.function.translator' },
+  { value: 'author', labelKey: 'codes.function.author' },
+  { value: 'illustrator', labelKey: 'codes.function.illustrator' },
+  { value: 'translator', labelKey: 'codes.function.translator' },
+  { value: 'scientificAdvisor', labelKey: 'codes.function.scientificAdvisor' },
+  { value: 'prefaceWriter', labelKey: 'codes.function.prefaceWriter' },
+  { value: 'photographer', labelKey: 'codes.function.photographer' },
+  { value: 'publishingDirector', labelKey: 'codes.function.publishingDirector' },
+  { value: 'composer', labelKey: 'codes.function.composer' },
 ];
 
 /**
@@ -206,14 +186,17 @@ const MEDIA_TYPE_KEY_MAP: Record<string, string> = {
   'i': 'items.mediaType.images',
 };
 
-// Textual label → i18n key mapping for public types (when API returns text labels instead of codes)
+// Lowercase label → i18n key mapping for public types (for translateStatLabel backward compat)
 const PUBLIC_TYPE_TEXT_MAP: Record<string, string> = {
-  'adult': 'codes.publicType.adult',
-  'child': 'codes.publicType.children',
+  'juvenile': 'codes.publicType.juvenile',
+  'preschool': 'codes.publicType.preschool',
+  'primary': 'codes.publicType.primary',
   'children': 'codes.publicType.children',
-  'senior': 'codes.publicType.senior',
-  'school': 'codes.publicType.school',
-  'staff': 'codes.publicType.staff',
+  'youngadult': 'codes.publicType.youngAdult',
+  'adultserious': 'codes.publicType.adultSerious',
+  'adult': 'codes.publicType.adult',
+  'general': 'codes.publicType.general',
+  'specialized': 'codes.publicType.specialized',
   'unknown': 'codes.publicType.unknown',
 };
 

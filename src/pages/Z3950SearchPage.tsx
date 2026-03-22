@@ -16,7 +16,7 @@ import {
 import { Card, CardHeader, Button, Badge, Table, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
-import type { ItemShort, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
+import type { Item, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import type { AxiosError } from 'axios';
 
@@ -56,8 +56,8 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   return data as DuplicateConfirmationRequired;
 }
 
-/** Z39.50 search returns ItemShort items (id as string for i64 compatibility). */
-type Z3950Result = ItemShort;
+/** Z39.50 search returns full Item objects. */
+type Z3950Result = Item;
 
 interface Z3950SearchResponse {
   total: number;
@@ -204,7 +204,7 @@ export default function Z3950SearchPage() {
 
   const handleOpenImport = (item: Z3950Result) => {
     setSelectedItem(item);
-    setSelectedItemId(item.id);
+    setSelectedItemId(item.id ?? null);
     setSpecimens([{ barcode: '', call_number: '' }]);
     setImportSuccess(null);
     setImportReport(null);
@@ -337,14 +337,14 @@ export default function Z3950SearchPage() {
       header: t('items.authors'),
       render: (item: Z3950Result) => (
         <span className="text-gray-600 dark:text-gray-300">
-          {formatAuthors(item.author ? [item.author] : [])}
+          {formatAuthors(item.authors && item.authors.length > 0 ? item.authors : [])}
         </span>
       ),
     },
     {
       key: 'date',
       header: t('common.date'),
-      render: (item: Z3950Result) => item.date || '-',
+      render: (item: Z3950Result) => item.publication_date || '-',
       className: 'hidden md:table-cell',
     },
     {
@@ -608,8 +608,8 @@ export default function Z3950SearchPage() {
                   {selectedItem.title}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {formatAuthors(selectedItem.author ? [selectedItem.author] : [])}
-                  {selectedItem.date && ` • ${selectedItem.date}`}
+                  {formatAuthors(selectedItem.authors && selectedItem.authors.length > 0 ? selectedItem.authors : [])}
+                  {selectedItem.publication_date && ` • ${selectedItem.publication_date}`}
                 </p>
                 {selectedItem.isbn && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -677,8 +677,8 @@ export default function Z3950SearchPage() {
                           selectedItem
                             ? buildSuggestedCallNumber({
                                 categoryCode: 'IMP',
-                                year: selectedItem.date,
-                                authorOrCollectorName: selectedItem.author?.lastname,
+                                year: selectedItem.publication_date,
+                                authorOrCollectorName: selectedItem.authors?.[0]?.lastname,
                               })
                             : undefined
                         }

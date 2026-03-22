@@ -206,7 +206,7 @@ class ApiService {
     author?: string;
     isbn?: string;
     media_type?: MediaType;
-    audience_type?: number;
+    audience_type?: string;
     freesearch?: string;
     page?: number;
     per_page?: number;
@@ -475,7 +475,7 @@ class ApiService {
     author?: string;
     server_id?: string;
     max_results?: number;
-  }): Promise<{ total: number; items: ItemShort[]; source: string }> {
+  }): Promise<{ total: number; items: Item[]; source: string }> {
     // Build CQL query from parameters
     const cqlParts: string[] = [];
     

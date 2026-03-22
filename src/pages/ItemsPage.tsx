@@ -96,7 +96,7 @@ export default function ItemsPage() {
       return api.getItems({
         freesearch: !showFilters ? (searchQuery || undefined) : undefined,
         media_type: mediaType || undefined,
-        audience_type: audienceType ? parseInt(audienceType, 10) : undefined,
+        audience_type: audienceType || undefined,
         title: showFilters ? (advancedFilters.title || undefined) : undefined,
         author: showFilters ? (advancedFilters.author || undefined) : undefined,
         isbn: showFilters ? (advancedFilters.isbn || undefined) : undefined,
@@ -684,23 +684,33 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
 
       if (response.items && response.items.length > 0) {
         const item = response.items[0];
-        // Prefill form with Z39.50 data
         setFormData((prev) => ({
           ...prev,
           isbn: item.isbn || prev.isbn,
           title: item.title || prev.title,
           media_type: (item.media_type || prev.media_type) as MediaType,
-          publication_date: item.date || prev.publication_date,
+          publication_date: item.publication_date || prev.publication_date,
+          subject: item.subject || prev.subject,
+          abstract_: item.abstract_ || prev.abstract_,
+          keywords: item.keywords || prev.keywords,
+          audience_type: item.audience_type || prev.audience_type,
+          lang: item.lang || prev.lang,
+          edition_publisher: item.edition?.publisher_name || prev.edition_publisher,
+          edition_place: item.edition?.place_of_publication || prev.edition_place,
+          edition_date: item.edition?.date || prev.edition_date,
+          series_id: item.series?.id || prev.series_id,
+          series_name: item.series?.name || prev.series_name,
+          series_volume: item.series_volume_number?.toString() || prev.series_volume,
+          collection_id: item.collection?.id || prev.collection_id,
+          collection_primary_title: item.collection?.primary_title || prev.collection_primary_title,
           authors:
-            item.author && (item.author.lastname || item.author.firstname)
-              ? [
-                  {
-                    id: item.author.id || '',
-                    lastname: item.author.lastname || '',
-                    firstname: item.author.firstname || '',
-                    function: item.author.function || '',
-                  },
-                ]
+            item.authors && item.authors.length > 0
+              ? item.authors.map((a) => ({
+                  id: a.id || '',
+                  lastname: a.lastname || '',
+                  firstname: a.firstname || '',
+                  function: a.function || '',
+                }))
               : prev.authors,
         }));
         setZ3950Message({ type: 'success', text: t('z3950.dataFound') });
@@ -763,8 +773,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         abstract_: formData.abstract_ || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        audience_type: formData.audience_type ? parseInt(formData.audience_type, 10) : undefined,
-        lang: formData.lang ? parseInt(formData.lang, 10) : undefined,
+        audience_type: formData.audience_type || undefined,
+        lang: formData.lang || undefined,
         edition:
           formData.edition_publisher || formData.edition_place || formData.edition_date
             ? {
@@ -825,8 +835,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         abstract_: formData.abstract_ || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        audience_type: formData.audience_type ? parseInt(formData.audience_type, 10) : undefined,
-        lang: formData.lang ? parseInt(formData.lang, 10) : undefined,
+        audience_type: formData.audience_type || undefined,
+        lang: formData.lang || undefined,
         edition:
           formData.edition_publisher || formData.edition_place || formData.edition_date
             ? {
@@ -879,8 +889,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         abstract_: formData.abstract_ || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        audience_type: formData.audience_type ? parseInt(formData.audience_type, 10) : undefined,
-        lang: formData.lang ? parseInt(formData.lang, 10) : undefined,
+        audience_type: formData.audience_type || undefined,
+        lang: formData.lang || undefined,
         edition:
           formData.edition_publisher || formData.edition_place || formData.edition_date
             ? {

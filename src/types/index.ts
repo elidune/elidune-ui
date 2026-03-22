@@ -265,9 +265,9 @@ export interface Item {
   title?: string | null;
   genre?: number | null;
   subject?: string | null;
-  audience_type?: number | null;
-  lang?: number | null;
-  lang_orig?: number | null;
+  audience_type?: string | null;
+  lang?: string | null;
+  lang_orig?: string | null;
   publication_date?: string | null;
   page_extent?: string | null;
   format?: string | null;
