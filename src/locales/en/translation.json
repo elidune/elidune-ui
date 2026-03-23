@@ -349,7 +349,8 @@
     "specimenPrice": "Copy price",
     "seriesName": "Series name",
     "serieId": "Series ID",
-    "serieVolume": "Volume number"
+    "serieVolume": "Volume number",
+    "addSeries": "Add a series"
   },
   "loans": {
     "title": "Loans",

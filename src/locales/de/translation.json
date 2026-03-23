@@ -349,7 +349,8 @@
     "specimenPrice": "Exemplar-Preis",
     "seriesName": "Reihenname",
     "serieId": "Reihen-ID",
-    "serieVolume": "Bandnummer"
+    "serieVolume": "Bandnummer",
+    "addSeries": "Reihe hinzufügen"
   },
   "loans": {
     "title": "Ausleihen",

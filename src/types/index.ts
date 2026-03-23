@@ -243,6 +243,8 @@ export interface Serie {
   key?: string | null;
   name?: string | null;
   issn?: string | null;
+  /** Volume of the item in this series (populated when fetched via Item.series) */
+  volumeNumber?: number | null;
 }
 
 export interface Collection {
@@ -278,8 +280,8 @@ export interface Item {
   keywords?: string | null;
   state?: string | null;
   is_valid?: number | null;
-  series_id?: string | null;
-  series_volume_number?: number | null;
+  seriesIds?: string[];
+  seriesVolumeNumbers?: (number | null)[];
   edition_id?: string | null;
   collection_id?: string | null;
   collection_sequence_number?: number | null;
@@ -289,7 +291,7 @@ export interface Item {
   updated_at?: string | null;
   archived_at?: string | null;
   authors?: Author[];
-  series?: Serie | null;
+  series?: Serie[];
   collection?: Collection | null;
   edition?: Edition | null;
   specimens?: Specimen[];

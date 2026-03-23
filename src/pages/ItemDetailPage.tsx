@@ -378,17 +378,21 @@ export default function ItemDetailPage() {
             </Card>
           )}
 
-          {(item.series || item.series_volume_number != null) && (
+          {item.series && item.series.length > 0 && (
             <Card>
               <CardHeader title={t('items.series')} />
-              <p className="font-medium text-gray-900 dark:text-white">
-                {item.series?.name ?? '—'}
-              </p>
-              {(item.series_volume_number != null || item.series?.name) && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {item.series_volume_number != null ? `Volume ${item.series_volume_number}` : null}
-                </p>
-              )}
+              <div className="space-y-2">
+                {item.series.map((s, i) => (
+                  <div key={s.id ?? i}>
+                    <p className="font-medium text-gray-900 dark:text-white">{s.name ?? '—'}</p>
+                    {s.volumeNumber != null && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {t('items.serieVolume')} {s.volumeNumber}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </Card>
           )}
         </div>
@@ -678,9 +682,11 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
     authors: allAuthors.map(toAuthorForm),
     collection_id: item.collection?.id?.toString() ?? '',
     collection_primary_title: item.collection?.primary_title ?? '',
-    series_id: item.series?.id?.toString() ?? '',
-    series_name: item.series?.name ?? '',
-    series_volume: item.series_volume_number?.toString() ?? '',
+    seriesList: (item.series ?? []).map((s) => ({
+      id: s.id ?? '',
+      name: s.name ?? '',
+      volume: s.volumeNumber?.toString() ?? '',
+    })),
   });
 
   const MEDIA_TYPES: MediaTypeOption[] = [
@@ -747,10 +753,13 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
         collection: formData.collection_id
           ? { id: formData.collection_id, primary_title: formData.collection_primary_title || undefined }
           : undefined,
-        series: formData.series_name || formData.series_volume
-          ? { id: formData.series_id ?? null, name: formData.series_name || undefined }
-          : undefined,
-        series_volume_number: formData.series_volume ? parseInt(formData.series_volume, 10) : undefined,
+        series: formData.seriesList
+          .filter((s) => s.name || s.id)
+          .map((s) => ({
+            id: s.id || null,
+            name: s.name || undefined,
+            volumeNumber: s.volume ? parseInt(s.volume, 10) : undefined,
+          })),
       };
       const updated = await api.updateItem(item.id, updateData);
       onSuccess(updated);
@@ -929,18 +938,50 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
               onChange={(e) => setFormData({ ...formData, collection_primary_title: e.target.value })}
               placeholder={t('items.seriesName')}
             />
-            <Input
-              label={t('items.series')}
-              value={formData.series_name}
-              onChange={(e) => setFormData({ ...formData, series_name: e.target.value })}
-              placeholder={t('items.seriesName')}
-            />
-            <Input
-              label={t('items.serieVolume')}
-              value={formData.series_volume}
-              onChange={(e) => setFormData({ ...formData, series_volume: e.target.value })}
-              placeholder="n°"
-            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('items.series')}</span>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, seriesList: [...formData.seriesList, { id: '', name: '', volume: '' }] })}
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                + {t('items.addSeries')}
+              </button>
+            </div>
+            {formData.seriesList.map((s, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <Input
+                  value={s.name}
+                  onChange={(e) => {
+                    const next = [...formData.seriesList];
+                    next[i] = { ...next[i], name: e.target.value };
+                    setFormData({ ...formData, seriesList: next });
+                  }}
+                  placeholder={t('items.seriesName')}
+                  className="flex-1"
+                />
+                <Input
+                  value={s.volume}
+                  onChange={(e) => {
+                    const next = [...formData.seriesList];
+                    next[i] = { ...next[i], volume: e.target.value };
+                    setFormData({ ...formData, seriesList: next });
+                  }}
+                  placeholder="n°"
+                  className="w-20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, seriesList: formData.seriesList.filter((_, j) => j !== i) })}
+                  className="text-gray-400 hover:text-red-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
           <Input
             label={t('items.subject')}

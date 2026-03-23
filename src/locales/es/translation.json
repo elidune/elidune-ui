@@ -349,7 +349,8 @@
     "specimenPrice": "Precio del ejemplar",
     "seriesName": "Nombre de la serie",
     "serieId": "ID de serie",
-    "serieVolume": "Número de volumen"
+    "serieVolume": "Número de volumen",
+    "addSeries": "Añadir una serie"
   },
   "loans": {
     "title": "Préstamos",
