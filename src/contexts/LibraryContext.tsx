@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
 
 const STORAGE_KEY = 'elidune_library_name';
 
@@ -14,10 +13,9 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [libraryName, setLibraryName] = useState<string | null>(() =>
     localStorage.getItem(STORAGE_KEY)
   );
-  const { isAuthenticated } = useAuth();
 
+  // GET /library-info is public — fetch on mount regardless of auth state
   useEffect(() => {
-    if (!isAuthenticated) return;
     api.getLibraryInfo()
       .then((info) => {
         const name = info.name ?? null;
@@ -26,7 +24,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         else localStorage.removeItem(STORAGE_KEY);
       })
       .catch(() => {});
-  }, [isAuthenticated]);
+  }, []);
 
   return (
     <LibraryContext.Provider value={{ libraryName }}>

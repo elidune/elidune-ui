@@ -2,39 +2,40 @@ import type { TFunction } from 'i18next';
 import type { AxiosError } from 'axios';
 import type { ApiError } from '@/types';
 
-function toNumericCode(code: unknown): number | null {
-  if (typeof code === 'number' && Number.isFinite(code)) {
-    return code;
-  }
-  if (typeof code === 'string' && code.trim() !== '') {
-    const parsed = Number(code);
-    if (Number.isFinite(parsed)) return parsed;
+export function getApiErrorCode(error: unknown): string | null {
+  const data = (error as AxiosError<ApiError>)?.response?.data;
+  if (typeof data?.code === 'string' && data.code.trim() !== '') {
+    return data.code.trim();
   }
   return null;
 }
 
-export function getApiErrorCode(error: unknown): number | null {
-  const data = (error as AxiosError<ApiError>)?.response?.data;
-  return toNumericCode(data?.code);
-}
-
 /**
  * Get a user-facing error message from an API error response.
- * Uses the server's error code for i18n (errors.apiCode.0 … errors.apiCode.21),
- * then falls back to response message, then generic error.
+ * Uses the server's string error code for i18n (errors.apiCode.not_found, etc.),
+ * then falls back to the response message, then a generic error.
+ * Also handles HTTP 429 (rate limiting on /auth/login).
  */
 export function getApiErrorMessage(error: unknown, t: TFunction): string {
-  const data = (error as AxiosError<ApiError>)?.response?.data;
+  const axiosError = error as AxiosError<ApiError>;
+
+  if (axiosError?.response?.status === 429) {
+    return t('errors.tooManyRequests');
+  }
+
+  const data = axiosError?.response?.data;
   if (!data) {
-    if ((error as AxiosError)?.message === 'Network Error') return t('errors.network');
+    if (axiosError?.message === 'Network Error') return t('errors.network');
     return t('errors.generic');
   }
-  const code = toNumericCode(data.code);
+
+  const code = getApiErrorCode(error);
   if (code !== null) {
     const key = `errors.apiCode.${code}`;
     const translated = t(key);
     if (translated !== key) return translated;
   }
+
   if (typeof data.message === 'string' && data.message.trim()) return data.message.trim();
   if (typeof data.error === 'string' && data.error.trim()) return data.error.trim();
   return t('errors.generic');

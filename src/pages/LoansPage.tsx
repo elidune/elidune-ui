@@ -213,19 +213,21 @@ export default function LoansPage() {
     try {
       await api.createLoan({
         user_id: selectedUser.id,
-        specimen_identification: specimenBarcode.trim(),
+        item_identification: specimenBarcode.trim(),
         force: force || undefined,
       });
       // Refresh loans
       const loansData = await api.getUserLoans(selectedUser.id);
       setLoans(loansData);
     } catch (error: unknown) {
-      const axiosData = (error as { response?: { data?: { message?: string } } })?.response?.data;
+      const axiosError = error as { response?: { data?: { code?: string; message?: string } } };
+      const axiosData = axiosError?.response?.data;
+      const errorCode = axiosData?.code ?? '';
       const rawMessage = typeof axiosData?.message === 'string' ? axiosData.message : '';
-      const isMaxLoans = /maximum\s*(total\s*)?loans(\s+for this document type)?\s*reached/i.test(rawMessage);
       const displayMsg = getApiErrorMessage(error, t) || t('loans.errorCreatingLoan');
       const confirmMsg = rawMessage || displayMsg;
-      if (isMaxLoans && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
+      // business_rule_violation (blocked account, expired subscription) → offer force option
+      if (errorCode === 'business_rule_violation' && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
         return handleBorrow(specimenBarcode, true);
       }
       throw new Error(displayMsg);
@@ -280,18 +282,18 @@ export default function LoansPage() {
       key: 'title',
       header: t('loans.document'),
       render: (loan: Loan) => {
-        const specs = loan.item?.specimens;
+        const specs = loan.biblio?.items;
         const spec = specs?.length ? (specs.find((s) => s.availability === 1) ?? specs[0]) : null;
-        const specimenBarcode = spec ? (spec.barcode ?? spec.id) : loan.specimen_identification;
+        const specimenBarcode = spec ? (spec.barcode ?? spec.id) : loan.item_identification;
         return (
           <div>
             <p className="font-medium text-gray-900 dark:text-white">
-              {loan.item.title || t('loans.noTitle')}
+              {loan.biblio.title || t('loans.noTitle')}
             </p>
             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-0.5 mt-0.5">
-              {loan.item.isbn && (
+              {loan.biblio.isbn && (
                 <p>
-                  {t('items.isbn')}: <span className="font-mono">{loan.item.isbn}</span>
+                  {t('items.isbn')}: <span className="font-mono">{loan.biblio.isbn}</span>
                 </p>
               )}
               <p>{t('items.barcode')}: <span className="font-mono">{specimenBarcode ?? '-'}</span></p>
@@ -732,13 +734,13 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.title')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {returnResult.loan.item.title || t('loans.noTitle')}
+                          {returnResult.loan.biblio.title || t('loans.noTitle')}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.specimenBarcode')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {returnResult.loan.specimen_identification}
+                          {returnResult.loan.item_identification}
                         </p>
                       </div>
                     </div>

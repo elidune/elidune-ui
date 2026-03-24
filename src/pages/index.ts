@@ -1,7 +1,9 @@
 export { default as LoginPage } from './LoginPage';
+export { default as MustChangePasswordPage } from './MustChangePasswordPage';
 export { default as HomePage } from './HomePage';
-export { default as ItemsPage } from './ItemsPage';
-export { default as ItemDetailPage } from './ItemDetailPage';
+export { default as BibliosPage } from './BibliosPage';
+export { default as BiblioDetailPage } from './BiblioDetailPage';
+export { default as InventoryPage } from './InventoryPage';
 export { default as UsersPage } from './UsersPage';
 export { default as UserDetailPage } from './UserDetailPage';
 export { default as MyLoansPage } from './MyLoansPage';

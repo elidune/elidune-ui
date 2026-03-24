@@ -1,23 +1,38 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, BookOpen, Filter, Search, Globe, Loader2, AlertCircle, CheckCircle, Video, Music, Image, FileText, Disc, Newspaper, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, Filter, Search, Globe, Loader2, AlertCircle, CheckCircle, Video, Music, Image, FileText, Disc, Newspaper, Trash2, Layers, BookMarked, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, Button, Table, Badge, SearchInput, Modal, Input } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageItems, type MediaType, type MediaTypeOption } from '@/types';
+import { canManageItems, type MediaType, type MediaTypeOption, type Serie, type Collection } from '@/types';
 import api from '@/services/api';
-import type { ItemShort, Author, Z3950Server, ImportReport, DuplicateConfirmationRequired, Source } from '@/types';
+import type { BiblioShort, Author, Z3950Server, ImportReport, DuplicateConfirmationRequired, Source, PaginatedResponse } from '@/types';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS } from '@/utils/codeLabels';
 import { getApiErrorMessage } from '@/utils/apiError';
 import type { AxiosError } from 'axios';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { EntityLinker } from '@/components/items/EntityLinker';
+
+type CatalogTab = 'catalog' | 'collections' | 'series';
+
+type SavedSearch = {
+  searchQuery: string;
+  mediaType: MediaType | '';
+  audienceType: string;
+  showFilters: boolean;
+  advancedFilters: { title: string; author: string; isbn: string };
+  serieId: string;
+  serieName: string;
+  collectionId: string;
+  collectionName: string;
+};
 
 const PAGE_SIZE = 20;
 
 function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmationRequired | null {
-  const ax = error as AxiosError<any>;
+  const ax = error as AxiosError<Record<string, unknown>>;
   if (ax?.response?.status !== 409) return null;
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
@@ -27,12 +42,86 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   return data as DuplicateConfirmationRequired;
 }
 
-export default function ItemsPage() {
+export default function BibliosPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+
+  // Search state passed back from BiblioDetailPage when the user clicks "back"
+  const restoredSearch = (location.state as { restoredSearch?: SavedSearch } | null)?.restoredSearch;
+
+  const activeTab = (searchParams.get('tab') as CatalogTab) || 'catalog';
+  const setActiveTab = useCallback(
+    (tab: CatalogTab) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (tab === 'catalog') {
+            next.delete('tab');
+          } else {
+            next.set('tab', tab);
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  // Active catalog filter from a collection or series click
+  const [activeFilterSerieId, setActiveFilterSerieId] = useState(
+    () => restoredSearch?.serieId ?? searchParams.get('serie_id') ?? ''
+  );
+  const [activeFilterSerieName, setActiveFilterSerieName] = useState(
+    () => restoredSearch?.serieName ?? searchParams.get('serie_name') ?? ''
+  );
+  const [activeFilterCollectionId, setActiveFilterCollectionId] = useState(
+    () => restoredSearch?.collectionId ?? searchParams.get('collection_id') ?? ''
+  );
+  const [activeFilterCollectionName, setActiveFilterCollectionName] = useState(
+    () => restoredSearch?.collectionName ?? searchParams.get('collection_name') ?? ''
+  );
+
+  const goToCatalogWithFilter = useCallback(
+    (kind: 'serie' | 'collection', id: string, name: string) => {
+      setActiveFilterSerieId(kind === 'serie' ? id : '');
+      setActiveFilterSerieName(kind === 'serie' ? name : '');
+      setActiveFilterCollectionId(kind === 'collection' ? id : '');
+      setActiveFilterCollectionName(kind === 'collection' ? name : '');
+      // activeTab is driven by URL `tab=`; must clear it to show the catalog tab
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('tab');
+          next.delete('serie_id');
+          next.delete('serie_name');
+          next.delete('collection_id');
+          next.delete('collection_name');
+          if (kind === 'serie') {
+            next.set('serie_id', id);
+            next.set('serie_name', name);
+          } else {
+            next.set('collection_id', id);
+            next.set('collection_name', name);
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const clearCatalogFilter = useCallback(() => {
+    setActiveFilterSerieId('');
+    setActiveFilterSerieName('');
+    setActiveFilterCollectionId('');
+    setActiveFilterCollectionName('');
+  }, []);
 
   const MEDIA_TYPES: MediaTypeOption[] = [
     { value: '', label: t('items.allTypes') },
@@ -53,23 +142,34 @@ export default function ItemsPage() {
     { value: 'multimedia', label: t('items.mediaType.multimedia') },
   ];
 
-  // Filters – init from URL so returning from item detail restores search
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('freesearch') ?? '');
-  const [searchQueryDraft, setSearchQueryDraft] = useState(() => searchParams.get('freesearch') ?? '');
-  const [mediaType, setMediaType] = useState<MediaType | ''>(
-    () => (searchParams.get('media_type') || '') as MediaType | ''
+  // Filters – priority: location.state (back from detail) > URL params > default
+  const [searchQuery, setSearchQuery] = useState(
+    () => restoredSearch?.searchQuery ?? searchParams.get('freesearch') ?? ''
   );
-  const [audienceType, setAudienceType] = useState<string>(() => searchParams.get('audience_type') ?? '');
-  const [showFilters, setShowFilters] = useState(false);
+  const [searchQueryDraft, setSearchQueryDraft] = useState(
+    () => restoredSearch?.searchQuery ?? searchParams.get('freesearch') ?? ''
+  );
+  const [mediaType, setMediaType] = useState<MediaType | ''>(
+    () => (restoredSearch?.mediaType ?? searchParams.get('media_type') ?? '') as MediaType | ''
+  );
+  const [audienceType, setAudienceType] = useState<string>(
+    () => restoredSearch?.audienceType ?? searchParams.get('audience_type') ?? ''
+  );
+  const [showFilters, setShowFilters] = useState(
+    () =>
+      restoredSearch?.showFilters ??
+      (searchParams.get('show_filters') === '1' ||
+        !!(searchParams.get('title') || searchParams.get('author') || searchParams.get('isbn')))
+  );
   const [advancedFilters, setAdvancedFilters] = useState(() => ({
-    title: searchParams.get('title') ?? '',
-    author: searchParams.get('author') ?? '',
-    isbn: searchParams.get('isbn') ?? '',
+    title: restoredSearch?.advancedFilters?.title ?? searchParams.get('title') ?? '',
+    author: restoredSearch?.advancedFilters?.author ?? searchParams.get('author') ?? '',
+    isbn: restoredSearch?.advancedFilters?.isbn ?? searchParams.get('isbn') ?? '',
   }));
   const [advancedFiltersDraft, setAdvancedFiltersDraft] = useState(() => ({
-    title: searchParams.get('title') ?? '',
-    author: searchParams.get('author') ?? '',
-    isbn: searchParams.get('isbn') ?? '',
+    title: restoredSearch?.advancedFilters?.title ?? searchParams.get('title') ?? '',
+    author: restoredSearch?.advancedFilters?.author ?? searchParams.get('author') ?? '',
+    isbn: restoredSearch?.advancedFilters?.isbn ?? searchParams.get('isbn') ?? '',
   }));
 
   // Modal
@@ -83,31 +183,36 @@ export default function ItemsPage() {
     fetchNextPage,
   } = useInfiniteQuery({
     queryKey: [
-      'items',
+      'biblios',
       {
         searchQuery,
         mediaType,
         audienceType,
         advancedFilters,
         showFilters,
+        activeFilterSerieId,
+        activeFilterCollectionId,
       },
     ],
     queryFn: async ({ pageParam }) => {
-      return api.getItems({
+      return api.getBiblios({
         freesearch: !showFilters ? (searchQuery || undefined) : undefined,
         media_type: mediaType || undefined,
         audience_type: audienceType || undefined,
         title: showFilters ? (advancedFilters.title || undefined) : undefined,
         author: showFilters ? (advancedFilters.author || undefined) : undefined,
         isbn: showFilters ? (advancedFilters.isbn || undefined) : undefined,
+        serie_id: activeFilterSerieId || undefined,
+        collection_id: activeFilterCollectionId || undefined,
         page: pageParam,
         per_page: PAGE_SIZE,
       });
     },
+    staleTime: 0,
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       if (!lastPage?.items?.length) return undefined;
-      const loaded = lastPage.page * lastPage.per_page;
+      const loaded = lastPage.page * lastPage.perPage;
       return loaded < lastPage.total ? lastPage.page + 1 : undefined;
     },
   });
@@ -131,71 +236,51 @@ export default function ItemsPage() {
     return () => obs.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, data?.pages?.length]);
 
-  // Restore last search from sessionStorage when (re)entering the page
+  // Clear location state after reading so a page refresh doesn't re-apply it
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('itemsPageState');
-      if (!raw) return;
-      const saved = JSON.parse(raw) as {
-        searchQuery?: string;
-        mediaType?: MediaType | '';
-        audienceType?: string;
-        advancedFilters?: { title?: string; author?: string; isbn?: string };
-      };
-      if (typeof saved.searchQuery === 'string') {
-        setSearchQuery(saved.searchQuery);
-        setSearchQueryDraft(saved.searchQuery);
-      }
-      if (typeof saved.mediaType === 'string') setMediaType(saved.mediaType as MediaType | '');
-      if (typeof saved.audienceType === 'string') setAudienceType(saved.audienceType);
-      if (saved.advancedFilters && typeof saved.advancedFilters === 'object') {
-        const merged = (prev: { title: string; author: string; isbn: string }) => ({
-          ...prev,
-          ...saved.advancedFilters,
-        });
-        setAdvancedFilters(merged);
-        setAdvancedFiltersDraft(merged);
-      }
-    } catch {
-      // ignore corrupted storage
+    if (restoredSearch) {
+      navigate('.', { replace: true, state: null });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist search state in URL + sessionStorage so it survives navigation
+  // Persist search state in URL so it survives navigation
   useEffect(() => {
+    if (activeTab !== 'catalog') return;
     const next = new URLSearchParams();
     if (searchQuery) next.set('freesearch', searchQuery);
     if (mediaType) next.set('media_type', mediaType);
     if (audienceType) next.set('audience_type', audienceType);
+    if (showFilters) next.set('show_filters', '1');
     if (advancedFilters.title) next.set('title', advancedFilters.title);
     if (advancedFilters.author) next.set('author', advancedFilters.author);
     if (advancedFilters.isbn) next.set('isbn', advancedFilters.isbn);
-    setSearchParams(next, { replace: true });
-
-    try {
-      sessionStorage.setItem(
-        'itemsPageState',
-        JSON.stringify({
-          searchQuery,
-          mediaType,
-          audienceType,
-          advancedFilters,
-        })
-      );
-    } catch {
-      // ignore quota / storage errors
+    // Preserve active collection/series filter set by tab row click
+    if (activeFilterSerieId) {
+      next.set('serie_id', activeFilterSerieId);
+      if (activeFilterSerieName) next.set('serie_name', activeFilterSerieName);
     }
-  }, [searchQuery, mediaType, audienceType, advancedFilters, setSearchParams]);
+    if (activeFilterCollectionId) {
+      next.set('collection_id', activeFilterCollectionId);
+      if (activeFilterCollectionName) next.set('collection_name', activeFilterCollectionName);
+    }
+    setSearchParams(next, { replace: true });
+  }, [searchQuery, mediaType, audienceType, showFilters, advancedFilters, activeFilterSerieId, activeFilterSerieName, activeFilterCollectionId, activeFilterCollectionName, setSearchParams, activeTab]);
 
   const handleApplySearch = () => {
     const nextQuery = searchQueryDraft;
     setSearchQuery(nextQuery);
     if (showFilters) setAdvancedFilters({ ...advancedFiltersDraft });
-    queryClient.invalidateQueries({ queryKey: ['items'] });
+    queryClient.invalidateQueries({ queryKey: ['biblios'] });
   };
 
-  const handleRowClick = (item: ItemShort) => {
-    navigate(`/items/${item.id}`);
+  const handleRowClick = (item: BiblioShort) => {
+    const savedSearch: SavedSearch = {
+      searchQuery, mediaType, audienceType, showFilters, advancedFilters,
+      serieId: activeFilterSerieId, serieName: activeFilterSerieName,
+      collectionId: activeFilterCollectionId, collectionName: activeFilterCollectionName,
+    };
+    navigate(`/biblios/${item.id}`, { state: { savedSearch } });
   };
 
   const formatAuthor = (author?: Author | null) => {
@@ -276,7 +361,7 @@ export default function ItemsPage() {
     {
       key: 'title',
       header: t('items.titleField'),
-      render: (item: ItemShort) => (
+      render: (item: BiblioShort) => (
         <div className="flex items-center gap-3">
           <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.media_type as MediaType)} flex items-center justify-center`}>
             {getMediaTypeIcon(item.media_type as MediaType)}
@@ -295,17 +380,17 @@ export default function ItemsPage() {
     {
       key: 'author',
       header: t('items.author'),
-      render: (item: ItemShort) => (
+      render: (item: BiblioShort) => (
         <span className="text-gray-600 dark:text-gray-300">
           {formatAuthor(item.author)}
         </span>
       ),
     },
     {
-      key: 'specimens',
+      key: 'items',
       header: t('items.specimens'),
-      render: (item: ItemShort) => {
-        const list = item.specimens ?? [];
+      render: (item: BiblioShort) => {
+        const list = item.items ?? [];
         const total = list.length;
         const available = list.filter((s) => s.availability === 0).length;
         if (total === 0) return <span className="text-gray-500 dark:text-gray-400">-</span>;
@@ -320,22 +405,93 @@ export default function ItemsPage() {
     {
       key: 'date',
       header: t('common.date'),
-      render: (item: ItemShort) => item.date || '-',
+      render: (item: BiblioShort) => item.date || '-',
       className: 'hidden md:table-cell',
     },
     {
       key: 'status',
       header: t('common.status'),
-      render: (item: ItemShort) => getStatusBadge(item.status),
+      render: (item: BiblioShort) => getStatusBadge(item.status),
     },
   ];
 
+  const canManage = canManageItems(user?.account_type);
+
   return (
     <div className="space-y-4">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('catalog.pageTitle')}</h1>
+      </div>
+
+      {/* Tab navigation */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex gap-6">
+          {([
+            { key: 'catalog', label: t('catalog.tabCatalog'), icon: BookOpen },
+            { key: 'collections', label: t('catalog.tabCollections'), icon: Layers },
+            { key: 'series', label: t('catalog.tabSeries'), icon: BookMarked },
+          ] as { key: CatalogTab; label: string; icon: React.ComponentType<{ className?: string }> }[]).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-2 py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === key
+                  ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Collections tab */}
+      {activeTab === 'collections' && (
+        <CollectionsTab
+          canManage={canManage}
+          onSelect={(id, name) => goToCatalogWithFilter('collection', id, name)}
+        />
+      )}
+
+      {/* Series tab */}
+      {activeTab === 'series' && (
+        <SeriesTab
+          canManage={canManage}
+          onSelect={(id, name) => goToCatalogWithFilter('serie', id, name)}
+        />
+      )}
+
+      {/* Catalog tab content */}
+      {activeTab === 'catalog' && (<>
+
+      {/* Active filter chip */}
+      {(activeFilterSerieId || activeFilterCollectionId) && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">{t('catalog.filteredBy')}</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+            {activeFilterSerieId ? (
+              <BookMarked className="h-3.5 w-3.5" />
+            ) : (
+              <Layers className="h-3.5 w-3.5" />
+            )}
+            {activeFilterSerieName || activeFilterCollectionName}
+            <button
+              onClick={clearCatalogFilter}
+              className="ml-1 hover:text-amber-600 dark:hover:text-amber-200"
+              title={t('common.clear')}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('items.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400">
             {t('items.count', { count: totalItems })}
           </p>
@@ -441,7 +597,7 @@ export default function ItemsPage() {
                 onClick={() => {
                   setAdvancedFiltersDraft({ title: '', author: '', isbn: '' });
                   setAdvancedFilters({ title: '', author: '', isbn: '' });
-                  queryClient.invalidateQueries({ queryKey: ['items'] });
+                  queryClient.invalidateQueries({ queryKey: ['biblios'] });
                 }}
               >
                 {t('common.reset')}
@@ -491,11 +647,13 @@ export default function ItemsPage() {
       >
         <CreateItemForm
           onCreated={() => {
-            queryClient.invalidateQueries({ queryKey: ['items'] });
+            queryClient.invalidateQueries({ queryKey: ['biblios'] });
           }}
           onClose={() => setShowCreateModal(false)}
         />
       </Modal>
+
+      </>)}
     </div>
   );
 }
@@ -519,27 +677,10 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
   const [confirmReplaceLoading, setConfirmReplaceLoading] = useState(false);
   const [confirmReplaceError, setConfirmReplaceError] = useState<string | null>(null);
   type AuthorForm = { id: string; lastname: string; firstname: string; function: string };
-  const [formData, setFormData] = useState<{
-    title: string;
-    isbn: string;
-    media_type: MediaType;
-    publication_date: string;
-    abstract_: string;
-    keywords: string;
-    subject: string;
-    audience_type: string;
-    lang: string;
-    edition_publisher: string;
-    edition_place: string;
-    edition_date: string;
-    authors: AuthorForm[];
-    collection_id: string;
-    collection_primary_title: string;
-    seriesList: { id: string; name: string; volume: string }[];
-  }>({
+  const [formData, setFormData] = useState({
     title: '',
     isbn: '',
-    media_type: 'printedText',
+    media_type: 'printedText' as MediaType,
     publication_date: '',
     abstract_: '',
     keywords: '',
@@ -549,11 +690,10 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     edition_publisher: '',
     edition_place: '',
     edition_date: '',
-    authors: [],
-    collection_id: '',
-    collection_primary_title: '',
-    seriesList: [],
+    authors: [] as AuthorForm[],
   });
+  const [linkedCollections, setLinkedCollections] = useState<{ id?: string; name: string; volumeNumber?: string }[]>([]);
+  const [linkedSeries, setLinkedSeries] = useState<{ id?: string; name: string; volumeNumber?: string }[]>([]);
 
   const updateAuthor = (index: number, field: keyof AuthorForm, value: string) => {
     const arr = [...formData.authors];
@@ -578,7 +718,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
 
     (async () => {
       try {
-        const existing = await api.getItem(existingId);
+        const existing = await api.getBiblio(existingId);
         if (cancelled) return;
         setConfirmReplaceModal((prev) => {
           if (!prev || prev.existingId !== existingId) return prev;
@@ -678,8 +818,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         max_results: 1,
       });
 
-      if (response.items && response.items.length > 0) {
-        const item = response.items[0];
+      if (response.biblios && response.biblios.length > 0) {
+        const item = response.biblios[0];
         setFormData((prev) => ({
           ...prev,
           isbn: item.isbn || prev.isbn,
@@ -694,11 +834,6 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
           edition_publisher: item.edition?.publisher_name || prev.edition_publisher,
           edition_place: item.edition?.place_of_publication || prev.edition_place,
           edition_date: item.edition?.date || prev.edition_date,
-          seriesList: item.series && item.series.length > 0
-            ? item.series.map((s) => ({ id: s.id ?? '', name: s.name ?? '', volume: s.volumeNumber?.toString() ?? '' }))
-            : prev.seriesList,
-          collection_id: item.collection?.id || prev.collection_id,
-          collection_primary_title: item.collection?.primary_title || prev.collection_primary_title,
           authors:
             item.authors && item.authors.length > 0
               ? item.authors.map((a) => ({
@@ -709,6 +844,23 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
                 }))
               : prev.authors,
         }));
+        // Populate linked series from Z3950 result
+        if (item.series && item.series.length > 0) {
+          setLinkedSeries(item.series.map((s) => ({
+            id: s.id ?? undefined,
+            name: s.name ?? '',
+            volumeNumber: (s.volume_number ?? s.volumeNumber)?.toString() ?? '',
+          })));
+        }
+        // Populate linked collections from Z3950 result
+        const firstColl = item.collections?.[0] ?? item.collection;
+        if (firstColl) {
+          setLinkedCollections([{
+            id: firstColl.id ?? undefined,
+            name: firstColl.name ?? firstColl.primary_title ?? '',
+            volumeNumber: (firstColl.volume_number ?? firstColl.volumeNumber)?.toString() ?? '',
+          }]);
+        }
         setZ3950Message({ type: 'success', text: t('z3950.dataFound') });
       } else {
         setZ3950Message({ type: 'error', text: t('z3950.noResults') });
@@ -719,6 +871,24 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     } finally {
       setIsSearchingZ3950(false);
     }
+  };
+
+  const buildLinkedPayload = () => {
+    const series = linkedSeries
+      .filter((s) => s.name.trim())
+      .map((s) => ({
+        id: s.id || null,
+        name: s.name.trim() || undefined,
+        volume_number: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
+      }));
+    const collections = linkedCollections
+      .filter((c) => c.name.trim())
+      .map((c) => ({
+        id: c.id || null,
+        name: c.name.trim() || undefined,
+        volume_number: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
+      }));
+    return { series, collections };
   };
 
   const buildSpecimensPayload = (): { barcode: string; call_number?: string; source_id: string }[] | undefined => {
@@ -781,16 +951,11 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
               }
             : undefined,
         authors: authorsPayload,
-        collection: formData.collection_id
-          ? { id: formData.collection_id, primary_title: formData.collection_primary_title || undefined }
-          : undefined,
-        series: formData.seriesList
-          .filter((s) => s.name || s.id)
-          .map((s) => ({ id: s.id || null, name: s.name || undefined, volumeNumber: s.volume ? parseInt(s.volume, 10) : undefined })),
-        ...(specimenPayload?.length ? { specimens: specimenPayload } : {}),
+        ...buildLinkedPayload(),
+        ...(specimenPayload?.length ? { items: specimenPayload } : {}),
       };
-      const created = await api.createItem(payload);
-      setCreatedItemId(created.item.id ?? null);
+      const created = await api.createBiblio(payload);
+      setCreatedItemId(created.biblio.id ?? null);
       setImportReport(created.import_report);
       onCreated();
     } catch (error) {
@@ -842,17 +1007,12 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
               }
             : undefined,
         authors: authorsPayload,
-        collection: formData.collection_id
-          ? { id: formData.collection_id, primary_title: formData.collection_primary_title || undefined }
-          : undefined,
-        series: formData.seriesList
-          .filter((s) => s.name || s.id)
-          .map((s) => ({ id: s.id || null, name: s.name || undefined, volumeNumber: s.volume ? parseInt(s.volume, 10) : undefined })),
-        ...(specimenPayload?.length ? { specimens: specimenPayload } : {}),
+        ...buildLinkedPayload(),
+        ...(specimenPayload?.length ? { items: specimenPayload } : {}),
       };
-      const created = await api.createItem(payload, { confirmReplaceExistingId: confirmReplaceModal.existingId });
+      const created = await api.createBiblio(payload, { confirmReplaceExistingId: confirmReplaceModal.existingId });
       setConfirmReplaceModal(null);
-      setCreatedItemId(created.item.id ?? null);
+      setCreatedItemId(created.biblio.id ?? null);
       setImportReport(created.import_report);
       onCreated();
     } catch (err) {
@@ -895,17 +1055,12 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
               }
             : undefined,
         authors: authorsPayload,
-        collection: formData.collection_id
-          ? { id: formData.collection_id, primary_title: formData.collection_primary_title || undefined }
-          : undefined,
-        series: formData.seriesList
-          .filter((s) => s.name || s.id)
-          .map((s) => ({ id: s.id || null, name: s.name || undefined, volumeNumber: s.volume ? parseInt(s.volume, 10) : undefined })),
-        ...(specimenPayload?.length ? { specimens: specimenPayload } : {}),
+        ...buildLinkedPayload(),
+        ...(specimenPayload?.length ? { items: specimenPayload } : {}),
       };
-      const created = await api.createItem(payload, { allowDuplicateIsbn: true });
+      const created = await api.createBiblio(payload, { allowDuplicateIsbn: true });
       setConfirmReplaceModal(null);
-      setCreatedItemId(created.item.id ?? null);
+      setCreatedItemId(created.biblio.id ?? null);
       setImportReport(created.import_report);
       onCreated();
     } catch (err) {
@@ -1168,64 +1323,29 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label={t('items.collectionId')}
-              value={formData.collection_id}
-              onChange={(e) => setFormData({ ...formData, collection_id: e.target.value })}
-              placeholder="ID"
-            />
-            <Input
-              label={t('items.collectionPrimaryTitle')}
-              value={formData.collection_primary_title}
-              onChange={(e) => setFormData({ ...formData, collection_primary_title: e.target.value })}
-              placeholder={t('items.seriesName')}
-            />
-          </div>
+          <EntityLinker
+            label={t('items.collection')}
+            addLabel={t('catalog.searchOrCreateCollection')}
+            entries={linkedCollections}
+            onChange={setLinkedCollections}
+            onSearch={async (q) => {
+              const res = await api.getCollections({ name: q, perPage: 10 });
+              return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? c.primary_title ?? '' }));
+            }}
+            volumeLabel={t('catalog.volumeNumber')}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('items.series')}</span>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, seriesList: [...formData.seriesList, { id: '', name: '', volume: '' }] })}
-                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                + {t('items.addSeries')}
-              </button>
-            </div>
-            {formData.seriesList.map((s, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <Input
-                  value={s.name}
-                  onChange={(e) => {
-                    const next = [...formData.seriesList];
-                    next[i] = { ...next[i], name: e.target.value };
-                    setFormData({ ...formData, seriesList: next });
-                  }}
-                  placeholder={t('items.seriesName')}
-                  className="flex-1"
-                />
-                <Input
-                  value={s.volume}
-                  onChange={(e) => {
-                    const next = [...formData.seriesList];
-                    next[i] = { ...next[i], volume: e.target.value };
-                    setFormData({ ...formData, seriesList: next });
-                  }}
-                  placeholder="n°"
-                  className="w-20"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, seriesList: formData.seriesList.filter((_, j) => j !== i) })}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+          <EntityLinker
+            label={t('items.series')}
+            addLabel={t('catalog.searchOrCreateSerie')}
+            entries={linkedSeries}
+            onChange={setLinkedSeries}
+            onSearch={async (q) => {
+              const res = await api.getSeries({ name: q, perPage: 10 });
+              return res.items.map((s) => ({ id: s.id ?? '', name: s.name ?? '' }));
+            }}
+            volumeLabel={t('catalog.volumeNumber')}
+          />
         </div>
       )}
 
@@ -1349,5 +1469,549 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         )}
       </Modal>
     </div>
+  );
+}
+
+// ─── Collections Tab ─────────────────────────────────────────────────────────
+
+const COLL_PAGE_SIZE = 25;
+
+interface CollectionsTabProps {
+  canManage: boolean;
+  onSelect?: (id: string, name: string) => void;
+}
+
+function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
+  const { t } = useTranslation();
+  const [searchDraft, setSearchDraft] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<PaginatedResponse<Collection> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editItem, setEditItem] = useState<Collection | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Collection | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const load = useCallback(async (q: string, p: number) => {
+    setIsLoading(true);
+    try {
+      const res = await api.getCollections({ name: q || undefined, page: p, perPage: COLL_PAGE_SIZE });
+      setData(res);
+    } catch {
+      // ignore
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(search, page); }, [search, page, load]);
+
+  const handleSearch = () => { setPage(1); setSearch(searchDraft); };
+
+  const handleDelete = async () => {
+    if (!deleteItem?.id) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await api.deleteCollection(deleteItem.id);
+      setDeleteItem(null);
+      load(search, page);
+    } catch (err) {
+      setDeleteError(getApiErrorMessage(err, t));
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const collName = (c: Collection) =>
+    c.name ?? c.primary_title ?? c.secondary_title ?? '—';
+
+  const columns = [
+    {
+      key: 'name',
+      header: t('catalog.collectionName'),
+      render: (c: Collection) => (
+        <div>
+          <p className="font-medium text-gray-900 dark:text-white">{collName(c)}</p>
+          {(c.secondary_title ?? c.secondaryTitle) && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {c.secondary_title ?? c.secondaryTitle}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'issn',
+      header: 'ISSN',
+      render: (c: Collection) => <span className="text-gray-600 dark:text-gray-300">{c.issn ?? '—'}</span>,
+      className: 'hidden md:table-cell',
+    },
+    {
+      key: 'key',
+      header: t('catalog.key'),
+      render: (c: Collection) => <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{c.key ?? '—'}</span>,
+      className: 'hidden lg:table-cell',
+    },
+    ...(canManage
+      ? [{
+          key: 'actions',
+          header: '',
+          render: (c: Collection) => (
+            <div className="flex justify-end gap-1">
+              <button onClick={(e) => { e.stopPropagation(); setEditItem(c); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                <Edit className="h-4 w-4" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteItem(c); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        }]
+      : []),
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          {data ? t('catalog.collectionCount', { count: data.total }) : ''}
+        </p>
+        {canManage && (
+          <Button onClick={() => setShowCreateModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
+            {t('catalog.addCollection')}
+          </Button>
+        )}
+      </div>
+
+      <Card>
+        <div className="flex gap-2">
+          <SearchInput
+            value={searchDraft}
+            onChange={setSearchDraft}
+            placeholder={t('catalog.searchCollections')}
+            submitMode
+            onSubmit={handleSearch}
+            showSubmitButton
+            submitLabel={t('common.search')}
+          />
+        </div>
+      </Card>
+
+      <Card padding="none">
+        <Table
+          columns={columns}
+          data={data?.items ?? []}
+          keyExtractor={(c) => c.id ?? String(Math.random())}
+          isLoading={isLoading}
+          emptyMessage={t('catalog.noCollections')}
+          onRowClick={onSelect ? (c) => c.id && onSelect(c.id, collName(c)) : undefined}
+        />
+        {data && data.pageCount > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {t('common.page')} {page} / {data.pageCount}
+            </span>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.min(data.pageCount, p + 1))} disabled={page >= data.pageCount}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Create modal */}
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title={t('catalog.addCollection')} size="md">
+        <CollectionForm
+          onSuccess={() => { setShowCreateModal(false); load(search, page); }}
+          onCancel={() => setShowCreateModal(false)}
+        />
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal isOpen={!!editItem} onClose={() => setEditItem(null)} title={t('catalog.editCollection')} size="md">
+        {editItem && (
+          <CollectionForm
+            initial={editItem}
+            onSuccess={() => { setEditItem(null); load(search, page); }}
+            onCancel={() => setEditItem(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Delete modal */}
+      <Modal
+        isOpen={!!deleteItem}
+        onClose={() => { if (!deleteLoading) { setDeleteItem(null); setDeleteError(null); } }}
+        title={t('common.confirm')}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setDeleteItem(null); setDeleteError(null); }} disabled={deleteLoading}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="danger" onClick={handleDelete} isLoading={deleteLoading}>
+              {t('common.delete')}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-gray-600 dark:text-gray-300 text-sm">
+          {t('catalog.deleteCollectionConfirm', { name: deleteItem ? collName(deleteItem) : '' })}
+        </p>
+        {deleteError && (
+          <div className="mt-3 flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            {deleteError}
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+interface CollectionFormProps {
+  initial?: Collection;
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+function CollectionForm({ initial, onSuccess, onCancel }: CollectionFormProps) {
+  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: initial?.name ?? initial?.primary_title ?? '',
+    secondaryTitle: initial?.secondaryTitle ?? initial?.secondary_title ?? '',
+    tertiaryTitle: initial?.tertiaryTitle ?? initial?.tertiary_title ?? '',
+    issn: initial?.issn ?? '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        secondaryTitle: formData.secondaryTitle.trim() || undefined,
+        tertiaryTitle: formData.tertiaryTitle.trim() || undefined,
+        issn: formData.issn.trim() || undefined,
+      };
+      if (initial?.id) {
+        await api.updateCollection(initial.id, payload);
+      } else {
+        await api.createCollection(payload);
+      }
+      onSuccess();
+    } catch (err) {
+      setError(getApiErrorMessage(err, t));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input
+        label={t('catalog.collectionName')}
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        required
+      />
+      <Input
+        label={t('catalog.collectionSecondaryTitle')}
+        value={formData.secondaryTitle}
+        onChange={(e) => setFormData({ ...formData, secondaryTitle: e.target.value })}
+      />
+      <Input
+        label={t('catalog.collectionTertiaryTitle')}
+        value={formData.tertiaryTitle}
+        onChange={(e) => setFormData({ ...formData, tertiaryTitle: e.target.value })}
+      />
+      <Input
+        label="ISSN"
+        value={formData.issn}
+        onChange={(e) => setFormData({ ...formData, issn: e.target.value })}
+        placeholder="0000-0000"
+      />
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button type="submit" isLoading={isLoading}>{initial ? t('common.save') : t('common.create')}</Button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Series Tab ───────────────────────────────────────────────────────────────
+
+const SERIES_PAGE_SIZE = 25;
+
+interface SeriesTabProps {
+  canManage: boolean;
+  onSelect?: (id: string, name: string) => void;
+}
+
+function SeriesTab({ canManage, onSelect }: SeriesTabProps) {
+  const { t } = useTranslation();
+  const [searchDraft, setSearchDraft] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<PaginatedResponse<Serie> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editItem, setEditItem] = useState<Serie | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Serie | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const load = useCallback(async (q: string, p: number) => {
+    setIsLoading(true);
+    try {
+      const res = await api.getSeries({ name: q || undefined, page: p, perPage: SERIES_PAGE_SIZE });
+      setData(res);
+    } catch {
+      // ignore
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(search, page); }, [search, page, load]);
+
+  const handleSearch = () => { setPage(1); setSearch(searchDraft); };
+
+  const handleDelete = async () => {
+    if (!deleteItem?.id) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await api.deleteSerie(deleteItem.id);
+      setDeleteItem(null);
+      load(search, page);
+    } catch (err) {
+      setDeleteError(getApiErrorMessage(err, t));
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const columns = [
+    {
+      key: 'name',
+      header: t('catalog.serieName'),
+      render: (s: Serie) => (
+        <p className="font-medium text-gray-900 dark:text-white">{s.name ?? '—'}</p>
+      ),
+    },
+    {
+      key: 'issn',
+      header: 'ISSN',
+      render: (s: Serie) => <span className="text-gray-600 dark:text-gray-300">{s.issn ?? '—'}</span>,
+      className: 'hidden md:table-cell',
+    },
+    {
+      key: 'key',
+      header: t('catalog.key'),
+      render: (s: Serie) => <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{s.key ?? '—'}</span>,
+      className: 'hidden lg:table-cell',
+    },
+    ...(canManage
+      ? [{
+          key: 'actions',
+          header: '',
+          render: (s: Serie) => (
+            <div className="flex justify-end gap-1">
+              <button onClick={(e) => { e.stopPropagation(); setEditItem(s); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                <Edit className="h-4 w-4" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteItem(s); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ),
+        }]
+      : []),
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          {data ? t('catalog.serieCount', { count: data.total }) : ''}
+        </p>
+        {canManage && (
+          <Button onClick={() => setShowCreateModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
+            {t('catalog.addSerie')}
+          </Button>
+        )}
+      </div>
+
+      <Card>
+        <div className="flex gap-2">
+          <SearchInput
+            value={searchDraft}
+            onChange={setSearchDraft}
+            placeholder={t('catalog.searchSeries')}
+            submitMode
+            onSubmit={handleSearch}
+            showSubmitButton
+            submitLabel={t('common.search')}
+          />
+        </div>
+      </Card>
+
+      <Card padding="none">
+        <Table
+          columns={columns}
+          data={data?.items ?? []}
+          keyExtractor={(s) => s.id ?? String(Math.random())}
+          isLoading={isLoading}
+          emptyMessage={t('catalog.noSeries')}
+          onRowClick={onSelect ? (s) => s.id && onSelect(s.id, s.name ?? '') : undefined}
+        />
+        {data && data.pageCount > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {t('common.page')} {page} / {data.pageCount}
+            </span>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setPage((p) => Math.min(data.pageCount, p + 1))} disabled={page >= data.pageCount}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Create modal */}
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title={t('catalog.addSerie')} size="md">
+        <SerieForm
+          onSuccess={() => { setShowCreateModal(false); load(search, page); }}
+          onCancel={() => setShowCreateModal(false)}
+        />
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal isOpen={!!editItem} onClose={() => setEditItem(null)} title={t('catalog.editSerie')} size="md">
+        {editItem && (
+          <SerieForm
+            initial={editItem}
+            onSuccess={() => { setEditItem(null); load(search, page); }}
+            onCancel={() => setEditItem(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Delete modal */}
+      <Modal
+        isOpen={!!deleteItem}
+        onClose={() => { if (!deleteLoading) { setDeleteItem(null); setDeleteError(null); } }}
+        title={t('common.confirm')}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => { setDeleteItem(null); setDeleteError(null); }} disabled={deleteLoading}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="danger" onClick={handleDelete} isLoading={deleteLoading}>
+              {t('common.delete')}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-gray-600 dark:text-gray-300 text-sm">
+          {t('catalog.deleteSerieConfirm', { name: deleteItem?.name ?? '' })}
+        </p>
+        {deleteError && (
+          <div className="mt-3 flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            {deleteError}
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+interface SerieFormProps {
+  initial?: Serie;
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+function SerieForm({ initial, onSuccess, onCancel }: SerieFormProps) {
+  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: initial?.name ?? '',
+    issn: initial?.issn ?? '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        issn: formData.issn.trim() || undefined,
+      };
+      if (initial?.id) {
+        await api.updateSerie(initial.id, payload);
+      } else {
+        await api.createSerie(payload);
+      }
+      onSuccess();
+    } catch (err) {
+      setError(getApiErrorMessage(err, t));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input
+        label={t('catalog.serieName')}
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        required
+      />
+      <Input
+        label="ISSN"
+        value={formData.issn}
+        onChange={(e) => setFormData({ ...formData, issn: e.target.value })}
+        placeholder="0000-0000"
+      />
+      {error && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button type="submit" isLoading={isLoading}>{initial ? t('common.save') : t('common.create')}</Button>
+      </div>
+    </form>
   );
 }

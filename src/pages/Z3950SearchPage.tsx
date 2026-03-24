@@ -16,7 +16,7 @@ import {
 import { Card, CardHeader, Button, Badge, Table, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
-import type { Item, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
+import type { Biblio, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import type { AxiosError } from 'axios';
 
@@ -56,12 +56,12 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   return data as DuplicateConfirmationRequired;
 }
 
-/** Z39.50 search returns full Item objects. */
-type Z3950Result = Item;
+/** Z39.50 search returns full Biblio objects. */
+type Z3950Result = Biblio;
 
 interface Z3950SearchResponse {
   total: number;
-  items: Z3950Result[];
+  biblios: Z3950Result[];
   source: string;
 }
 
@@ -181,7 +181,7 @@ export default function Z3950SearchPage() {
         server_id: selectedServerId,
         max_results: maxResults,
       });
-      setResults(response.items);
+      setResults(response.biblios);
       setTotalResults(response.total);
       setSource(response.source);
     } catch (error) {
@@ -259,7 +259,7 @@ export default function Z3950SearchPage() {
         selectedSourceId || undefined
       );
       
-      setImportSuccess(imported.item.id ?? null);
+      setImportSuccess(imported.biblio.id ?? null);
       setImportReport(imported.import_report);
     } catch (error) {
       const confirm = getDuplicateConfirmationRequired(error);
@@ -267,7 +267,7 @@ export default function Z3950SearchPage() {
         setConfirmReplaceError(null);
         setConfirmReplaceModal({ existingId: confirm.existing_id, message: confirm.message });
       } else {
-        console.error('Error importing item:', error);
+        console.error('Error importing biblio:', error);
         setImportError(t('z3950.importError'));
       }
     } finally {
@@ -288,7 +288,7 @@ export default function Z3950SearchPage() {
         { confirmReplaceExistingId: confirmReplaceModal.existingId }
       );
       setConfirmReplaceModal(null);
-      setImportSuccess(imported.item.id ?? null);
+      setImportSuccess(imported.biblio.id ?? null);
       setImportReport(imported.import_report);
     } catch (err) {
       console.error('Error confirming replace existing item:', err);
@@ -300,7 +300,7 @@ export default function Z3950SearchPage() {
 
   const handleGoToImported = () => {
     if (importSuccess) {
-      navigate(`/items/${importSuccess}`);
+      navigate(`/biblios/${importSuccess}`);
     }
   };
 

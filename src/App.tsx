@@ -7,9 +7,11 @@ import { LibraryProvider } from '@/contexts/LibraryContext';
 import { Layout } from '@/components/common';
 import {
   LoginPage,
+  MustChangePasswordPage,
   HomePage,
-  ItemsPage,
-  ItemDetailPage,
+  BibliosPage,
+  BiblioDetailPage,
+  InventoryPage,
   UsersPage,
   UserDetailPage,
   MyLoansPage,
@@ -77,6 +79,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/change-password" element={<MustChangePasswordPage />} />
 
       <Route
         path="/"
@@ -88,19 +91,30 @@ function AppRoutes() {
       />
 
       <Route
-        path="/items"
+        path="/biblios"
         element={
           <ProtectedRoute>
-            <ItemsPage />
+            <BibliosPage />
           </ProtectedRoute>
         }
       />
 
       <Route
-        path="/items/:id"
+        path="/biblios/:id"
         element={
           <ProtectedRoute>
-            <ItemDetailPage />
+            <BiblioDetailPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/inventory"
+        element={
+          <ProtectedRoute>
+            <LibrarianRoute>
+              <InventoryPage />
+            </LibrarianRoute>
           </ProtectedRoute>
         }
       />
@@ -222,23 +236,8 @@ function AppRoutes() {
         }
       />
 
-      <Route
-        path="/about"
-        element={
-          <ProtectedRoute>
-            <AboutPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/privacy"
-        element={
-          <ProtectedRoute>
-            <PrivacyPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

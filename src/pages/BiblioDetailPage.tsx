@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Edit,
@@ -22,12 +22,13 @@ import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType } from '@/types';
 import api from '@/services/api';
-import type { Item, Specimen, Author, Source } from '@/types';
+import type { Biblio, Item, Author, Source } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
 import { getApiErrorCode } from '@/utils/apiError';
 import type { MediaTypeOption } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
+import { EntityLinker, type LinkedEntry } from '@/components/items/EntityLinker';
 
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
@@ -54,8 +55,8 @@ function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undef
   return legacyMap[String(mediaType)] ?? String(mediaType);
 }
 
-/** Derive suggested call number from item: [CATEGORY]-[YEAR]-[AUTHOR]. */
-function getSuggestedCallNumberFromItem(item: Item): string {
+/** Derive suggested call number from biblio: [CATEGORY]-[YEAR]-[AUTHOR]. */
+function getSuggestedCallNumberFromItem(item: Biblio): string {
   const categoryCode = item.media_type
     ? String(item.media_type).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'GEN'
     : 'GEN';
@@ -71,14 +72,18 @@ function getSuggestedCallNumberFromItem(item: Item): string {
   });
 }
 
-export default function ItemDetailPage() {
+export default function BiblioDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
-  const [item, setItem] = useState<Item | null>(null);
+  // Search state saved by BibliosPage when navigating here; used to restore on back
+  const savedSearch = (location.state as { savedSearch?: unknown } | null)?.savedSearch;
+
+  const [item, setItem] = useState<Biblio | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddSpecimenModal, setShowAddSpecimenModal] = useState(false);
@@ -88,7 +93,7 @@ export default function ItemDetailPage() {
   const [isEditItemLoading, setIsEditItemLoading] = useState(false);
   const [isAddSpecimenLoading, setIsAddSpecimenLoading] = useState(false);
   const [isEditSpecimenLoading, setIsEditSpecimenLoading] = useState(false);
-  const [selectedSpecimen, setSelectedSpecimen] = useState<Specimen | null>(null);
+  const [selectedSpecimen, setSelectedSpecimen] = useState<Item | null>(null);
   const [deleteSpecimenBorrowedError, setDeleteSpecimenBorrowedError] = useState(false);
   const [deleteSpecimenLoading, setDeleteSpecimenLoading] = useState(false);
   const [deleteItemBorrowedError, setDeleteItemBorrowedError] = useState(false);
@@ -98,11 +103,11 @@ export default function ItemDetailPage() {
     const fetchItem = async () => {
       if (!id) return;
       try {
-        const data = await api.getItem(id);
+        const data = await api.getBiblio(id);
         setItem(data);
       } catch (error) {
-        console.error('Error fetching item:', error);
-        navigate('/items');
+        console.error('Error fetching biblio:', error);
+        navigate('/biblios');
       } finally {
         setIsLoading(false);
       }
@@ -116,9 +121,9 @@ export default function ItemDetailPage() {
     if (deleteItemLoading) return;
     setDeleteItemLoading(true);
     try {
-      await api.deleteItem(item.id, force);
-      // Ensure deleted item disappears from cached catalog searches immediately.
-      queryClient.setQueriesData({ queryKey: ['items'] }, (old: any) => {
+      await api.deleteBiblio(item.id, force);
+      // Ensure deleted biblio disappears from cached catalog searches immediately.
+      queryClient.setQueriesData({ queryKey: ['biblios'] }, (old: any) => {
         if (!old?.pages?.length) return old;
         return {
           ...old,
@@ -130,20 +135,18 @@ export default function ItemDetailPage() {
           }),
         };
       });
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-      navigate('/items');
+      queryClient.invalidateQueries({ queryKey: ['biblios'] });
+      navigate('/biblios');
     } catch (error: unknown) {
       const code = getApiErrorCode(error);
       const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
       if (
         !force &&
         (
-          code === 13 ||
-          code === 21 ||
+          code === 'business_rule_violation' ||
           (
             typeof msg === 'string' &&
-            msg.includes('borrowed specimens') &&
-            msg.includes('force=true')
+            (msg.includes('borrowed') || msg.includes('force=true'))
           )
         )
       ) {
@@ -171,17 +174,17 @@ export default function ItemDetailPage() {
     if (!selectedSpecimen || !item || item.id == null) return;
     setDeleteSpecimenLoading(true);
     try {
-      await api.deleteSpecimen(item.id, selectedSpecimen.id, force);
+      await api.deleteItem(item.id, selectedSpecimen.id, force);
       setShowDeleteSpecimenModal(false);
       setSelectedSpecimen(null);
       setDeleteSpecimenBorrowedError(false);
-      api.getItem(item.id).then(setItem);
+      api.getBiblio(item.id).then(setItem);
     } catch (error: unknown) {
       if (!force) {
         const code = getApiErrorCode(error);
         const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
         if (
-          code === 13 ||
+          code === 'business_rule_violation' ||
           (typeof msg === 'string' && (msg.includes('borrowed') || msg.includes('force=true')))
         ) {
           setDeleteSpecimenBorrowedError(true);
@@ -218,7 +221,23 @@ export default function ItemDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex items-start gap-4">
           <button
-            onClick={() => navigate('/items')}
+            onClick={() => {
+              if (savedSearch === undefined) {
+                navigate('/biblios');
+                return;
+              }
+              const s = savedSearch as { serieId?: string; serieName?: string; collectionId?: string; collectionName?: string };
+              const params = new URLSearchParams();
+              if (s.serieId) {
+                params.set('serie_id', s.serieId);
+                if (s.serieName) params.set('serie_name', s.serieName);
+              } else if (s.collectionId) {
+                params.set('collection_id', s.collectionId);
+                if (s.collectionName) params.set('collection_name', s.collectionName);
+              }
+              const search = params.toString() ? `?${params.toString()}` : '';
+              navigate(`/biblios${search}`, { state: { restoredSearch: savedSearch } });
+            }}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -277,12 +296,12 @@ export default function ItemDetailPage() {
               {item.audience_type != null && (
                 <InfoRow icon={Tag} label={t('items.publicType')} value={getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audience_type)} />
               )}
-              {item.specimens != null && (
+              {item.items != null && (
                 <InfoRow 
                   icon={Plus} 
                   label={t('items.specimens')} 
-                  value={item.specimens.length > 0
-                    ? `${item.specimens.filter(s => s.availability === 0).length}/${item.specimens.length}`
+                  value={item.items.length > 0
+                    ? `${item.items.filter(s => s.availability === 0).length}/${item.items.length}`
                     : '0'
                   } 
                 />
@@ -325,7 +344,7 @@ export default function ItemDetailPage() {
           <Card>
             <CardHeader
               title={t('items.specimens')}
-              subtitle={t('items.specimenCount', { count: item.specimens?.length ?? 0 })}
+              subtitle={t('items.specimenCount', { count: item.items?.length ?? 0 })}
               action={
                 canManageItems(user?.account_type) && (
                   <Button
@@ -339,9 +358,9 @@ export default function ItemDetailPage() {
                 )
               }
             />
-            {item.specimens && item.specimens.length > 0 ? (
+            {item.items && item.items.length > 0 ? (
               <div className="space-y-3">
-                {item.specimens.map((specimen) => (
+                {item.items.map((specimen) => (
                   <SpecimenCard
                     key={specimen.id}
                     specimen={specimen}
@@ -364,34 +383,81 @@ export default function ItemDetailPage() {
             )}
           </Card>
 
-          {item.collection && (
-            <Card>
-              <CardHeader title={t('items.collection')} />
-              <p className="font-medium text-gray-900 dark:text-white">
-                {item.collection.primary_title || item.collection.secondary_title || item.collection.tertiary_title || '—'}
-              </p>
-              {item.collection.issn && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  ISSN: {item.collection.issn}
-                </p>
-              )}
-            </Card>
-          )}
+          {/* Collections — prefer new array, fall back to legacy single */}
+          {(() => {
+            const cols = item.collections?.length
+              ? item.collections
+              : item.collection
+                ? [item.collection]
+                : [];
+            if (cols.length === 0) return null;
+            return (
+              <Card>
+                <CardHeader title={t('items.collection')} />
+                <div className="space-y-3">
+                  {cols.map((c, i) => {
+                    const volNum =
+                      c.volume_number ??
+                      c.volumeNumber ??
+                      item.collection_volume_numbers?.[i] ??
+                      item.collectionVolumeNumbers?.[i] ??
+                      item.collection_volume_number ??
+                      null;
+                    return (
+                      <div key={c.id ?? i} className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {c.name ?? c.primary_title ?? c.secondary_title ?? '—'}
+                          </p>
+                          {(c.secondary_title ?? c.secondaryTitle) && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {c.secondary_title ?? c.secondaryTitle}
+                            </p>
+                          )}
+                          {c.issn && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {c.issn}</p>
+                          )}
+                        </div>
+                        {volNum != null && (
+                          <span className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                            {t('catalog.volumeNumber')} {volNum}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })()}
 
           {item.series && item.series.length > 0 && (
             <Card>
               <CardHeader title={t('items.series')} />
-              <div className="space-y-2">
-                {item.series.map((s, i) => (
-                  <div key={s.id ?? i}>
-                    <p className="font-medium text-gray-900 dark:text-white">{s.name ?? '—'}</p>
-                    {s.volumeNumber != null && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {t('items.serieVolume')} {s.volumeNumber}
-                      </p>
-                    )}
-                  </div>
-                ))}
+              <div className="space-y-3">
+                {item.series.map((s, i) => {
+                  const volNum =
+                    s.volume_number ??
+                    s.volumeNumber ??
+                    item.series_volume_numbers?.[i] ??
+                    item.seriesVolumeNumbers?.[i] ??
+                    null;
+                  return (
+                    <div key={s.id ?? i} className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{s.name ?? '—'}</p>
+                        {s.issn && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {s.issn}</p>
+                        )}
+                      </div>
+                      {volNum != null && (
+                        <span className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          {t('catalog.volumeNumber')} {volNum}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           )}
@@ -453,7 +519,7 @@ export default function ItemDetailPage() {
           </div>
         }
       >
-        <EditItemForm
+        <EditBiblioForm
           formId="edit-item-form"
           item={item}
           onLoadingChange={setIsEditItemLoading}
@@ -483,7 +549,7 @@ export default function ItemDetailPage() {
           onLoadingChange={setIsAddSpecimenLoading}
           onSuccess={() => {
             setShowAddSpecimenModal(false);
-            if (item.id) api.getItem(item.id).then(setItem);
+            if (item.id) api.getBiblio(item.id).then(setItem);
           }}
         />
       </Modal>
@@ -513,7 +579,7 @@ export default function ItemDetailPage() {
             onSuccess={() => {
               setShowEditSpecimenModal(false);
               setSelectedSpecimen(null);
-              if (item.id) api.getItem(item.id).then(setItem);
+              if (item.id) api.getBiblio(item.id).then(setItem);
             }}
           />
         )}
@@ -582,13 +648,13 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
 }
 
 interface SpecimenCardProps {
-  specimen: Specimen;
+  specimen: Item;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardProps) {
+function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardProps) { // specimen is physical Item
   const { t } = useTranslation();
 
   const getAvailabilityBadge = (availability?: number | null) => {
@@ -649,14 +715,14 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
 
 interface EditItemFormProps {
   formId: string;
-  item: Item;
+  item: Biblio;
   onLoadingChange: (loading: boolean) => void;
-  onSuccess: (item: Item) => void;
+  onSuccess: (item: Biblio) => void;
 }
 
 type AuthorForm = { id: string; lastname: string; firstname: string; function: string };
 
-function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemFormProps) {
+function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFormProps) {
   const { t } = useTranslation();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const toAuthorForm = (a: Author): AuthorForm => ({
@@ -666,6 +732,26 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
     function: a.function ?? '',
   });
   const allAuthors = item.authors ?? [];
+
+  const initialCollections = (): LinkedEntry[] => {
+    const arr = item.collections ?? [];
+    if (arr.length > 0) {
+      return arr.map((c) => ({
+        id: c.id ?? undefined,
+        name: c.name ?? c.primary_title ?? '',
+        volumeNumber: (c.volume_number ?? c.volumeNumber)?.toString() ?? '',
+      }));
+    }
+    if (item.collection?.id || item.collection?.primary_title) {
+      return [{
+        id: item.collection.id ?? undefined,
+        name: item.collection.name ?? item.collection.primary_title ?? '',
+        volumeNumber: '',
+      }];
+    }
+    return [];
+  };
+
   const [formData, setFormData] = useState({
     title: item.title || '',
     isbn: item.isbn || '',
@@ -680,14 +766,25 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
     edition_place: item.edition?.place_of_publication ?? '',
     edition_date: item.edition?.date ?? '',
     authors: allAuthors.map(toAuthorForm),
-    collection_id: item.collection?.id?.toString() ?? '',
-    collection_primary_title: item.collection?.primary_title ?? '',
-    seriesList: (item.series ?? []).map((s) => ({
-      id: s.id ?? '',
-      name: s.name ?? '',
-      volume: s.volumeNumber?.toString() ?? '',
-    })),
   });
+  const [linkedCollections, setLinkedCollections] = useState<LinkedEntry[]>(initialCollections);
+  const [linkedSeries, setLinkedSeries] = useState<LinkedEntry[]>(
+    (item.series ?? []).map((s) => ({
+      id: s.id ?? undefined,
+      name: s.name ?? '',
+      volumeNumber: (s.volume_number ?? s.volumeNumber)?.toString() ?? '',
+    }))
+  );
+
+  const searchCollections = useCallback(async (q: string) => {
+    const res = await api.getCollections({ name: q, perPage: 10 });
+    return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? c.primary_title ?? '' }));
+  }, []);
+
+  const searchSeries = useCallback(async (q: string) => {
+    const res = await api.getSeries({ name: q, perPage: 10 });
+    return res.items.map((s) => ({ id: s.id ?? '', name: s.name ?? '' }));
+  }, []);
 
   const MEDIA_TYPES: MediaTypeOption[] = [
     { value: 'unknown', label: t('items.mediaType.unknown') },
@@ -733,7 +830,7 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
         firstname: a.firstname || undefined,
         function: a.function || undefined,
       }));
-      const updateData: Partial<Item> = {
+      const updateData: Partial<Biblio> = {
         title: formData.title || undefined,
         isbn: formData.isbn || undefined,
         publication_date: formData.publication_date || undefined,
@@ -750,18 +847,22 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
           date: formData.edition_date || undefined,
         },
         authors: authorsPayload,
-        collection: formData.collection_id
-          ? { id: formData.collection_id, primary_title: formData.collection_primary_title || undefined }
-          : undefined,
-        series: formData.seriesList
-          .filter((s) => s.name || s.id)
+        series: linkedSeries
+          .filter((s) => s.name.trim())
           .map((s) => ({
             id: s.id || null,
-            name: s.name || undefined,
-            volumeNumber: s.volume ? parseInt(s.volume, 10) : undefined,
+            name: s.name.trim() || undefined,
+            volume_number: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
+          })),
+        collections: linkedCollections
+          .filter((c) => c.name.trim())
+          .map((c) => ({
+            id: c.id || null,
+            name: c.name.trim() || undefined,
+            volume_number: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
           })),
       };
-      const updated = await api.updateItem(item.id, updateData);
+      const updated = await api.updateBiblio(item.id, updateData);
       onSuccess(updated);
     } catch (error) {
       console.error('Error updating item:', error);
@@ -925,64 +1026,24 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
 
           {renderAuthorRows()}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label={t('items.collectionId')}
-              value={formData.collection_id}
-              onChange={(e) => setFormData({ ...formData, collection_id: e.target.value })}
-              placeholder="ID"
-            />
-            <Input
-              label={t('items.collectionPrimaryTitle')}
-              value={formData.collection_primary_title}
-              onChange={(e) => setFormData({ ...formData, collection_primary_title: e.target.value })}
-              placeholder={t('items.seriesName')}
-            />
-          </div>
+          <EntityLinker
+            label={t('items.collection')}
+            addLabel={t('catalog.searchOrCreateCollection')}
+            entries={linkedCollections}
+            onChange={setLinkedCollections}
+            onSearch={searchCollections}
+            volumeLabel={t('catalog.volumeNumber')}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('items.series')}</span>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, seriesList: [...formData.seriesList, { id: '', name: '', volume: '' }] })}
-                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                + {t('items.addSeries')}
-              </button>
-            </div>
-            {formData.seriesList.map((s, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <Input
-                  value={s.name}
-                  onChange={(e) => {
-                    const next = [...formData.seriesList];
-                    next[i] = { ...next[i], name: e.target.value };
-                    setFormData({ ...formData, seriesList: next });
-                  }}
-                  placeholder={t('items.seriesName')}
-                  className="flex-1"
-                />
-                <Input
-                  value={s.volume}
-                  onChange={(e) => {
-                    const next = [...formData.seriesList];
-                    next[i] = { ...next[i], volume: e.target.value };
-                    setFormData({ ...formData, seriesList: next });
-                  }}
-                  placeholder="n°"
-                  className="w-20"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, seriesList: formData.seriesList.filter((_, j) => j !== i) })}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+          <EntityLinker
+            label={t('items.series')}
+            addLabel={t('catalog.searchOrCreateSerie')}
+            entries={linkedSeries}
+            onChange={setLinkedSeries}
+            onSearch={searchSeries}
+            volumeLabel={t('catalog.volumeNumber')}
+          />
+
           <Input
             label={t('items.subject')}
             value={formData.subject}
@@ -1014,7 +1075,7 @@ function EditItemForm({ formId, item, onLoadingChange, onSuccess }: EditItemForm
 
 interface AddSpecimenFormProps {
   formId: string;
-  item: Item;
+  item: Biblio;
   onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
 }
@@ -1047,7 +1108,7 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
     onLoadingChange(true);
     setError(null);
     try {
-      await api.createSpecimen(item.id, {
+      await api.createItem(item.id, {
         barcode: formData.barcode.trim(),
         call_number: formData.call_number || undefined,
         volume_designation: formData.volume_designation || undefined,
@@ -1132,8 +1193,8 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
 
 interface EditSpecimenFormProps {
   formId: string;
-  item: Item;
-  specimen: Specimen;
+  item: Biblio;
+  specimen: Item;
   onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
 }
@@ -1169,7 +1230,7 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
     onLoadingChange(true);
     setError(null);
     try {
-      await api.updateSpecimen(item.id, specimen.id, {
+      await api.updateItem(item.id, specimen.id, {
         barcode: formData.barcode.trim(),
         call_number: formData.call_number || undefined,
         volume_designation: formData.volume_designation || undefined,

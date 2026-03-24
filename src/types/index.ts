@@ -126,16 +126,20 @@ export interface UpdateProfileRequest {
   language?: string;
 }
 
+/** First-login / forced password change via POST /auth/change-password */
+export interface ChangePasswordRequest {
+  new_password: string;
+}
+
 export interface UserShort {
   id: string;
   firstname?: string;
   lastname?: string;
   account_type?: string;
   public_type?: string | null;
-  /** @deprecated prefer counting loans.length (specimens) */
+  /** @deprecated prefer counting loans.length */
   nb_loans?: number;
   nb_late_loans?: number;
-  /** When present, number of emprunts = loans.length (one loan = one specimen) */
   loans?: Loan[];
 }
 
@@ -150,6 +154,8 @@ export interface LoginResponse {
   token_type: string;
   expires_in: number;
   requires_2fa: boolean;
+  /** When true, the user must change password before using the app (token may still be issued). */
+  must_change_password?: boolean;
   two_factor_method?: string;
   device_id?: string;
   user: {
@@ -187,6 +193,7 @@ export interface Verify2FAResponse {
   token_type: string;
   expires_in: number;
   device_id?: string;
+  must_change_password?: boolean;
 }
 
 export interface VerifyRecoveryRequest {
@@ -220,7 +227,13 @@ export interface MediaTypeOption {
   label: string;
 }
 
-// Item types — aligned with README-items-specimens-data.md
+// ──────────────────────────────────────────────────────────────────
+// Domain: Biblio (notice bibliographique) and Item (exemplaire physique)
+//
+// Server rename:
+//   old Item      → Biblio   (bibliographic record: title, ISBN, authors…)
+//   old Specimen  → Item     (physical copy: barcode, location…)
+// ──────────────────────────────────────────────────────────────────
 
 export interface Author {
   id: string;
@@ -243,20 +256,117 @@ export interface Serie {
   key?: string | null;
   name?: string | null;
   issn?: string | null;
-  /** Volume of the item in this series (populated when fetched via Item.series) */
+  /** Volume number in this series context (only in biblio linking) */
   volumeNumber?: number | null;
+  /** Server JSON (canonical) */
+  volume_number?: number | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  /** Server JSON (canonical) */
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface CreateSerie {
+  name: string;
+  key?: string;
+  issn?: string | null;
+}
+
+export interface UpdateSerie {
+  name?: string;
+  issn?: string | null;
 }
 
 export interface Collection {
   id: string | null;
   key?: string | null;
+  /** Primary display title — server canonical field name */
+  name?: string | null;
+  /** Alias kept for backward compat (Z3950 import data, etc.) */
   primary_title?: string | null;
+  secondaryTitle?: string | null;
+  /** Alias kept for backward compat */
   secondary_title?: string | null;
+  tertiaryTitle?: string | null;
+  /** Alias kept for backward compat */
   tertiary_title?: string | null;
+  issn?: string | null;
+  /** Volume number in this collection context (only in biblio linking) */
+  volumeNumber?: number | null;
+  /** Server JSON (canonical) */
+  volume_number?: number | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  /** Server JSON (canonical) */
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface CreateCollection {
+  name: string;
+  key?: string;
+  secondaryTitle?: string | null;
+  tertiaryTitle?: string | null;
   issn?: string | null;
 }
 
+export interface UpdateCollection {
+  name?: string;
+  secondaryTitle?: string | null;
+  tertiaryTitle?: string | null;
+  issn?: string | null;
+}
+
+/** Simplified physical copy (Item) as returned inside BiblioShort */
+export interface ItemShort {
+  id: string;
+  barcode?: string | null;
+  call_number?: string | null;
+  borrowable?: boolean | null;
+  source_name?: string | null;
+  availability?: number | null;
+}
+
+/** Short bibliographic record as returned in list endpoints */
+export interface BiblioShort {
+  id: string;
+  media_type?: MediaType | string | null;
+  isbn?: string | null;
+  title?: string | null;
+  date?: string | null;
+  status?: number | null;
+  is_local?: number | null;
+  is_valid?: number | null;
+  archived_at?: string | null;
+  /** Simplified list of physical items (replaces nb_items / nb_available) */
+  items?: ItemShort[];
+  author?: Author | null;
+  source_name?: string | null;
+}
+
+/** Full physical copy (exemplaire) */
 export interface Item {
+  id: string;
+  biblio_id?: string | null;
+  source_id?: string | null;
+  barcode?: string | null;
+  call_number?: string | null;
+  volume_designation?: string | null;
+  place?: number | null;
+  borrowable?: boolean | null;
+  circulation_status?: number | null;
+  notes?: string | null;
+  price?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  archived_at?: string | null;
+  source_name?: string | null;
+  availability?: number | null;
+}
+
+/** Full bibliographic record */
+export interface Biblio {
   id?: string | null;
   marc_format?: string | null;
   media_type?: MediaType | string | null;
@@ -282,6 +392,14 @@ export interface Item {
   is_valid?: number | null;
   seriesIds?: string[];
   seriesVolumeNumbers?: (number | null)[];
+  /** Server JSON (canonical) */
+  series_ids?: string[];
+  series_volume_numbers?: (number | null)[];
+  collectionIds?: string[];
+  collectionVolumeNumbers?: (number | null)[];
+  /** Server JSON (canonical) */
+  collection_ids?: string[];
+  collection_volume_numbers?: (number | null)[];
   edition_id?: string | null;
   collection_id?: string | null;
   collection_sequence_number?: number | null;
@@ -292,66 +410,25 @@ export interface Item {
   archived_at?: string | null;
   authors?: Author[];
   series?: Serie[];
+  /** New: array of linked collections (server v2) */
+  collections?: Collection[];
+  /** Legacy single-collection (kept for backward compat with Z3950 / old data) */
   collection?: Collection | null;
   edition?: Edition | null;
-  specimens?: Specimen[];
+  /** Physical copies of this bibliographic record */
+  items?: Item[];
   marc_record?: unknown;
 }
 
-/** Simplified specimen as returned in ItemShort.specimens */
-export interface SpecimenShort {
-  id: string;
-  barcode?: string | null;
-  call_number?: string | null;
-  borrowable?: boolean | null;
-  source_name?: string | null;
-  availability?: number | null;
-}
-
-export interface ItemShort {
-  id: string;
-  media_type?: MediaType | string | null;
-  isbn?: string | null;
-  title?: string | null;
-  date?: string | null;
-  status?: number | null;
-  is_local?: number | null;
-  is_valid?: number | null;
-  archived_at?: string | null;
-  /** Simplified list of specimens (replaces nb_specimens / nb_available) */
-  specimens?: SpecimenShort[];
-  author?: Author | null;
-  source_name?: string | null;
-}
-
-export interface Specimen {
-  id: string;
-  item_id?: string | null;
-  source_id?: string | null;
-  barcode?: string | null;
-  call_number?: string | null;
-  volume_designation?: string | null;
-  place?: number | null;
-  borrowable?: boolean | null;
-  circulation_status?: number | null;
-  notes?: string | null;
-  price?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  archived_at?: string | null;
-  source_name?: string | null;
-  availability?: number | null;
-}
-
-/** Specimen data when creating an item in one request (POST /items with specimens) */
-export interface CreateItemSpecimenInput {
+/** Physical item data when creating a Biblio in one request (POST /biblios with items) */
+export interface CreateBiblioItemInput {
   barcode?: string | null;
   call_number?: string | null;
   source_id: string;
 }
 
-/** Payload for POST /items/{id}/specimens */
-export interface CreateSpecimen {
+/** Payload for POST /biblios/{id}/items */
+export interface CreateItem {
   barcode?: string | null;
   call_number?: string | null;
   volume_designation?: string | null;
@@ -363,8 +440,8 @@ export interface CreateSpecimen {
   source_name?: string | null;
 }
 
-/** Payload for PUT /items/{id}/specimens/{sid} */
-export interface UpdateSpecimen {
+/** Payload for PUT /biblios/{id}/items */
+export interface UpdateItem {
   barcode?: string | null;
   call_number?: string | null;
   volume_designation?: string | null;
@@ -384,15 +461,16 @@ export interface Loan {
   returned_at?: string | null;
   renew_at?: string;
   nb_renews: number;
-  item: ItemShort;
+  /** Bibliographic record associated with the loan */
+  biblio: BiblioShort;
   user?: UserShort;
-  specimen_identification?: string;
+  item_identification?: string;
   is_overdue: boolean;
 }
 
 // Stats types
 export interface Stats {
-  items: {
+  biblios: {
     total: number;
     by_media_type: StatEntry[];
     by_public_type: StatEntry[];
@@ -413,7 +491,6 @@ export interface Stats {
 export interface StatEntry {
   label: string;
   value: number;
-  // Available when year param is provided to /stats
   acquisitions?: number;
   eliminations?: number;
 }
@@ -449,20 +526,19 @@ export interface CatalogStatsBreakdown {
   label?: string;
   source_id?: string;
   source_name?: string;
-  active_specimens: number;
-  entered_specimens: number;
-  archived_specimens: number;
+  active_items: number;
+  entered_items: number;
+  archived_items: number;
   loans: number;
-  // Hierarchical nesting: source → media_type → public_type
   by_media_type?: CatalogStatsBreakdown[];
   by_public_type?: CatalogStatsBreakdown[];
 }
 
 export interface CatalogStats {
   totals: {
-    active_specimens: number;
-    entered_specimens: number;
-    archived_specimens: number;
+    active_items: number;
+    entered_items: number;
+    archived_items: number;
     loans: number;
   };
   by_source?: CatalogStatsBreakdown[];
@@ -495,12 +571,13 @@ export interface LoanStatsResponse {
   by_media_type: StatEntry[];
 }
 
-// Paginated response
+/** Normalized client shape; server JSON uses `per_page` and `page_count` (see `normalizePaginatedResponse`). */
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
   page: number;
-  per_page: number;
+  perPage: number;
+  pageCount: number;
 }
 
 export interface ImportReport {
@@ -511,7 +588,8 @@ export interface ImportReport {
 }
 
 export interface ImportResult<T> {
-  item: T;
+  /** Imported bibliographic record */
+  biblio: T;
   import_report: ImportReport;
 }
 
@@ -519,24 +597,29 @@ export interface ImportResult<T> {
 export interface EnqueueResult {
   /** Unique batch identifier in Redis (stringified i64) */
   batch_id: string;
-  /** Lightweight preview of records in this batch */
-  items: ItemShort[];
+  /** Lightweight preview of bibliographic records in this batch */
+  biblios: BiblioShort[];
 }
 
 export interface MarcBatchImportError {
-  /** Redis key of the failing record: marc:record:<batch_id>:<id> */
   record_key: string;
-  /** Human‑readable error message */
   error: string;
+  /** ID of the existing biblio that caused a duplicate ISBN conflict */
+  existing_id?: number | string | null;
 }
 
 export interface MarcBatchImportReport {
-  /** Batch identifier (stringified i64) */
   batch_id: string;
-  /** Number of successfully imported records */
   imported: number;
-  /** Detailed list of per‑record errors, if any */
   failed: MarcBatchImportError[];
+}
+
+export interface MarcBatchInfo {
+  /** Unique batch identifier in Redis (stringified i64) */
+  batch_id: string;
+  record_count: number;
+  /** Redis TTL semantics: -1 no expiry, -2 key missing/expired */
+  ttl_seconds: number;
 }
 
 export interface DuplicateConfirmationRequired {
@@ -545,12 +628,26 @@ export interface DuplicateConfirmationRequired {
   message: string;
 }
 
-// Error response
+// Error response — code is now a string
 export interface ApiError {
-  code: number;
+  code: string;
   error: string;
   message: string;
 }
+
+export type ApiErrorCode =
+  | 'authentication_failed'
+  | 'authorization_failed'
+  | 'not_found'
+  | 'validation_error'
+  | 'bad_request'
+  | 'conflict'
+  | 'business_rule_violation'
+  | 'duplicate_isbn_needs_confirmation'
+  | 'duplicate_barcode_needs_confirmation'
+  | 'z3950_error'
+  | 'database_error'
+  | 'internal_error';
 
 // Settings
 export interface LoanSettings {
@@ -651,19 +748,19 @@ export const isLibrarian = (accountType?: string): boolean => {
   return normalized === 'admin' || normalized === 'librarian';
 };
 
-export const canManageItems = (accountType?: string): boolean => 
+export const canManageItems = (accountType?: string): boolean =>
   isLibrarian(accountType);
 
-export const canManageUsers = (accountType?: string): boolean => 
+export const canManageUsers = (accountType?: string): boolean =>
   isLibrarian(accountType);
 
-export const canManageLoans = (accountType?: string): boolean => 
+export const canManageLoans = (accountType?: string): boolean =>
   isLibrarian(accountType);
 
-export const canViewStats = (accountType?: string): boolean => 
+export const canViewStats = (accountType?: string): boolean =>
   isLibrarian(accountType);
 
-export const canManageSettings = (accountType?: string): boolean => 
+export const canManageSettings = (accountType?: string): boolean =>
   isAdmin(accountType);
 
 // Admin dynamic config (GET/PUT/DELETE /admin/config)
@@ -684,6 +781,26 @@ export interface AdminConfigResponse {
 export interface ReindexSearchResponse {
   items_queued: number;
   meilisearch_available: boolean;
+}
+
+export type MaintenanceAction =
+  | 'cleanup_dangling_biblio_series'
+  | 'cleanup_dangling_biblio_collections'
+  | 'cleanup_series'
+  | 'cleanup_collections'
+  | 'merge_duplicate_series'
+  | 'merge_duplicate_collections'
+  | 'cleanup_orphan_authors';
+
+export interface MaintenanceActionReport {
+  action: MaintenanceAction | string;
+  success: boolean;
+  details: Record<string, number>;
+  error?: string;
+}
+
+export interface MaintenanceResponse {
+  reports: MaintenanceActionReport[];
 }
 
 // Audit log
@@ -752,8 +869,6 @@ export interface ReminderReport {
 }
 
 // Events
-// event_type: 0=animation, 1=school_visit, 2=exhibition, 3=conference, 4=workshop, 5=show, 6=other
-// target_public: 97=adult, 106=children, null=all
 export interface Event {
   id: string;
   name: string;
@@ -809,4 +924,187 @@ export interface UpdateEvent {
 export interface EventsListResponse {
   events: Event[];
   total: number;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Reservations / Holds
+// ──────────────────────────────────────────────────────────────────
+
+export type ReservationStatus = 'pending' | 'ready' | 'fulfilled' | 'cancelled' | 'expired';
+
+export interface Reservation {
+  id: string;
+  userId?: string;
+  itemId?: string;
+  /** Server JSON (canonical) */
+  user_id?: string;
+  item_id?: string;
+  status: ReservationStatus;
+  position: number;
+  createdAt?: string;
+  notifiedAt?: string | null;
+  expiresAt?: string | null;
+  /** Server JSON (canonical) */
+  created_at?: string;
+  notified_at?: string | null;
+  expires_at?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateReservation {
+  userId: string;
+  itemId: string;
+  notes?: string | null;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Fines / Penalties
+// ──────────────────────────────────────────────────────────────────
+
+export type FineStatus = 'pending' | 'partial' | 'paid' | 'waived';
+
+export interface Fine {
+  id: string;
+  loanId?: string;
+  /** Server JSON (canonical) */
+  loan_id?: string;
+  amount: string;
+  paidAmount?: string;
+  /** Server JSON (canonical) */
+  paid_amount?: string;
+  status: FineStatus;
+  createdAt?: string;
+  /** Server JSON (canonical) */
+  created_at?: string;
+}
+
+export interface FinesResponse {
+  totalUnpaid?: string;
+  /** Server JSON (canonical) */
+  total_unpaid?: string;
+  fines: Fine[];
+}
+
+export interface FineRule {
+  mediaType?: MediaType | null;
+  dailyRate?: string;
+  maxAmount?: string;
+  graceDays?: number;
+  /** Server JSON (canonical) */
+  media_type?: MediaType | null;
+  daily_rate?: string;
+  max_amount?: string;
+  grace_days?: number;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Inventory / Stock check
+// ──────────────────────────────────────────────────────────────────
+
+export interface InventorySession {
+  id: string;
+  locationFilter?: string | null;
+  /** Server JSON (canonical) */
+  location_filter?: string | null;
+  status: 'open' | 'closed';
+  createdAt?: string;
+  /** Server JSON (canonical) */
+  created_at?: string;
+  closedAt?: string | null;
+  /** Server JSON (canonical) */
+  closed_at?: string | null;
+}
+
+export interface CreateInventorySession {
+  locationFilter?: string | null;
+}
+
+export interface InventoryScanResult {
+  barcode: string;
+  found: boolean;
+  itemId?: string | null;
+  /** Server JSON (canonical) */
+  item_id?: string | null;
+}
+
+export interface InventoryReport {
+  sessionId?: string;
+  totalScanned?: number;
+  totalFound?: number;
+  totalUnknown?: number;
+  missingCount?: number;
+  /** Server JSON (canonical) */
+  session_id?: string;
+  total_scanned?: number;
+  total_found?: number;
+  total_unknown?: number;
+  missing_count?: number;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Reading history (RGPD)
+// ──────────────────────────────────────────────────────────────────
+
+export interface HistoryPreference {
+  userId?: string;
+  historyEnabled?: boolean;
+  /** Server JSON (canonical) */
+  user_id?: string;
+  history_enabled?: boolean;
+}
+
+export interface ReadingHistoryEntry {
+  id: string;
+  loanId?: string | null;
+  biblio?: BiblioShort | null;
+  returnedAt?: string;
+  /** Server JSON (canonical) */
+  loan_id?: string | null;
+  returned_at?: string;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Batch operations (scanner / return kiosk)
+// ──────────────────────────────────────────────────────────────────
+
+export interface BatchReturnResult {
+  barcode: string;
+  success: boolean;
+  loan?: Loan | null;
+  error?: string | null;
+}
+
+export interface BatchReturnResponse {
+  returned: number;
+  errors: number;
+  results: BatchReturnResult[];
+}
+
+export interface BatchCreateResult {
+  barcode: string;
+  success: boolean;
+  loanId?: string | null;
+  /** Server JSON (canonical) */
+  loan_id?: string | null;
+  error?: string | null;
+}
+
+export interface BatchCreateResponse {
+  created: number;
+  errors: number;
+  results: BatchCreateResult[];
+}
+
+// ──────────────────────────────────────────────────────────────────
+// OPAC — public unauthenticated catalogue
+// ──────────────────────────────────────────────────────────────────
+
+export interface OPACAvailability {
+  biblioId?: string;
+  activeLoans?: number;
+  holdCount?: number;
+  /** Server JSON (canonical) */
+  biblio_id?: string;
+  active_loans?: number;
+  hold_count?: number;
 }

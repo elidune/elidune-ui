@@ -134,6 +134,9 @@
     "invalidCredentials": "Invalid credentials",
     "yourIdentifier": "Your identifier",
     "yourPassword": "Your password",
+    "mustChangePasswordTitle": "Password change required",
+    "mustChangePasswordSubtitle": "You must set a new password before continuing.",
+    "mustChangePasswordSubmit": "Save and sign in again",
     "2fa": {
       "title": "Two-Factor Verification",
       "totpMethod": "Enter the code from your authenticator app",
@@ -657,7 +660,45 @@
       "reindexSuccess": "{{count}} item(s) queued for indexing.",
       "meilisearchOn": "Meilisearch is configured on this server.",
       "meilisearchOff": "Meilisearch is not configured on this server.",
-      "reindexError": "Could not start reindex"
+      "reindexError": "Could not start reindex",
+      "actionsGroupTitle": "Data maintenance actions",
+      "actionsGroupIntro": "Run actions one by one, or execute the full group in recommended order.",
+      "runAllActions": "Run all",
+      "runningAllActions": "Running…",
+      "runAction": "Run",
+      "actionSuccess": "Action completed successfully",
+      "actionFailed": "Action failed",
+      "actionRunError": "Could not run maintenance actions",
+      "actions": {
+        "cleanup_dangling_biblio_series": {
+          "label": "Clean dangling biblio-series links",
+          "description": "Removes biblio->series links that point to missing series."
+        },
+        "cleanup_dangling_biblio_collections": {
+          "label": "Clean dangling biblio-collection links",
+          "description": "Removes biblio->collection links that point to missing collections."
+        },
+        "cleanup_series": {
+          "label": "Clean series",
+          "description": "Removes surrounding quotes from names and deletes unlinked series."
+        },
+        "cleanup_collections": {
+          "label": "Clean collections",
+          "description": "Removes surrounding quotes from names and deletes unlinked collections."
+        },
+        "merge_duplicate_series": {
+          "label": "Merge duplicate series",
+          "description": "Merges duplicate series and moves linked bibliographic references."
+        },
+        "merge_duplicate_collections": {
+          "label": "Merge duplicate collections",
+          "description": "Merges duplicate collections and moves linked bibliographic references."
+        },
+        "cleanup_orphan_authors": {
+          "label": "Clean orphan authors",
+          "description": "Deletes authors not referenced by any bibliographic record."
+        }
+      }
     },
     "publicTypes": {
       "title": "Public Types",
@@ -763,13 +804,16 @@
     "onlyWithSpecimen": "Only import notices with local fields (9xx)",
     "importWithScan": "Import with scan",
     "scanMode": "Scan mode activated",
-    "scanModeHint": "Scan the ISBN barcode of each document to import",
-    "scanPlaceholder": "Scan or enter ISBN...",
+    "scanModeHint": "Scan a specimen barcode to import its linked bibliographic record",
+    "scanPlaceholder": "Scan or enter specimen barcode...",
     "validate": "Validate",
     "isbnNotFound": "No document with ISBN \"{{isbn}}\" found in the list",
+    "specimenBarcodeNotFound": "No record linked to specimen barcode \"{{barcode}}\" found in the list",
     "remainingToScan": "{{count}} document remaining to scan",
     "remainingToScan_plural": "{{count}} documents remaining to scan",
     "importProgress": "Import in progress...",
+    "itemDetails": "Bibliographic details",
+    "errorTag": "Error",
     "detectedEncoding": "Detected encoding: {{encoding}}",
     "rawFields": "Extracted MARC fields",
     "preview": {
@@ -784,6 +828,18 @@
       "iso2709": "MARC ISO 2709",
       "marcxml": "MARCXML"
     },
+    "uploadFile": "Upload file",
+    "existingBatch": "Existing batch",
+    "batchHint": "Select a MARC batch cached on the server to resume a previous import.",
+    "refresh": "Refresh",
+    "noBatches": "No cached batches on the server.",
+    "batchesLoadError": "Failed to load batch list.",
+    "batchLoadError": "Failed to load this batch (expired or not found).",
+    "batchRecords": "{{count}} record",
+    "batchRecords_plural": "{{count}} records",
+    "batchTtl": "Expires in {{time}}",
+    "batchExpired": "Expired",
+    "loadBatch": "Load",
     "source": "Source (for specimens)",
     "noSource": "No source",
     "default": "default",
@@ -794,10 +850,18 @@
     "sourceCreateError": "Failed to create source",
     "duplicateIsbnTitle": "Duplicate ISBN",
     "duplicateIsbnMessage": "An item with ISBN {{isbn}} already exists.",
-    "duplicateIsbnPrompt": "An item already exists with the title \"{{title}}\".",
-    "duplicateIsbnApplyToAll": "Apply this choice to all duplicates in this file",
+    "duplicateIsbnPrompt": "A record already exists with the title \"{{title}}\" (ISBN {{isbn}}). What would you like to do?",
+    "duplicateIsbnSkip": "Skip",
+    "duplicateIsbnSkipHint": "Do not import this record for now. It stays pending.",
+    "duplicateIsbnCreateNew": "Create duplicate",
+    "duplicateIsbnCreateNewHint": "Import as a new record despite the same ISBN.",
     "duplicateIsbnReplace": "Replace",
-    "duplicateIsbnCreateNew": "Duplicate ISBN",
+    "duplicateIsbnReplaceHint": "Replace the existing bibliographic record with this one.",
+    "duplicateSkippedInBatch": "Duplicate ISBN — skipped (batch import). Click \"Import\" to handle individually.",
+    "warningReplaced": "Replaced existing record",
+    "warningDuplicated": "Imported as ISBN duplicate",
+    "cannotReplaceNoId": "Cannot replace: the existing record ID is not available.",
+    "duplicateIsbnApplyToAll": "Apply this choice to all duplicates in this file",
     "duplicateIsbnChoose": "Choose an existing item to add the specimen to, or create a new item:",
     "duplicateIsbnNoMatches": "No existing items found for this ISBN.",
     "duplicateUseThis": "Use this item",
@@ -986,6 +1050,33 @@
   },
   "footer": {
     "copyright": "© 2026 Elidune - Library Management System"
+  },
+  "opac": {
+    "heroTitle": "Online Catalogue",
+    "heroSub": "Search the collections — no registration required",
+    "searchPlaceholder": "Title, author, ISBN, keyword…",
+    "filterAll": "All formats",
+    "filterBooks": "Books",
+    "filterDvd": "DVD",
+    "filterMagazines": "Magazines",
+    "filterComics": "Comics",
+    "newItems": "New arrivals",
+    "searchResults": "Results",
+    "available": "Available",
+    "borrowed": "On loan",
+    "moreResults": "… and {{count}} more results",
+    "resultsCount": "{{count}} document found",
+    "resultsCount_plural": "{{count}} documents found",
+    "searchPrompt": "Search to explore the catalogue",
+    "readerSpace": "Reader space",
+    "loginCardText": "Sign in to reserve items, renew your loans and access digital resources.",
+    "featureReserve": "Online reservation",
+    "featureRenew": "Loan renewal",
+    "featureHistory": "History & favourites",
+    "featureDigital": "Digital resources",
+    "featureSuggestions": "Purchase suggestions",
+    "freeAccess": "Free access — no registration required to search",
+    "statsDocs": "documents"
   },
   "events": {
     "title": "Events",

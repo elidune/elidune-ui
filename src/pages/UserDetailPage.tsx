@@ -42,7 +42,7 @@ import {
 import { Card, CardHeader, Button, Badge, Modal, Input, Table } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
-import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType } from '@/types';
+import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType, type FinesResponse, type Reservation, type HistoryPreference } from '@/types';
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -62,6 +62,22 @@ export default function UserDetailPage() {
   const [isBorrowLoading, setIsBorrowLoading] = useState(false);
   const [loanDetails, setLoanDetails] = useState<Loan | null>(null);
   const [renewError, setRenewError] = useState('');
+
+  // Fines state
+  const [finesData, setFinesData] = useState<FinesResponse | null>(null);
+  const [isLoadingFines, setIsLoadingFines] = useState(false);
+  const [showFines, setShowFines] = useState(false);
+
+  // Reservations state
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(false);
+  const [showReservations, setShowReservations] = useState(false);
+
+  // Reading history state
+  const [historyPref, setHistoryPref] = useState<HistoryPreference | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isUpdatingHistoryPref, setIsUpdatingHistoryPref] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Stats state
   const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
@@ -221,6 +237,81 @@ export default function UserDetailPage() {
     setUserStatsFilters(getDefaultStatsFilters());
   };
 
+  // Load fines when section is opened
+  useEffect(() => {
+    if (!showFines || !user?.id) return;
+    setIsLoadingFines(true);
+    api.getUserFines(user.id)
+      .then(setFinesData)
+      .catch(() => {})
+      .finally(() => setIsLoadingFines(false));
+  }, [showFines, user?.id]);
+
+  // Load reservations when section is opened
+  useEffect(() => {
+    if (!showReservations || !user?.id) return;
+    setIsLoadingReservations(true);
+    api.getUserReservations(user.id)
+      .then(setReservations)
+      .catch(() => {})
+      .finally(() => setIsLoadingReservations(false));
+  }, [showReservations, user?.id]);
+
+  // Load history preference when section is opened
+  useEffect(() => {
+    if (!showHistory || !user?.id) return;
+    setIsLoadingHistory(true);
+    api.getHistoryPreference(user.id)
+      .then(setHistoryPref)
+      .catch(() => {})
+      .finally(() => setIsLoadingHistory(false));
+  }, [showHistory, user?.id]);
+
+  const handleToggleHistoryPref = async () => {
+    if (!user?.id || !historyPref) return;
+    setIsUpdatingHistoryPref(true);
+    try {
+      const enabled = historyPref.historyEnabled ?? historyPref.history_enabled ?? false;
+      const updated = await api.updateHistoryPreference(user.id, !enabled);
+      setHistoryPref(updated);
+    } catch {
+      // ignore
+    } finally {
+      setIsUpdatingHistoryPref(false);
+    }
+  };
+
+  const handleCancelReservation = async (reservationId: string) => {
+    try {
+      await api.deleteReservation(reservationId);
+      setReservations((prev) => prev.filter((r) => r.id !== reservationId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handlePayFine = async (fineId: string) => {
+    if (!user?.id) return;
+    try {
+      await api.payFine(fineId);
+      const updated = await api.getUserFines(user.id);
+      setFinesData(updated);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleWaiveFine = async (fineId: string) => {
+    if (!user?.id) return;
+    try {
+      await api.waiveFine(fineId);
+      const updated = await api.getUserFines(user.id);
+      setFinesData(updated);
+    } catch {
+      // ignore
+    }
+  };
+
   const STATS_INTERVALS: { value: StatsInterval; label: string }[] = [
     { value: 'day', label: t('stats.interval.day') },
     { value: 'week', label: t('stats.interval.week') },
@@ -285,7 +376,7 @@ export default function UserDetailPage() {
       }}
       className="text-left font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
     >
-      {loan.item.title || 'Sans titre'}
+      {loan.biblio.title || 'Sans titre'}
     </button>
   );
 
@@ -556,18 +647,18 @@ export default function UserDetailPage() {
               <p className="text-xs text-gray-500 dark:text-gray-400">Document</p>
               <div className="flex items-start gap-3 mt-1">
                 <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900/30 flex items-center justify-center">
-                  {getMediaTypeIcon(loanDetails.item.media_type as MediaType)}
+                  {getMediaTypeIcon(loanDetails.biblio.media_type as MediaType)}
                 </div>
                 <div className="min-w-0">
                   <p className="text-gray-900 dark:text-white font-medium">
-                    {loanDetails.item.title || 'Sans titre'}
+                    {loanDetails.biblio.title || 'Sans titre'}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {formatAuthor(loanDetails.item.author)}
+                    {formatAuthor(loanDetails.biblio.author)}
                   </p>
-                  {loanDetails.item.isbn && (
+                  {loanDetails.biblio.isbn && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                      {t('items.isbn')}: <span className="font-mono">{loanDetails.item.isbn}</span>
+                      {t('items.isbn')}: <span className="font-mono">{loanDetails.biblio.isbn}</span>
                     </p>
                   )}
                 </div>
@@ -596,12 +687,12 @@ export default function UserDetailPage() {
             <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
               <p className="text-xs text-gray-500 dark:text-gray-400">Exemplaire emprunté</p>
               {(() => {
-                const ident = loanDetails.specimen_identification;
-                const spec = loanDetails.item?.specimens?.find(
+                const ident = loanDetails.item_identification;
+                const spec = loanDetails.biblio?.items?.find(
                   (s) => (s.barcode != null && ident != null && s.barcode === ident) || s.id === ident
                 );
                 const barcode = spec?.barcode ?? ident ?? '-';
-                const sourceName = spec?.source_name ?? loanDetails.item.source_name ?? '-';
+                const sourceName = spec?.source_name ?? loanDetails.biblio.source_name ?? '-';
                 return (
                   <div className="mt-1 space-y-1">
                     <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -829,6 +920,128 @@ export default function UserDetailPage() {
               <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                 {t('users.noStatsAvailable')}
               </p>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Fines section */}
+      <Card>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-1"
+          onClick={() => setShowFines(!showFines)}
+        >
+          <span className="font-semibold text-gray-900 dark:text-white">{t('fines.title')}</span>
+          {finesData && parseFloat(finesData.totalUnpaid ?? finesData.total_unpaid ?? '0') > 0 && (
+            <span className="text-sm font-medium text-red-600 dark:text-red-400">
+              {finesData.totalUnpaid ?? finesData.total_unpaid} €
+            </span>
+          )}
+        </button>
+        {showFines && (
+          <div className="mt-4 space-y-3">
+            {isLoadingFines ? (
+              <p className="text-center text-gray-500 py-4">{t('common.loading')}</p>
+            ) : !finesData || finesData.fines.length === 0 ? (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-4">{t('fines.noFines')}</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">{t('fines.totalUnpaid')}</span>
+                  <span className="font-semibold text-red-600 dark:text-red-400">
+                    {finesData.totalUnpaid ?? finesData.total_unpaid} €
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {finesData.fines.map((fine) => (
+                    <div key={fine.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{fine.amount} €</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('fines.status')}: {t(`fines.statuses.${fine.status}`)}</p>
+                      </div>
+                      {(fine.status === 'pending' || fine.status === 'partial') && (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => handlePayFine(fine.id)}>{t('fines.pay')}</Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleWaiveFine(fine.id)}>{t('fines.waive')}</Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Reservations section */}
+      <Card>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-1"
+          onClick={() => setShowReservations(!showReservations)}
+        >
+          <span className="font-semibold text-gray-900 dark:text-white">{t('reservations.title')}</span>
+          {reservations.length > 0 && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">{reservations.length}</span>
+          )}
+        </button>
+        {showReservations && (
+          <div className="mt-4 space-y-3">
+            {isLoadingReservations ? (
+              <p className="text-center text-gray-500 py-4">{t('common.loading')}</p>
+            ) : reservations.length === 0 ? (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-4">{t('reservations.noReservations')}</p>
+            ) : (
+              reservations.map((r) => (
+                <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{t('reservations.position')}: {r.position}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('reservations.status')}: {t(`reservations.statuses.${r.status}`)}</p>
+                  </div>
+                  {(r.status === 'pending' || r.status === 'ready') && (
+                    <Button size="sm" variant="ghost" onClick={() => handleCancelReservation(r.id)}>{t('common.cancel')}</Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Reading history section */}
+      <Card>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-1"
+          onClick={() => setShowHistory(!showHistory)}
+        >
+          <span className="font-semibold text-gray-900 dark:text-white">{t('history.title')}</span>
+        </button>
+        {showHistory && (
+          <div className="mt-4 space-y-4">
+            {isLoadingHistory ? (
+              <p className="text-center text-gray-500 py-4">{t('common.loading')}</p>
+            ) : (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{t('history.rgpdToggle')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('history.rgpdHint')}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={
+                    historyPref?.historyEnabled ?? historyPref?.history_enabled ? 'danger' : 'secondary'
+                  }
+                  isLoading={isUpdatingHistoryPref}
+                  onClick={handleToggleHistoryPref}
+                >
+                  {historyPref?.historyEnabled ?? historyPref?.history_enabled
+                    ? t('history.disable')
+                    : t('history.enable')}
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -1176,18 +1389,19 @@ function BorrowForm({ formId, userId, onLoadingChange, onSuccess }: BorrowFormPr
     try {
       await api.createLoan({
         user_id: userId,
-        specimen_identification: specimenCode,
+        item_identification: specimenCode,
         force: force || undefined,
       });
       setError('');
       onSuccess();
     } catch (err: unknown) {
-      const axiosData = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const axiosErr = err as { response?: { data?: { code?: string; message?: string } } };
+      const axiosData = axiosErr?.response?.data;
+      const errorCode = axiosData?.code ?? '';
       const rawMessage = typeof axiosData?.message === 'string' ? axiosData.message : '';
-      const isMaxLoans = /maximum\s*(total\s*)?loans(\s+for this document type)?\s*reached/i.test(rawMessage);
       const displayMsg = getApiErrorMessage(err, t) || t('loans.errorCreatingLoan');
       const confirmMsg = rawMessage || displayMsg;
-      if (isMaxLoans && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
+      if (errorCode === 'business_rule_violation' && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
         return doCreateLoan(true);
       }
       setError(displayMsg);

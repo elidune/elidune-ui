@@ -425,7 +425,7 @@ export default function StatsPage() {
         <StatCard
           icon={BookOpen}
           label={t('stats.documents')}
-          value={stats.items?.total ?? 0}
+          value={stats.biblios?.total ?? 0}
           color="indigo"
         />
         <StatCard
@@ -577,15 +577,15 @@ export default function StatsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.activeSpecimens')}</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{catalogStats.totals.active_specimens.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{catalogStats.totals.active_items.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.enteredSpecimens')}</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{catalogStats.totals.entered_specimens.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{catalogStats.totals.entered_items.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.archivedSpecimens')}</p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{catalogStats.totals.archived_specimens.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{catalogStats.totals.archived_items.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.loans')}</p>
@@ -957,7 +957,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
   const filterActive = (list?: CatalogStatsBreakdown[]): CatalogStatsBreakdown[] | undefined => {
     if (!list) return undefined;
     const filtered = list
-      .filter((e) => e.active_specimens > 0)
+      .filter((e) => e.active_items > 0)
       .map((e) => ({
         ...e,
         by_media_type: filterActive(e.by_media_type),
@@ -986,7 +986,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
           <div className="space-y-2">
             {(() => {
               const sourcesTotal = sources!.length > 0 
-                ? sources!.reduce((sum, s) => sum + s.active_specimens, 0)
+                ? sources!.reduce((sum, s) => sum + s.active_items, 0)
                 : undefined;
               
               return sources!.map((source, idx) => {
@@ -994,7 +994,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
                 const hasNestedMedia = (source.by_media_type?.length ?? 0) > 0;
                 const hasNestedPublic = !hasNestedMedia && (source.by_public_type?.length ?? 0) > 0;
                 const nestedMediaTotal = hasNestedMedia && source.by_media_type!.length > 0
-                  ? source.by_media_type!.reduce((sum, m) => sum + m.active_specimens, 0)
+                  ? source.by_media_type!.reduce((sum, m) => sum + m.active_items, 0)
                   : undefined;
 
                 if (!hasNestedMedia && !hasNestedPublic) {
@@ -1040,7 +1040,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
           <div className="space-y-2">
             {(() => {
               const mediaTotal = mediaTypes!.length > 0 
-                ? mediaTypes!.reduce((sum, m) => sum + m.active_specimens, 0)
+                ? mediaTypes!.reduce((sum, m) => sum + m.active_items, 0)
                 : undefined;
               
               return mediaTypes!.map((media, idx) => {
@@ -1070,7 +1070,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
           <div className="space-y-2">
             {(() => {
               const publicTotal = publicTypes!.length > 0 
-                ? publicTypes!.reduce((sum, p) => sum + p.active_specimens, 0)
+                ? publicTypes!.reduce((sum, p) => sum + p.active_items, 0)
                 : undefined;
               
               return publicTypes!.map((pub, idx) => (
@@ -1092,22 +1092,22 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
 
 /** 4-column metrics display */
 function CatalogMetrics({ item, t, totalValue }: { item: CatalogStatsBreakdown; t: TFn; totalValue?: number }) {
-  const percentage = totalValue && totalValue > 0 ? (item.active_specimens / totalValue) * 100 : 0;
+  const percentage = totalValue && totalValue > 0 ? (item.active_items / totalValue) * 100 : 0;
   
   return (
     <div>
       <div className="grid grid-cols-4 gap-2 text-xs mb-2">
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.active')}</span>
-          <p className="font-medium">{item.active_specimens.toLocaleString()}</p>
+          <p className="font-medium">{item.active_items.toLocaleString()}</p>
         </div>
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.entered')}</span>
-          <p className="font-medium">{item.entered_specimens.toLocaleString()}</p>
+          <p className="font-medium">{item.entered_items.toLocaleString()}</p>
         </div>
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.archived')}</span>
-          <p className="font-medium">{item.archived_specimens.toLocaleString()}</p>
+          <p className="font-medium">{item.archived_items.toLocaleString()}</p>
         </div>
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.loans')}</span>
@@ -1139,7 +1139,7 @@ function CatalogFlatItem({ label, item, t, totalValue }: { label: string; item: 
 /** Flat list of public_type items — used as leaf level */
 function CatalogPublicTypeList({ items, t }: { items: CatalogStatsBreakdown[]; t: TFn }) {
   const totalValue = items.length > 0 
-    ? items.reduce((sum, item) => sum + item.active_specimens, 0)
+    ? items.reduce((sum, item) => sum + item.active_items, 0)
     : undefined;
   
   return (

@@ -540,7 +540,7 @@ function PublicTypesEditor() {
       setExpandedId((prev) => (prev === pt.id ? null : prev));
       fetchPublicTypes();
     } catch (err: unknown) {
-      if (getApiErrorCode(err) === 18) {
+      if (getApiErrorCode(err) === 'business_rule_violation') {
         setError(t('settings.publicTypes.deleteError'));
       } else {
         setError(getApiErrorMessage(err, t));

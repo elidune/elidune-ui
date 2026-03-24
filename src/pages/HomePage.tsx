@@ -78,25 +78,25 @@ export default function HomePage() {
           <StatCard
             icon={BookOpen}
             label={t('stats.documents')}
-            value={stats.items.total}
+            value={stats.biblios?.total ?? 0}
             color="gray"
           />
           <StatCard
             icon={Users}
             label={t('stats.activeUsers')}
-            value={stats.users.active}
+            value={stats.users?.active ?? 0}
             color="emerald"
           />
           <StatCard
             icon={BookMarked}
             label={t('stats.activeLoans')}
-            value={stats.loans.active}
+            value={stats.loans?.active ?? 0}
             color="amber"
           />
           <StatCard
             icon={TrendingUp}
             label={t('stats.overdue')}
-            value={stats.loans.overdue}
+            value={stats.loans?.overdue ?? 0}
             color="red"
           />
         </div>
@@ -138,7 +138,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 dark:text-white truncate">
-                    {loan.item.title}
+                    {loan.biblio.title}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {t('loans.dueDate')}: {new Date(loan.issue_at).toLocaleDateString()}
@@ -156,7 +156,7 @@ export default function HomePage() {
       {/* Quick actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <QuickActionCard
-          to="/items"
+          to="/biblios"
           icon={BookOpen}
           title={t('nav.catalog')}
           description={t('items.searchPlaceholder')}

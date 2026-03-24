@@ -24,6 +24,7 @@
     "back": "Retour",
     "next": "Suivant",
     "previous": "Précédent",
+    "page": "Page",
     "view": "Voir",
     "download": "Télécharger",
     "upload": "Téléverser",
@@ -58,6 +59,7 @@
     "events": "Événements",
     "library": "Ma bibliothèque",
     "stats": "Statistiques",
+    "inventory": "Inventaire",
     "settings": "Paramètres",
     "profile": "Mon Profil",
     "logout": "Déconnexion",
@@ -136,6 +138,9 @@
     "invalidCredentials": "Identifiants incorrects",
     "yourIdentifier": "Votre identifiant",
     "yourPassword": "Votre mot de passe",
+    "mustChangePasswordTitle": "Changement de mot de passe requis",
+    "mustChangePasswordSubtitle": "Vous devez choisir un nouveau mot de passe pour continuer.",
+    "mustChangePasswordSubmit": "Enregistrer et se reconnecter",
     "2fa": {
       "title": "Vérification en deux étapes",
       "totpMethod": "Entrez le code de votre application d'authentification",
@@ -676,7 +681,45 @@
       "reindexSuccess": "{{count}} document(s) mis en file pour indexation.",
       "meilisearchOn": "Meilisearch est configuré sur ce serveur.",
       "meilisearchOff": "Meilisearch n'est pas configuré sur ce serveur.",
-      "reindexError": "Impossible de lancer la réindexation"
+      "reindexError": "Impossible de lancer la réindexation",
+      "actionsGroupTitle": "Actions de maintenance des données",
+      "actionsGroupIntro": "Lancez les actions une par une, ou exécutez tout le groupe dans l'ordre recommandé.",
+      "runAllActions": "Tout lancer",
+      "runningAllActions": "Exécution en cours…",
+      "runAction": "Lancer",
+      "actionSuccess": "Action terminée avec succès",
+      "actionFailed": "Action en échec",
+      "actionRunError": "Impossible de lancer les actions de maintenance",
+      "actions": {
+        "cleanup_dangling_biblio_series": {
+          "label": "Nettoyer les liens série orphelins",
+          "description": "Supprime les liens biblio->série pointant vers des séries inexistantes."
+        },
+        "cleanup_dangling_biblio_collections": {
+          "label": "Nettoyer les liens collection orphelins",
+          "description": "Supprime les liens biblio->collection pointant vers des collections inexistantes."
+        },
+        "cleanup_series": {
+          "label": "Nettoyer les séries",
+          "description": "Retire les guillemets autour des noms et supprime les séries sans biblio."
+        },
+        "cleanup_collections": {
+          "label": "Nettoyer les collections",
+          "description": "Retire les guillemets autour des noms et supprime les collections sans biblio."
+        },
+        "merge_duplicate_series": {
+          "label": "Fusionner les doublons de séries",
+          "description": "Fusionne les séries en doublon et déplace les liaisons biblio."
+        },
+        "merge_duplicate_collections": {
+          "label": "Fusionner les doublons de collections",
+          "description": "Fusionne les collections en doublon et déplace les liaisons biblio."
+        },
+        "cleanup_orphan_authors": {
+          "label": "Nettoyer les auteurs orphelins",
+          "description": "Supprime les auteurs non référencés par des notices."
+        }
+      }
     },
     "publicTypes": {
       "title": "Types de public",
@@ -782,13 +825,16 @@
     "onlyWithSpecimen": "N'importer que les notices avec champs locaux (9xx)",
     "importWithScan": "Importer avec scan",
     "scanMode": "Mode scan activé",
-    "scanModeHint": "Scannez le code-barre ISBN de chaque document à importer",
-    "scanPlaceholder": "Scanner ou saisir l'ISBN...",
+    "scanModeHint": "Scannez le code-barres d'un exemplaire pour importer sa notice",
+    "scanPlaceholder": "Scanner ou saisir le code-barres exemplaire...",
     "validate": "Valider",
     "isbnNotFound": "Aucun document avec l'ISBN \"{{isbn}}\" trouvé dans la liste",
+    "specimenBarcodeNotFound": "Aucune notice liée au code-barres exemplaire \"{{barcode}}\" dans la liste",
     "remainingToScan": "{{count}} document restant à scanner",
     "remainingToScan_plural": "{{count}} documents restants à scanner",
     "importProgress": "Import en cours...",
+    "itemDetails": "Détails bibliographiques",
+    "errorTag": "Erreur",
     "detectedEncoding": "Encodage détecté : {{encoding}}",
     "rawFields": "Champs MARC extraits",
     "preview": {
@@ -803,6 +849,18 @@
       "iso2709": "MARC ISO 2709",
       "marcxml": "MARCXML"
     },
+    "uploadFile": "Importer un fichier",
+    "existingBatch": "Batch existant",
+    "batchHint": "Sélectionnez un batch MARC mis en cache sur le serveur pour reprendre un import précédent.",
+    "refresh": "Rafraîchir",
+    "noBatches": "Aucun batch en cache sur le serveur.",
+    "batchesLoadError": "Impossible de charger la liste des batches.",
+    "batchLoadError": "Impossible de charger ce batch (expiré ou introuvable).",
+    "batchRecords": "{{count}} notice",
+    "batchRecords_plural": "{{count}} notices",
+    "batchTtl": "Expire dans {{time}}",
+    "batchExpired": "Expiré",
+    "loadBatch": "Charger",
     "source": "Source (pour les exemplaires)",
     "noSource": "Aucune source",
     "default": "par défaut",
@@ -813,10 +871,18 @@
     "sourceCreateError": "Impossible de créer la source",
     "duplicateIsbnTitle": "ISBN en double",
     "duplicateIsbnMessage": "Un document avec l'ISBN {{isbn}} existe déjà.",
-    "duplicateIsbnPrompt": "Une notice existe déjà avec le titre \"{{title}}\".",
+    "duplicateIsbnPrompt": "Une notice existe déjà avec le titre \"{{title}}\" (ISBN {{isbn}}). Que souhaitez-vous faire ?",
+    "duplicateIsbnSkip": "Passer",
+    "duplicateIsbnSkipHint": "Ne pas importer cette notice pour l'instant. Elle reste en attente.",
+    "duplicateIsbnCreateNew": "Créer un doublon",
+    "duplicateIsbnCreateNewHint": "Importer comme nouvelle notice malgré l'ISBN identique.",
+    "duplicateIsbnReplace": "Écraser",
+    "duplicateIsbnReplaceHint": "Remplacer la notice bibliographique existante par celle-ci.",
+    "duplicateSkippedInBatch": "ISBN en double — passé (import par lot). Cliquer sur « Importer » pour traiter individuellement.",
+    "warningReplaced": "Notice existante écrasée",
+    "warningDuplicated": "Importé en doublon ISBN",
+    "cannotReplaceNoId": "Impossible d'écraser : l'identifiant de la notice existante n'est pas disponible.",
     "duplicateIsbnApplyToAll": "Appliquer ce choix à toutes les notices en double de ce fichier",
-    "duplicateIsbnReplace": "Remplacer",
-    "duplicateIsbnCreateNew": "Duplicate ISBN",
     "duplicateIsbnChoose": "Choisir un document existant pour y ajouter l'exemplaire, ou en créer un nouveau :",
     "duplicateIsbnNoMatches": "Aucun document existant pour cet ISBN.",
     "duplicateUseThis": "Utiliser ce document",
@@ -861,29 +927,20 @@
     "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
     "accessDenied": "Accès refusé",
     "accessDeniedHint": "Vous n'avez pas les droits pour accéder à cette page.",
+    "tooManyRequests": "Trop de tentatives. Veuillez patienter avant de réessayer.",
     "apiCode": {
-      "0": "Succès",
-      "1": "Une erreur s'est produite",
-      "2": "Vous n'êtes pas autorisé à effectuer cette action",
-      "3": "Erreur base de données. Veuillez réessayer plus tard.",
-      "4": "Utilisateur introuvable",
-      "5": "Document introuvable",
-      "6": "Erreur mémoire serveur. Veuillez réessayer plus tard.",
-      "7": "Le document n'est pas disponible",
-      "8": "Doublon : cet enregistrement existe déjà",
-      "9": "Recherche Z39.50 en échec",
-      "10": "Recherche Z39.50 expirée",
-      "11": "Nombre maximum d'emprunts atteint",
-      "12": "Ce document n'est pas empruntable",
-      "13": "Cet exemplaire est déjà emprunté",
-      "14": "L'identifiant du document (ex. ISBN) est manquant",
-      "15": "Le code-barres de l'exemplaire est manquant",
-      "16": "Un document avec cet ISBN existe déjà",
-      "17": "Un exemplaire avec ce code-barres existe déjà",
-      "18": "Valeur invalide",
-      "19": "Cet identifiant utilisateur existe déjà",
-      "20": "Donnée introuvable",
-      "21": "Cet utilisateur a encore des exemplaires empruntés"
+      "authentication_failed": "Authentification échouée. Vérifiez vos identifiants.",
+      "authorization_failed": "Vous n'avez pas les droits pour effectuer cette action.",
+      "not_found": "Ressource introuvable.",
+      "validation_error": "Les données saisies sont invalides.",
+      "bad_request": "Requête invalide.",
+      "conflict": "Conflit : cet enregistrement existe déjà.",
+      "business_rule_violation": "Action refusée par une règle métier (abonnement expiré, quota atteint, etc.).",
+      "duplicate_isbn_needs_confirmation": "Un document avec cet ISBN existe déjà.",
+      "duplicate_barcode_needs_confirmation": "Un exemplaire avec ce code-barres existe déjà.",
+      "z3950_error": "Erreur lors de la recherche Z39.50.",
+      "database_error": "Erreur base de données. Veuillez réessayer plus tard.",
+      "internal_error": "Erreur interne du serveur. Veuillez réessayer plus tard."
     }
   },
   "codes": {
@@ -981,6 +1038,33 @@
   },
   "footer": {
     "copyright": "© 2026 Elidune - Système de gestion de bibliothèque"
+  },
+  "opac": {
+    "heroTitle": "Catalogue en ligne",
+    "heroSub": "Recherchez parmi les collections — sans inscription",
+    "searchPlaceholder": "Titre, auteur, ISBN, mot-clé…",
+    "filterAll": "Tous supports",
+    "filterBooks": "Livres",
+    "filterDvd": "DVD",
+    "filterMagazines": "Revues",
+    "filterComics": "BD",
+    "newItems": "Nouveautés",
+    "searchResults": "Résultats",
+    "available": "Disponible",
+    "borrowed": "Emprunté",
+    "moreResults": "… et {{count}} résultats supplémentaires",
+    "resultsCount": "{{count}} document trouvé",
+    "resultsCount_plural": "{{count}} documents trouvés",
+    "searchPrompt": "Lancez une recherche pour explorer le catalogue",
+    "readerSpace": "Espace lecteur",
+    "loginCardText": "Connectez-vous pour réserver, prolonger vos prêts et accéder aux ressources numériques.",
+    "featureReserve": "Réservation en ligne",
+    "featureRenew": "Prolongation de prêts",
+    "featureHistory": "Historique & favoris",
+    "featureDigital": "Ressources numériques",
+    "featureSuggestions": "Suggestions d'achats",
+    "freeAccess": "Accès libre — aucune inscription requise pour la recherche",
+    "statsDocs": "documents"
   },
   "events": {
     "title": "Événements",
@@ -1096,6 +1180,102 @@
       "title": "Absence de transfert à des tiers",
       "description": "Les données personnelles ne sont pas transmises à des tiers, ni transférées en dehors du réseau interne de la bibliothèque."
     }
+  },
+  "fines": {
+    "title": "Amendes",
+    "noFines": "Aucune amende.",
+    "totalUnpaid": "Total non payé",
+    "status": "Statut",
+    "pay": "Payer",
+    "waive": "Exonérer",
+    "statuses": {
+      "pending": "En attente",
+      "partial": "Partiel",
+      "paid": "Payé",
+      "waived": "Exonéré"
+    }
+  },
+  "reservations": {
+    "title": "Réservations",
+    "noReservations": "Aucune réservation.",
+    "position": "Position",
+    "status": "Statut",
+    "statuses": {
+      "pending": "En attente",
+      "ready": "Disponible",
+      "fulfilled": "Satisfaite",
+      "cancelled": "Annulée",
+      "expired": "Expirée"
+    }
+  },
+  "history": {
+    "title": "Historique de lecture",
+    "rgpdToggle": "Conservation de l'historique de lecture",
+    "rgpdHint": "Si activé, vos emprunts passés sont conservés à des fins personnelles. Vous pouvez désactiver cette option à tout moment.",
+    "enable": "Activer",
+    "disable": "Désactiver"
+  },
+  "inventory": {
+    "title": "Inventaire",
+    "subtitle": "Gérez les sessions d'inventaire des collections",
+    "newSession": "Nouvelle session",
+    "noSessions": "Aucune session d'inventaire.",
+    "sessionTitle": "Session",
+    "locationFilter": "Filtre de localisation",
+    "locationFilterHint": "Cote ou localisation à inventorier (optionnel)",
+    "createError": "Impossible de créer la session.",
+    "closeSession": "Clôturer",
+    "scanBarcode": "Scanner un exemplaire",
+    "barcodePlaceholder": "Code-barres de l'exemplaire",
+    "scan": "Scanner",
+    "scanFound": "Exemplaire {{barcode}} trouvé.",
+    "scanNotFound": "Code-barres {{barcode}} inconnu.",
+    "scanError": "Erreur lors du scan.",
+    "scansTitle": "Scans effectués",
+    "scansCount": "{{count}} scan(s)",
+    "noScans": "Aucun scan enregistré.",
+    "found": "Trouvé",
+    "unknown": "Inconnu",
+    "report": "Rapport",
+    "noReport": "Rapport non disponible.",
+    "totalScanned": "Scannés",
+    "totalFound": "Trouvés",
+    "totalUnknown": "Inconnus",
+    "missing": "Manquants",
+    "statuses": {
+      "open": "Ouverte",
+      "closed": "Clôturée"
+    }
+  },
+  "catalog": {
+    "pageTitle": "Catalogue",
+    "tabCatalog": "Notices",
+    "tabCollections": "Collections",
+    "tabSeries": "Séries",
+    "collectionName": "Nom",
+    "collectionSecondaryTitle": "Titre secondaire",
+    "collectionTertiaryTitle": "Titre tertiaire",
+    "collectionCount": "{{count}} collection(s)",
+    "noCollections": "Aucune collection.",
+    "addCollection": "Nouvelle collection",
+    "editCollection": "Modifier la collection",
+    "deleteCollectionConfirm": "Supprimer la collection « {{name}} » ? Cette action est irréversible.",
+    "searchCollections": "Rechercher une collection…",
+    "serieName": "Nom",
+    "serieCount": "{{count}} série(s)",
+    "noSeries": "Aucune série.",
+    "addSerie": "Nouvelle série",
+    "editSerie": "Modifier la série",
+    "deleteSerieConfirm": "Supprimer la série « {{name}} » ? Cette action est irréversible.",
+    "searchSeries": "Rechercher une série…",
+    "key": "Clé",
+    "volumeNumber": "n°",
+    "willCreate": "sera créé",
+    "useAndCreate": "Utiliser « {{name}} » (créer si absent)",
+    "searchOrCreateCollection": "Rechercher ou saisir une collection…",
+    "searchOrCreateSerie": "Rechercher ou saisir une série…",
+    "filteredBy": "Filtré par :",
+    "clearFilter": "Effacer le filtre"
   }
 }
 
