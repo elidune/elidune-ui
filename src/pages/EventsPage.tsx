@@ -19,7 +19,7 @@ import type { Event, CreateEvent, UpdateEvent } from '@/types';
 
 const EVENTS_PER_PAGE = 20;
 
-// event_type: 0=animation, 1=school_visit, 2=exhibition, 3=conference, 4=workshop, 5=show, 6=other
+// eventType: 0=animation, 1=school_visit, 2=exhibition, 3=conference, 4=workshop, 5=show, 6=other
 const EVENT_TYPES = [
   { value: 0, labelKey: 'events.types.animation' },
   { value: 1, labelKey: 'events.types.schoolVisit' },
@@ -30,7 +30,7 @@ const EVENT_TYPES = [
   { value: 6, labelKey: 'events.types.other' },
 ];
 
-// target_public: 97=adult, 106=children, null=all
+// targetPublic: 97=adult, 106=children, null=all
 const TARGET_PUBLIC_OPTIONS = [
   { value: '', labelKey: 'events.targetPublic.all' },
   { value: '97', labelKey: 'events.targetPublic.adult' },
@@ -102,7 +102,7 @@ export default function EventsPage() {
 
   const handleSendAnnouncement = (event: Event, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (event.announcement_sent_at) {
+    if (event.announcementSentAt) {
       setConfirmAnnouncementEvent(event);
     } else {
       doSendAnnouncement(event);
@@ -113,8 +113,8 @@ export default function EventsPage() {
     setIsLoading(true);
     try {
       const params = showPast
-        ? { end_date: yesterdayStr(), page: currentPage, per_page: EVENTS_PER_PAGE }
-        : { start_date: todayStr(), page: currentPage, per_page: EVENTS_PER_PAGE };
+        ? { endDate: yesterdayStr(), page: currentPage, perPage: EVENTS_PER_PAGE }
+        : { startDate: todayStr(), page: currentPage, perPage: EVENTS_PER_PAGE };
       const response = await api.getEvents(params);
       setEvents(response.events);
       setTotal(response.total);
@@ -178,32 +178,32 @@ export default function EventsPage() {
       ),
     },
     {
-      key: 'event_type',
+      key: 'eventType',
       header: t('events.type'),
       render: (event: Event) => (
         <span
           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-            EVENT_TYPE_COLORS[event.event_type] ?? EVENT_TYPE_COLORS[6]
+            EVENT_TYPE_COLORS[event.eventType] ?? EVENT_TYPE_COLORS[6]
           }`}
         >
           <Tag className="h-3 w-3" />
-          {getEventTypeLabel(event.event_type)}
+          {getEventTypeLabel(event.eventType)}
         </span>
       ),
     },
     {
-      key: 'event_date',
+      key: 'eventDate',
       header: t('events.date'),
       render: (event: Event) => (
         <div className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
           <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-          <span>{formatDate(event.event_date)}</span>
-          {(event.start_time || event.end_time) && (
+          <span>{formatDate(event.eventDate)}</span>
+          {(event.startTime || event.endTime) && (
             <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
               <Clock className="h-3.5 w-3.5" />
-              {event.start_time && event.end_time
-                ? `${event.start_time}–${event.end_time}`
-                : event.start_time || event.end_time}
+              {event.startTime && event.endTime
+                ? `${event.startTime}–${event.endTime}`
+                : event.startTime || event.endTime}
             </span>
           )}
         </div>
@@ -213,13 +213,13 @@ export default function EventsPage() {
       key: 'attendees',
       header: t('events.attendees'),
       render: (event: Event) =>
-        event.attendees_count != null ? (
+        event.attendeesCount != null ? (
           <div className="flex items-center gap-1 text-sm text-gray-700 dark:text-gray-300">
             <Users className="h-4 w-4 text-gray-400" />
-            <span>{event.attendees_count}</span>
-            {event.students_count != null && (
+            <span>{event.attendeesCount}</span>
+            {event.studentsCount != null && (
               <span className="text-gray-500 dark:text-gray-400">
-                {' '}+ {event.students_count} {t('events.students')}
+                {' '}+ {event.studentsCount} {t('events.students')}
               </span>
             )}
           </div>
@@ -368,12 +368,12 @@ export default function EventsPage() {
           </div>
         }
       >
-        {confirmAnnouncementEvent?.announcement_sent_at && (
+        {confirmAnnouncementEvent?.announcementSentAt && (
           <div className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
             <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <p>
               {t('events.announcementAlreadySentBody', {
-                date: new Date(confirmAnnouncementEvent.announcement_sent_at).toLocaleString(),
+                date: new Date(confirmAnnouncementEvent.announcementSentAt).toLocaleString(),
                 name: confirmAnnouncementEvent.name,
               })}
             </p>
@@ -436,17 +436,17 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
 
   const [formData, setFormData] = useState({
     name: initialValues?.name ?? '',
-    event_date: initialValues?.event_date ?? '',
-    event_type: initialValues?.event_type != null ? String(initialValues.event_type) : '0',
-    start_time: initialValues?.start_time ?? '',
-    end_time: initialValues?.end_time ?? '',
+    eventDate: initialValues?.eventDate ?? '',
+    eventType: initialValues?.eventType != null ? String(initialValues.eventType) : '0',
+    startTime: initialValues?.startTime ?? '',
+    endTime: initialValues?.endTime ?? '',
     description: initialValues?.description ?? '',
-    partner_name: initialValues?.partner_name ?? '',
-    school_name: initialValues?.school_name ?? '',
-    class_name: initialValues?.class_name ?? '',
-    attendees_count: initialValues?.attendees_count != null ? String(initialValues.attendees_count) : '',
-    students_count: initialValues?.students_count != null ? String(initialValues.students_count) : '',
-    target_public: initialValues?.target_public != null ? String(initialValues.target_public) : '',
+    partnerName: initialValues?.partnerName ?? '',
+    schoolName: initialValues?.schoolName ?? '',
+    className: initialValues?.className ?? '',
+    attendeesCount: initialValues?.attendeesCount != null ? String(initialValues.attendeesCount) : '',
+    studentsCount: initialValues?.studentsCount != null ? String(initialValues.studentsCount) : '',
+    targetPublic: initialValues?.targetPublic != null ? String(initialValues.targetPublic) : '',
     notes: initialValues?.notes ?? '',
   });
 
@@ -456,17 +456,17 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
     try {
       const payload: CreateEvent | UpdateEvent = {
         name: formData.name || undefined,
-        event_date: formData.event_date || undefined,
-        event_type: formData.event_type !== '' ? Number(formData.event_type) : undefined,
-        start_time: formData.start_time || null,
-        end_time: formData.end_time || null,
+        eventDate: formData.eventDate || undefined,
+        eventType: formData.eventType !== '' ? Number(formData.eventType) : undefined,
+        startTime: formData.startTime || null,
+        endTime: formData.endTime || null,
         description: formData.description || null,
-        partner_name: formData.partner_name || null,
-        school_name: formData.school_name || null,
-        class_name: formData.class_name || null,
-        attendees_count: formData.attendees_count !== '' ? Number(formData.attendees_count) : null,
-        students_count: formData.students_count !== '' ? Number(formData.students_count) : null,
-        target_public: formData.target_public !== '' ? Number(formData.target_public) : null,
+        partnerName: formData.partnerName || null,
+        schoolName: formData.schoolName || null,
+        className: formData.className || null,
+        attendeesCount: formData.attendeesCount !== '' ? Number(formData.attendeesCount) : null,
+        studentsCount: formData.studentsCount !== '' ? Number(formData.studentsCount) : null,
+        targetPublic: formData.targetPublic !== '' ? Number(formData.targetPublic) : null,
         notes: formData.notes || null,
       };
 
@@ -483,7 +483,7 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
     }
   };
 
-  const schoolVisit = formData.event_type === '1';
+  const schoolVisit = formData.eventType === '1';
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
@@ -501,8 +501,8 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
         <Input
           label={t('events.date')}
           type="date"
-          value={formData.event_date}
-          onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
+          value={formData.eventDate}
+          onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
           required={!isEdit}
         />
         <div>
@@ -510,8 +510,8 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
             {t('events.type')}
           </label>
           <select
-            value={formData.event_type}
-            onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
+            value={formData.eventType}
+            onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             {EVENT_TYPES.map((et) => (
@@ -526,14 +526,14 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
         <Input
           label={t('events.startTime')}
           type="time"
-          value={formData.start_time}
-          onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+          value={formData.startTime}
+          onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
         />
         <Input
           label={t('events.endTime')}
           type="time"
-          value={formData.end_time}
-          onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+          value={formData.endTime}
+          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
         />
       </div>
 
@@ -560,8 +560,8 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
             {t('events.targetPublicLabel')}
           </label>
           <select
-            value={formData.target_public}
-            onChange={(e) => setFormData({ ...formData, target_public: e.target.value })}
+            value={formData.targetPublic}
+            onChange={(e) => setFormData({ ...formData, targetPublic: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             {TARGET_PUBLIC_OPTIONS.map((opt) => (
@@ -575,14 +575,14 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
           label={t('events.attendeesCount')}
           type="number"
           min="0"
-          value={formData.attendees_count}
-          onChange={(e) => setFormData({ ...formData, attendees_count: e.target.value })}
+          value={formData.attendeesCount}
+          onChange={(e) => setFormData({ ...formData, attendeesCount: e.target.value })}
         />
       </div>
       <Input
         label={t('events.partnerName')}
-        value={formData.partner_name}
-        onChange={(e) => setFormData({ ...formData, partner_name: e.target.value })}
+        value={formData.partnerName}
+        onChange={(e) => setFormData({ ...formData, partnerName: e.target.value })}
       />
 
       {/* School visit fields */}
@@ -594,21 +594,21 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label={t('events.schoolName')}
-              value={formData.school_name}
-              onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
+              value={formData.schoolName}
+              onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
             />
             <Input
               label={t('events.className')}
-              value={formData.class_name}
-              onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+              value={formData.className}
+              onChange={(e) => setFormData({ ...formData, className: e.target.value })}
             />
           </div>
           <Input
             label={t('events.studentsCount')}
             type="number"
             min="0"
-            value={formData.students_count}
-            onChange={(e) => setFormData({ ...formData, students_count: e.target.value })}
+            value={formData.studentsCount}
+            onChange={(e) => setFormData({ ...formData, studentsCount: e.target.value })}
           />
         </>
       )}

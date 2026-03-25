@@ -29,7 +29,7 @@ type TabType = 'borrow' | 'return' | 'overdue';
 function maxReminderSentAt(loans: OverdueLoanInfo[]): string | null {
   let best: string | null = null;
   for (const l of loans) {
-    const t = l.last_reminder_sent_at;
+    const t = l.lastReminderSentAt;
     if (!t) continue;
     if (!best || t > best) best = t;
   }
@@ -39,7 +39,7 @@ function maxReminderSentAt(loans: OverdueLoanInfo[]): string | null {
 export default function LoansPage() {
   const { t } = useTranslation();
   const { user: authUser } = useAuth();
-  const userIsAdmin = isAdmin(authUser?.account_type);
+  const userIsAdmin = isAdmin(authUser?.accountType);
   const [activeTab, setActiveTab] = useState<TabType>('borrow');
   
   // Borrow section state
@@ -75,7 +75,7 @@ export default function LoansPage() {
     setOverdueLoading(true);
     setOverdueError(null);
     try {
-      const data = await api.getOverdueLoans({ page: overduePage, per_page: overduePerPage });
+      const data = await api.getOverdueLoans({ page: overduePage, perPage: overduePerPage });
       setOverdueData({ loans: data.loans, total: Number(data.total) });
     } catch (e: unknown) {
       setOverdueError(getApiErrorMessage(e, t) || t('loans.overdueLoadError'));
@@ -92,11 +92,11 @@ export default function LoansPage() {
 
   const overdueByUser = useMemo(() => {
     if (!overdueData?.loans.length) return [];
-    const m = new Map<number, OverdueLoanInfo[]>();
+    const m = new Map<string, OverdueLoanInfo[]>();
     for (const loan of overdueData.loans) {
-      const list = m.get(loan.user_id) ?? [];
+      const list = m.get(loan.userId) ?? [];
       list.push(loan);
-      m.set(loan.user_id, list);
+      m.set(loan.userId, list);
     }
     return Array.from(m.entries()).sort((a, b) => {
       const fa = `${a[1][0]?.lastname ?? ''} ${a[1][0]?.firstname ?? ''}`.trim();
@@ -115,7 +115,7 @@ export default function LoansPage() {
     setReminderReport(null);
     setOverdueError(null);
     try {
-      const report = await api.sendOverdueReminders({ dry_run: dryRun });
+      const report = await api.sendOverdueReminders({ dryRun: dryRun });
       setReminderReport(report);
       if (!dryRun) void loadOverdue();
     } catch (e: unknown) {
@@ -135,7 +135,7 @@ export default function LoansPage() {
     try {
       const response = await api.getUsers({
         name: query,
-        per_page: 10,
+        perPage: 10,
       });
       setUserSearchResults(response.items);
     } catch (error) {
@@ -185,7 +185,7 @@ export default function LoansPage() {
     try {
       const response = await api.getUsers({
         barcode: barcode.trim(),
-        per_page: 1,
+        perPage: 1,
       });
 
       if (response.items.length > 0) {
@@ -212,8 +212,8 @@ export default function LoansPage() {
 
     try {
       await api.createLoan({
-        user_id: selectedUser.id,
-        item_identification: specimenBarcode.trim(),
+        userId: selectedUser.id,
+        itemIdentification: specimenBarcode.trim(),
         force: force || undefined,
       });
       // Refresh loans
@@ -283,8 +283,8 @@ export default function LoansPage() {
       header: t('loans.document'),
       render: (loan: Loan) => {
         const specs = loan.biblio?.items;
-        const spec = specs?.length ? (specs.find((s) => s.availability === 1) ?? specs[0]) : null;
-        const specimenBarcode = spec ? (spec.barcode ?? spec.id) : loan.item_identification;
+        const spec = specs?.length ? (specs.find((s) => s.borrowable === false) ?? specs[0]) : null;
+        const specimenBarcode = spec ? (spec.barcode ?? spec.id) : loan.itemIdentification;
         return (
           <div>
             <p className="font-medium text-gray-900 dark:text-white">
@@ -306,22 +306,22 @@ export default function LoansPage() {
       key: 'date',
       header: t('loans.borrowDate'),
       render: (loan: Loan) =>
-        new Date(loan.start_date).toLocaleDateString('fr-FR'),
+        new Date(loan.startDate).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'issue_at',
+      key: 'issueAt',
       header: t('loans.dueDate'),
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.issue_at).toLocaleDateString('fr-FR')}</span>
-          {loan.is_overdue && <Badge variant="danger">{t('loans.overdue')}</Badge>}
+          <span>{new Date(loan.issueAt).toLocaleDateString('fr-FR')}</span>
+          {loan.isOverdue && <Badge variant="danger">{t('loans.overdue')}</Badge>}
         </div>
       ),
     },
     {
       key: 'renews',
       header: t('loans.renewals'),
-      render: (loan: Loan) => loan.nb_renews,
+      render: (loan: Loan) => loan.nbRenews,
     },
     {
       key: 'actions',
@@ -369,7 +369,7 @@ export default function LoansPage() {
     }
   };
 
-  const overdueLoans = loans.filter((l) => l.is_overdue);
+  const overdueLoans = loans.filter((l) => l.isOverdue);
 
   return (
     <div className="space-y-6">
@@ -531,7 +531,7 @@ export default function LoansPage() {
                               {user.firstname} {user.lastname}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {user.account_type}
+                              {user.accountType}
                             </p>
                           </div>
                         </button>
@@ -556,7 +556,7 @@ export default function LoansPage() {
                           {selectedUser.firstname} {selectedUser.lastname}
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {selectedUser.account_type}
+                          {selectedUser.accountType}
                           {selectedUser.barcode && ` · ${t('profile.barcode')}: ${selectedUser.barcode}`}
                         </p>
                       </div>
@@ -740,7 +740,7 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.specimenBarcode')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {returnResult.loan.item_identification}
+                          {returnResult.loan.itemIdentification}
                         </p>
                       </div>
                     </div>
@@ -763,7 +763,7 @@ export default function LoansPage() {
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{t('profile.accountType')}</p>
                           <p className="font-medium text-gray-900 dark:text-white">
-                            {returnResult.loan.user.account_type}
+                            {returnResult.loan.user.accountType}
                           </p>
                         </div>
                       </div>
@@ -780,7 +780,7 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.borrowDate')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(returnResult.loan.start_date).toLocaleDateString('fr-FR', {
+                          {new Date(returnResult.loan.startDate).toLocaleDateString('fr-FR', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
@@ -790,7 +790,7 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.dueDate')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(returnResult.loan.issue_at).toLocaleDateString('fr-FR', {
+                          {new Date(returnResult.loan.issueAt).toLocaleDateString('fr-FR', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
@@ -800,13 +800,13 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.renewals')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {returnResult.loan.nb_renews}
+                          {returnResult.loan.nbRenews}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.status')}</p>
-                        <Badge variant={returnResult.loan.is_overdue ? 'danger' : 'success'}>
-                          {returnResult.loan.is_overdue ? t('loans.overdue') : t('loans.returned')}
+                        <Badge variant={returnResult.loan.isOverdue ? 'danger' : 'success'}>
+                          {returnResult.loan.isOverdue ? t('loans.overdue') : t('loans.returned')}
                         </Badge>
                       </div>
                     </div>
@@ -869,17 +869,17 @@ export default function LoansPage() {
             {reminderReport && (
               <div className="mx-4 mb-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-900/20 p-4 text-sm space-y-2">
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {reminderReport.dry_run ? t('loans.reminderDryRunResult') : t('loans.reminderSendResult')}
+                  {reminderReport.dryRun ? t('loans.reminderDryRunResult') : t('loans.reminderSendResult')}
                 </p>
                 <p className="text-gray-700 dark:text-gray-300">
-                  {t('loans.reminderReportEmails', { count: reminderReport.emails_sent })} ·{' '}
-                  {t('loans.reminderReportLoans', { count: reminderReport.loans_reminded })}
+                  {t('loans.reminderReportEmails', { count: reminderReport.emailsSent })} ·{' '}
+                  {t('loans.reminderReportLoans', { count: reminderReport.loansReminded })}
                 </p>
                 {reminderReport.details.length > 0 && (
                   <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 max-h-40 overflow-y-auto">
                     {reminderReport.details.map((d) => (
-                      <li key={d.user_id}>
-                        {d.firstname} {d.lastname} ({d.email}) — {d.loan_count}
+                      <li key={d.userId}>
+                        {d.firstname} {d.lastname} ({d.email}) — {d.loanCount}
                       </li>
                     ))}
                   </ul>
@@ -887,8 +887,8 @@ export default function LoansPage() {
                 {reminderReport.errors.length > 0 && (
                   <ul className="text-red-700 dark:text-red-400 text-xs space-y-1">
                     {reminderReport.errors.map((e) => (
-                      <li key={`${e.user_id}-${e.email}`}>
-                        {e.email}: {e.error_message}
+                      <li key={`${e.userId}-${e.email}`}>
+                        {e.email}: {e.errorMessage}
                       </li>
                     ))}
                   </ul>
@@ -922,7 +922,7 @@ export default function LoansPage() {
                               {u.firstname} {u.lastname}
                             </Link>
                           </span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">{u.user_email ?? '—'}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{u.userEmail ?? '—'}</span>
                           <Badge variant="danger">
                             {t('loans.overdueLoansCount', { count: loans.length })}
                           </Badge>
@@ -946,7 +946,7 @@ export default function LoansPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                               {loans.map((row) => (
-                                <tr key={row.loan_id}>
+                                <tr key={row.loanId}>
                                   <td className="px-3 py-2">
                                     <div className="font-medium text-gray-900 dark:text-white">
                                       {row.title || t('loans.noTitle')}
@@ -955,18 +955,18 @@ export default function LoansPage() {
                                       <div className="text-xs text-gray-500 dark:text-gray-400">{row.authors}</div>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2 font-mono text-xs">{row.specimen_barcode ?? '—'}</td>
+                                  <td className="px-3 py-2 font-mono text-xs">{row.itemBarcode ?? '—'}</td>
                                   <td className="px-3 py-2 whitespace-nowrap">
-                                    {row.issue_at
-                                      ? new Date(row.issue_at).toLocaleDateString('fr-FR')
+                                    {row.issueAt
+                                      ? new Date(row.issueAt).toLocaleDateString('fr-FR')
                                       : '—'}
                                   </td>
                                   <td className="px-3 py-2 whitespace-nowrap">
-                                    {row.last_reminder_sent_at
-                                      ? new Date(row.last_reminder_sent_at).toLocaleString('fr-FR')
+                                    {row.lastReminderSentAt
+                                      ? new Date(row.lastReminderSentAt).toLocaleString('fr-FR')
                                       : t('loans.neverReminded')}
                                   </td>
-                                  <td className="px-3 py-2">{row.reminder_count}</td>
+                                  <td className="px-3 py-2">{row.reminderCount}</td>
                                 </tr>
                               ))}
                             </tbody>

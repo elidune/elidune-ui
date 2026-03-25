@@ -41,10 +41,9 @@ export default function ProfilePage() {
     email: '',
     phone: '',
     login: '',
-    addr_street: '',
-    addr_zip_code: '',
-    addr_city: '',
-    occupation_id: '',
+    addrStreet: '',
+    addrZipCode: '',
+    addrCity: '',
     birthdate: '',
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -67,8 +66,8 @@ export default function ProfilePage() {
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFAMethod, setTwoFAMethod] = useState<TwoFactorMethod>('totp');
   const [twoFASetupData, setTwoFASetupData] = useState<{
-    provisioning_uri?: string;
-    recovery_codes: string[];
+    provisioningUri?: string;
+    recoveryCodes: string[];
   } | null>(null);
   const [isSettingUp2FA, setIsSettingUp2FA] = useState(false);
   const [isDisabling2FA, setIsDisabling2FA] = useState(false);
@@ -84,10 +83,9 @@ export default function ProfilePage() {
         email: user.email || '',
         phone: user.phone || '',
         login: user.login || user.username || '',
-        addr_street: user.addr_street || '',
-        addr_zip_code: user.addr_zip_code?.toString() || '',
-        addr_city: user.addr_city || '',
-        occupation_id: user.occupation_id?.toString() || '',
+        addrStreet: user.addrStreet || '',
+        addrZipCode: user.addrZipCode?.toString() || '',
+        addrCity: user.addrCity || '',
         birthdate: user.birthdate || '',
       });
     }
@@ -108,10 +106,9 @@ export default function ProfilePage() {
         email: profileData.email || undefined,
         phone: profileData.phone || undefined,
         login: profileData.login || undefined,
-        addr_street: profileData.addr_street || undefined,
-        addr_zip_code: profileData.addr_zip_code ? parseInt(profileData.addr_zip_code, 10) : undefined,
-        addr_city: profileData.addr_city || undefined,
-        occupation_id: profileData.occupation_id ? parseInt(profileData.occupation_id, 10) : undefined,
+        addrStreet: profileData.addrStreet || undefined,
+        addrZipCode: profileData.addrZipCode ? parseInt(profileData.addrZipCode, 10) : undefined,
+        addrCity: profileData.addrCity || undefined,
         birthdate: profileData.birthdate || undefined,
       });
       await refreshProfile();
@@ -146,8 +143,8 @@ export default function ProfilePage() {
 
     try {
       await api.updateProfile({
-        current_password: passwordData.currentPassword,
-        new_password: passwordData.newPassword,
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
       });
       setPasswordSuccess(true);
       setPasswordData({
@@ -200,8 +197,8 @@ export default function ProfilePage() {
   };
 
   const handleCopyRecoveryCodes = () => {
-    if (twoFASetupData?.recovery_codes) {
-      navigator.clipboard.writeText(twoFASetupData.recovery_codes.join('\n'));
+    if (twoFASetupData?.recoveryCodes) {
+      navigator.clipboard.writeText(twoFASetupData.recoveryCodes.join('\n'));
       setCopiedRecoveryCodes(true);
       setTimeout(() => setCopiedRecoveryCodes(false), 2000);
     }
@@ -242,7 +239,7 @@ export default function ProfilePage() {
               {user?.firstname} {user?.lastname}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">
-              {user?.account_type} • @{user?.username}
+              {user?.accountType} • @{user?.username}
             </p>
           </div>
         </div>
@@ -309,8 +306,7 @@ export default function ProfilePage() {
                     <Briefcase className="h-4 w-4" />
                   </div>
                   <select
-                    value={profileData.occupation_id}
-                    onChange={(e) => setProfileData({ ...profileData, occupation_id: e.target.value })}
+                    disabled
                     className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                   >
                     <option value="">{t('common.select')}</option>
@@ -331,21 +327,21 @@ export default function ProfilePage() {
             <div className="space-y-4 mt-4">
               <Input
                 label={t('profile.street')}
-                value={profileData.addr_street}
-                onChange={(e) => setProfileData({ ...profileData, addr_street: e.target.value })}
+                value={profileData.addrStreet}
+                onChange={(e) => setProfileData({ ...profileData, addrStreet: e.target.value })}
                 leftIcon={<MapPin className="h-4 w-4" />}
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   label={t('profile.zipCode')}
                   type="number"
-                  value={profileData.addr_zip_code}
-                  onChange={(e) => setProfileData({ ...profileData, addr_zip_code: e.target.value })}
+                  value={profileData.addrZipCode}
+                  onChange={(e) => setProfileData({ ...profileData, addrZipCode: e.target.value })}
                 />
                 <Input
                   label={t('profile.city')}
-                  value={profileData.addr_city}
-                  onChange={(e) => setProfileData({ ...profileData, addr_city: e.target.value })}
+                  value={profileData.addrCity}
+                  onChange={(e) => setProfileData({ ...profileData, addrCity: e.target.value })}
                 />
               </div>
             </div>
@@ -499,7 +495,7 @@ export default function ProfilePage() {
           {/* Current 2FA status */}
           <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
             <div className="flex items-center gap-3">
-              {user?.two_factor_enabled ? (
+              {user?.twoFactorEnabled ? (
                 <>
                   <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
                     <Shield className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -509,7 +505,7 @@ export default function ProfilePage() {
                       {t('profile.2fa.enabled')}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {user.two_factor_method === 'email' 
+                      {user.twoFactorMethod === 'email' 
                         ? t('profile.2fa.methodEmail')
                         : t('profile.2fa.methodTotp')}
                     </p>
@@ -533,13 +529,13 @@ export default function ProfilePage() {
             </div>
 
             <Button
-              variant={user?.two_factor_enabled ? 'secondary' : 'primary'}
+              variant={user?.twoFactorEnabled ? 'secondary' : 'primary'}
               onClick={() => setShow2FAModal(true)}
-              leftIcon={user?.two_factor_enabled 
+              leftIcon={user?.twoFactorEnabled 
                 ? <ShieldOff className="h-4 w-4" /> 
                 : <Shield className="h-4 w-4" />}
             >
-              {user?.two_factor_enabled 
+              {user?.twoFactorEnabled 
                 ? t('profile.2fa.disable')
                 : t('profile.2fa.enable')}
             </Button>
@@ -551,9 +547,9 @@ export default function ProfilePage() {
       <Modal
         isOpen={show2FAModal}
         onClose={handleClose2FAModal}
-        title={user?.two_factor_enabled ? t('profile.2fa.disableTitle') : t('profile.2fa.setupTitle')}
+        title={user?.twoFactorEnabled ? t('profile.2fa.disableTitle') : t('profile.2fa.setupTitle')}
         footer={
-          user?.two_factor_enabled ? (
+          user?.twoFactorEnabled ? (
             <div className="flex justify-end gap-3">
               <Button variant="secondary" onClick={handleClose2FAModal}>
                 {t('common.cancel')}
@@ -589,7 +585,7 @@ export default function ProfilePage() {
           )
         }
       >
-        {user?.two_factor_enabled ? (
+        {user?.twoFactorEnabled ? (
           <div className="space-y-4">
             <p className="text-gray-600 dark:text-gray-400">
               {t('profile.2fa.disableWarning')}
@@ -603,14 +599,14 @@ export default function ProfilePage() {
           </div>
         ) : twoFASetupData ? (
           <div className="space-y-6">
-            {twoFASetupData.provisioning_uri && (
+            {twoFASetupData.provisioningUri && (
               <div className="text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   {t('profile.2fa.scanQR')}
                 </p>
                 <div className="inline-block p-4 bg-white rounded-lg">
                   <QRCodeSVG 
-                    value={twoFASetupData.provisioning_uri}
+                    value={twoFASetupData.provisioningUri}
                     size={192}
                     level="M"
                     includeMargin={false}
@@ -637,7 +633,7 @@ export default function ProfilePage() {
                 {t('profile.2fa.recoveryCodesHint')}
               </p>
               <div className="grid grid-cols-2 gap-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg font-mono text-sm">
-                {twoFASetupData.recovery_codes.map((code, index) => (
+                {twoFASetupData.recoveryCodes.map((code, index) => (
                   <div key={index} className="text-gray-700 dark:text-gray-300">
                     {code}
                   </div>

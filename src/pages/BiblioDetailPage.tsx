@@ -57,11 +57,11 @@ function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undef
 
 /** Derive suggested call number from biblio: [CATEGORY]-[YEAR]-[AUTHOR]. */
 function getSuggestedCallNumberFromItem(item: Biblio): string {
-  const categoryCode = item.media_type
-    ? String(item.media_type).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'GEN'
+  const categoryCode = item.mediaType
+    ? String(item.mediaType).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'GEN'
     : 'GEN';
   const year =
-    item.publication_date?.trim().slice(0, 4) ||
+    item.publicationDate?.trim().slice(0, 4) ||
     item.edition?.date?.trim().slice(0, 4) ||
     undefined;
   const authorName = item.authors?.[0]?.lastname?.trim();
@@ -251,22 +251,22 @@ export default function BiblioDetailPage() {
             </h1>
             <div className="flex items-center gap-2 mt-2">
               <Badge>
-                {item.media_type 
-                  ? t(`items.mediaType.${getMediaTypeTranslationKey(item.media_type)}`)
+                {item.mediaType 
+                  ? t(`items.mediaType.${getMediaTypeTranslationKey(item.mediaType)}`)
                   : t('items.document')
                 }
               </Badge>
-              {item.audience_type != null && (
+              {item.audienceType != null && (
                 <Badge variant="default">
-                  {getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audience_type)}
+                  {getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audienceType)}
                 </Badge>
               )}
-              {item.is_valid === 0 && <Badge variant="warning">Non validé</Badge>}
+              {item.isValid === 0 && <Badge variant="warning">Non validé</Badge>}
             </div>
           </div>
         </div>
 
-        {canManageItems(user?.account_type) && (
+        {canManageItems(user?.accountType) && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowEditModal(true)} leftIcon={<Edit className="h-4 w-4" />}>
               Modifier
@@ -287,21 +287,21 @@ export default function BiblioDetailPage() {
               <InfoRow icon={Hash} label={t('items.isbn')} value={item.isbn} />
               <InfoRow icon={User} label={t('items.mainAuthor')} value={item.authors?.length ? formatAuthors([item.authors[0]]) : undefined} />
               <InfoRow icon={User} label={t('items.secondaryAuthor')} value={item.authors && item.authors.length > 1 ? formatAuthors(item.authors.slice(1)) : undefined} />
-              <InfoRow icon={Calendar} label={t('items.publicationDate')} value={item.publication_date} />
-              <InfoRow icon={Building} label={t('items.publisher')} value={item.edition?.publisher_name} />
-              <InfoRow icon={MapPin} label={t('items.publicationPlace')} value={item.edition?.place_of_publication} />
+              <InfoRow icon={Calendar} label={t('items.publicationDate')} value={item.publicationDate} />
+              <InfoRow icon={Building} label={t('items.publisher')} value={item.edition?.publisherName} />
+              <InfoRow icon={MapPin} label={t('items.publicationPlace')} value={item.edition?.placeOfPublication} />
               {item.lang !== undefined && item.lang !== null && (
                 <InfoRow icon={BookOpen} label={t('items.language')} value={getCodeLabel(t, LANG_OPTIONS, item.lang)} />
               )}
-              {item.audience_type != null && (
-                <InfoRow icon={Tag} label={t('items.publicType')} value={getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audience_type)} />
+              {item.audienceType != null && (
+                <InfoRow icon={Tag} label={t('items.publicType')} value={getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audienceType)} />
               )}
               {item.items != null && (
                 <InfoRow 
                   icon={Plus} 
                   label={t('items.specimens')} 
                   value={item.items.length > 0
-                    ? `${item.items.filter(s => s.availability === 0).length}/${item.items.length}`
+                    ? `${item.items.filter(s => s.borrowable === true).length}/${item.items.length}`
                     : '0'
                   } 
                 />
@@ -309,11 +309,11 @@ export default function BiblioDetailPage() {
             </div>
           </Card>
 
-          {item.abstract_ && (
+          {item.abstract && (
             <Card>
               <CardHeader title={t('items.abstract')} />
               <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                {item.abstract_}
+                {item.abstract}
               </p>
             </Card>
           )}
@@ -325,7 +325,7 @@ export default function BiblioDetailPage() {
                 {item.keywords && (
                   <div className="flex items-start gap-2">
                     <Tag className="h-4 w-4 mt-1 text-gray-400" />
-                    <p className="text-gray-600 dark:text-gray-300">{item.keywords}</p>
+                    <p className="text-gray-600 dark:text-gray-300">{Array.isArray(item.keywords) ? item.keywords.join(', ') : item.keywords}</p>
                   </div>
                 )}
                 {item.subject && (
@@ -346,7 +346,7 @@ export default function BiblioDetailPage() {
               title={t('items.specimens')}
               subtitle={t('items.specimenCount', { count: item.items?.length ?? 0 })}
               action={
-                canManageItems(user?.account_type) && (
+                canManageItems(user?.accountType) && (
                   <Button
                     size="sm"
                     variant="secondary"
@@ -364,7 +364,7 @@ export default function BiblioDetailPage() {
                   <SpecimenCard
                     key={specimen.id}
                     specimen={specimen}
-                    canManage={canManageItems(user?.account_type)}
+                    canManage={canManageItems(user?.accountType)}
                     onEdit={() => {
                       setSelectedSpecimen(specimen);
                       setShowEditSpecimenModal(true);
@@ -397,21 +397,21 @@ export default function BiblioDetailPage() {
                 <div className="space-y-3">
                   {cols.map((c, i) => {
                     const volNum =
-                      c.volume_number ??
                       c.volumeNumber ??
-                      item.collection_volume_numbers?.[i] ??
+                      c.volumeNumber ??
                       item.collectionVolumeNumbers?.[i] ??
-                      item.collection_volume_number ??
+                      item.collectionVolumeNumbers?.[i] ??
+                      item.collectionVolumeNumber ??
                       null;
                     return (
                       <div key={c.id ?? i} className="flex items-start justify-between gap-4">
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
-                            {c.name ?? c.primary_title ?? c.secondary_title ?? '—'}
+                            {c.name ?? c.secondaryTitle ?? '—'}
                           </p>
-                          {(c.secondary_title ?? c.secondaryTitle) && (
+                          {c.secondaryTitle && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {c.secondary_title ?? c.secondaryTitle}
+                              {c.secondaryTitle}
                             </p>
                           )}
                           {c.issn && (
@@ -437,9 +437,9 @@ export default function BiblioDetailPage() {
               <div className="space-y-3">
                 {item.series.map((s, i) => {
                   const volNum =
-                    s.volume_number ??
                     s.volumeNumber ??
-                    item.series_volume_numbers?.[i] ??
+                    s.volumeNumber ??
+                    item.seriesVolumeNumbers?.[i] ??
                     item.seriesVolumeNumbers?.[i] ??
                     null;
                   return (
@@ -657,9 +657,9 @@ interface SpecimenCardProps {
 function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardProps) { // specimen is physical Item
   const { t } = useTranslation();
 
-  const getAvailabilityBadge = (availability?: number | null) => {
-    if (availability === 0) return <Badge variant="success">{t('items.available')}</Badge>;
-    if (availability === 1) return <Badge variant="warning">{t('items.borrowed')}</Badge>;
+  const getAvailabilityBadge = (borrowable?: boolean | null) => {
+    if (borrowable === true) return <Badge variant="success">{t('items.available')}</Badge>;
+    if (borrowable === false) return <Badge variant="danger">{t('items.borrowed')}</Badge>;
     return <Badge>{t('items.unavailable')}</Badge>;
   };
 
@@ -677,7 +677,7 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
           {specimen.barcode || t('items.noSpecimens')}
         </p>
         <div className="flex items-center gap-2">
-          {getAvailabilityBadge(specimen.availability)}
+          {getAvailabilityBadge(specimen.borrowable)}
           {borrowableBadge}
           {canManage && (
             <div className="flex gap-1">
@@ -699,15 +699,15 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
           )}
         </div>
       </div>
-      {specimen.call_number && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.callNumber')}: {specimen.call_number}</p>
+      {specimen.callNumber && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.callNumber')}: {specimen.callNumber}</p>
       )}
-      {specimen.volume_designation && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.volumeDesignation')}: {specimen.volume_designation}</p>
+      {specimen.volumeDesignation && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.volumeDesignation')}: {specimen.volumeDesignation}</p>
       )}
      
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        {t('items.source')}: {specimen.source_name ?? '—'}
+        {t('items.source')}: {specimen.sourceName ?? '—'}
       </p>
     </div>
   );
@@ -738,14 +738,14 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
     if (arr.length > 0) {
       return arr.map((c) => ({
         id: c.id ?? undefined,
-        name: c.name ?? c.primary_title ?? '',
-        volumeNumber: (c.volume_number ?? c.volumeNumber)?.toString() ?? '',
+        name: c.name ?? '',
+        volumeNumber: c.volumeNumber?.toString() ?? '',
       }));
     }
-    if (item.collection?.id || item.collection?.primary_title) {
+    if (item.collection?.id || item.collection?.name) {
       return [{
         id: item.collection.id ?? undefined,
-        name: item.collection.name ?? item.collection.primary_title ?? '',
+        name: item.collection.name ?? '',
         volumeNumber: '',
       }];
     }
@@ -755,15 +755,15 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
   const [formData, setFormData] = useState({
     title: item.title || '',
     isbn: item.isbn || '',
-    publication_date: item.publication_date || '',
-    abstract_: item.abstract_ || '',
-    keywords: item.keywords || '',
+    publicationDate: item.publicationDate || '',
+    abstract: item.abstract || '',
+    keywords: Array.isArray(item.keywords) ? item.keywords.join(', ') : (item.keywords || ''),
     subject: item.subject || '',
-    media_type: (item.media_type || 'printedText') as MediaType,
-    audience_type: item.audience_type ?? '',
+    mediaType: (item.mediaType || 'printedText') as MediaType,
+    audienceType: item.audienceType ?? '',
     lang: item.lang ?? '',
-    edition_publisher: item.edition?.publisher_name ?? '',
-    edition_place: item.edition?.place_of_publication ?? '',
+    edition_publisher: item.edition?.publisherName ?? '',
+    edition_place: item.edition?.placeOfPublication ?? '',
     edition_date: item.edition?.date ?? '',
     authors: allAuthors.map(toAuthorForm),
   });
@@ -772,13 +772,13 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
     (item.series ?? []).map((s) => ({
       id: s.id ?? undefined,
       name: s.name ?? '',
-      volumeNumber: (s.volume_number ?? s.volumeNumber)?.toString() ?? '',
+      volumeNumber: s.volumeNumber?.toString() ?? '',
     }))
   );
 
   const searchCollections = useCallback(async (q: string) => {
     const res = await api.getCollections({ name: q, perPage: 10 });
-    return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? c.primary_title ?? '' }));
+    return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? '' }));
   }, []);
 
   const searchSeries = useCallback(async (q: string) => {
@@ -833,17 +833,17 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
       const updateData: Partial<Biblio> = {
         title: formData.title || undefined,
         isbn: formData.isbn || undefined,
-        publication_date: formData.publication_date || undefined,
-        abstract_: formData.abstract_ || undefined,
+        publicationDate: formData.publicationDate || undefined,
+        abstract: formData.abstract || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        media_type: formData.media_type,
-        audience_type: formData.audience_type || undefined,
+        mediaType: formData.mediaType,
+        audienceType: formData.audienceType || undefined,
         lang: formData.lang || undefined,
         edition: {
           id: item.edition?.id ?? null,
-          publisher_name: formData.edition_publisher || undefined,
-          place_of_publication: formData.edition_place || undefined,
+          publisherName: formData.edition_publisher || undefined,
+          placeOfPublication: formData.edition_place || undefined,
           date: formData.edition_date || undefined,
         },
         authors: authorsPayload,
@@ -852,14 +852,14 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
           .map((s) => ({
             id: s.id || null,
             name: s.name.trim() || undefined,
-            volume_number: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
+            volumeNumber: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
           })),
         collections: linkedCollections
           .filter((c) => c.name.trim())
           .map((c) => ({
             id: c.id || null,
             name: c.name.trim() || undefined,
-            volume_number: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
+            volumeNumber: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
           })),
       };
       const updated = await api.updateBiblio(item.id, updateData);
@@ -934,8 +934,8 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
         />
         <Input
           label={t('items.publicationDate')}
-          value={formData.publication_date}
-          onChange={(e) => setFormData({ ...formData, publication_date: e.target.value })}
+          value={formData.publicationDate}
+          onChange={(e) => setFormData({ ...formData, publicationDate: e.target.value })}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -944,8 +944,8 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
             {t('items.mediaTypeLabel')}
           </label>
           <select
-            value={formData.media_type}
-            onChange={(e) => setFormData({ ...formData, media_type: e.target.value as MediaType })}
+            value={formData.mediaType}
+            onChange={(e) => setFormData({ ...formData, mediaType: e.target.value as MediaType })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             {MEDIA_TYPES.map((type) => (
@@ -960,8 +960,8 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
             {t('items.publicType')}
           </label>
           <select
-            value={formData.audience_type}
-            onChange={(e) => setFormData({ ...formData, audience_type: e.target.value })}
+            value={formData.audienceType}
+            onChange={(e) => setFormData({ ...formData, audienceType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             <option value="">{t('items.notSpecified')}</option>
@@ -978,8 +978,8 @@ function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFo
           {t('items.abstract')}
         </label>
         <textarea
-          value={formData.abstract_}
-          onChange={(e) => setFormData({ ...formData, abstract_: e.target.value })}
+          value={formData.abstract}
+          onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
           rows={4}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         />
@@ -1087,10 +1087,10 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
   const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
     barcode: '',
-    call_number: '',
-    volume_designation: '',
+    callNumber: '',
+    volumeDesignation: '',
     borrowable: '' as '' | 'true' | 'false',
-    source_id: '',
+    sourceId: '',
   });
 
   useEffect(() => {
@@ -1104,19 +1104,19 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
       setError(t('items.specimenBarcodeRequired'));
       return;
     }
-    if (!validateCallNumber(formData.call_number)) return;
+    if (!validateCallNumber(formData.callNumber)) return;
     onLoadingChange(true);
     setError(null);
     try {
       await api.createItem(item.id, {
         barcode: formData.barcode.trim(),
-        call_number: formData.call_number || undefined,
-        volume_designation: formData.volume_designation || undefined,
+        callNumber: formData.callNumber || undefined,
+        volumeDesignation: formData.volumeDesignation || undefined,
         borrowable:
           formData.borrowable === ''
             ? undefined
             : formData.borrowable === 'true',
-        source_id: formData.source_id || undefined,
+        sourceId: formData.sourceId || undefined,
       });
       onSuccess();
     } catch (error) {
@@ -1144,15 +1144,15 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
       )}
       <CallNumberField
         label={t('items.callNumber')}
-        value={formData.call_number}
-        onChange={(v) => setFormData({ ...formData, call_number: v })}
+        value={formData.callNumber}
+        onChange={(v) => setFormData({ ...formData, callNumber: v })}
         suggestedValue={suggestedCallNumber}
         placeholder={suggestedCallNumber}
       />
       <Input
         label={t('items.volumeDesignation')}
-        value={formData.volume_designation}
-        onChange={(e) => setFormData({ ...formData, volume_designation: e.target.value })}
+        value={formData.volumeDesignation}
+        onChange={(e) => setFormData({ ...formData, volumeDesignation: e.target.value })}
         placeholder="e.g. t. 2"
       />
       <div>
@@ -1160,8 +1160,8 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
           {t('items.source')}
         </label>
         <select
-          value={formData.source_id}
-          onChange={(e) => setFormData({ ...formData, source_id: e.target.value })}
+          value={formData.sourceId}
+          onChange={(e) => setFormData({ ...formData, sourceId: e.target.value })}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         >
           <option value="">{t('items.selectSource')}</option>
@@ -1206,13 +1206,13 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
   const suggestedCallNumber = getSuggestedCallNumberFromItem(item);
   const [formData, setFormData] = useState({
     barcode: specimen.barcode || '',
-    call_number: specimen.call_number || '',
-    volume_designation: specimen.volume_designation || '',
+    callNumber: specimen.callNumber || '',
+    volumeDesignation: specimen.volumeDesignation || '',
     borrowable: specimen.borrowable == null ? '' : specimen.borrowable ? 'true' : 'false',
     place: specimen.place != null ? String(specimen.place) : '',
     notes: specimen.notes || '',
     price: specimen.price || '',
-    source_id: specimen.source_id || '',
+    sourceId: specimen.sourceId || '',
   });
 
   useEffect(() => {
@@ -1226,14 +1226,14 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
       setError(t('items.specimenBarcodeRequired'));
       return;
     }
-    if (!validateCallNumber(formData.call_number)) return;
+    if (!validateCallNumber(formData.callNumber)) return;
     onLoadingChange(true);
     setError(null);
     try {
       await api.updateItem(item.id, specimen.id, {
         barcode: formData.barcode.trim(),
-        call_number: formData.call_number || undefined,
-        volume_designation: formData.volume_designation || undefined,
+        callNumber: formData.callNumber || undefined,
+        volumeDesignation: formData.volumeDesignation || undefined,
         borrowable:
           formData.borrowable === ''
             ? undefined
@@ -1241,7 +1241,7 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
         place: formData.place ? parseInt(formData.place, 10) : undefined,
         notes: formData.notes || undefined,
         price: formData.price || undefined,
-        source_id: formData.source_id || undefined,
+        sourceId: formData.sourceId || undefined,
       });
       onSuccess();
     } catch (error) {
@@ -1269,16 +1269,16 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
       )}
       <CallNumberField
         label={t('items.callNumber')}
-        value={formData.call_number}
-        onChange={(v) => setFormData({ ...formData, call_number: v })}
+        value={formData.callNumber}
+        onChange={(v) => setFormData({ ...formData, callNumber: v })}
         suggestedValue={suggestedCallNumber}
         excludeSpecimenId={specimen.id}
         placeholder={suggestedCallNumber}
       />
       <Input
         label={t('items.volumeDesignation')}
-        value={formData.volume_designation}
-        onChange={(e) => setFormData({ ...formData, volume_designation: e.target.value })}
+        value={formData.volumeDesignation}
+        onChange={(e) => setFormData({ ...formData, volumeDesignation: e.target.value })}
         placeholder="e.g. t. 2"
       />
       <div>
@@ -1286,8 +1286,8 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
           {t('items.source')}
         </label>
         <select
-          value={formData.source_id}
-          onChange={(e) => setFormData({ ...formData, source_id: e.target.value })}
+          value={formData.sourceId}
+          onChange={(e) => setFormData({ ...formData, sourceId: e.target.value })}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         >
           <option value="">{t('items.selectSource')}</option>

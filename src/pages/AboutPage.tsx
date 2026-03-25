@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Info, ArrowLeft, Code2, Bug, Shield, User, ExternalLink, Package } from 'lucide-react';
 import { Card } from '@/components/common';
-import { useAuth } from '@/contexts/AuthContext';
-import { isAdmin } from '@/types';
+import { useLibrary } from '@/contexts/LibraryContext';
 import api from '@/services/api';
-import type { LibraryInfo } from '@/types';
 import { version as uiVersion, author as devAuthor, email as devEmail, license as uiLicense } from '../../package.json';
 
 interface GithubDep {
@@ -72,10 +70,9 @@ function DepList({ deps, loading, error }: { deps: GithubDep[]; loading: boolean
 
 export default function AboutPage() {
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
-  const adminUser = isAdmin(user?.account_type);
+  const navigate = useNavigate();
+  const { libraryInfo } = useLibrary();
 
-  const [libraryInfo, setLibraryInfo] = useState<LibraryInfo | null>(null);
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const [frontendDeps, setFrontendDeps] = useState<GithubDep[]>(FRONTEND_NOTABLE_DEPS);
   const [backendDeps, setBackendDeps] = useState<GithubDep[]>(BACKEND_NOTABLE_DEPS);
@@ -83,17 +80,12 @@ export default function AboutPage() {
   const [depsError, setDepsError] = useState(false);
 
   useEffect(() => {
-    api.getLibraryInfo()
-      .then(setLibraryInfo)
-      .catch(() => setLibraryInfo(null));
-
     api.getHealth()
       .then((data) => setServerVersion(data.version ?? null))
       .catch(() => setServerVersion(null));
   }, []);
 
   useEffect(() => {
-    if (!adminUser) return;
     setDepsLoading(true);
 
     Promise.all([
@@ -131,10 +123,10 @@ export default function AboutPage() {
       })
       .catch(() => setDepsError(true))
       .finally(() => setDepsLoading(false));
-  }, [adminUser]);
+  }, []);
 
-  const formattedDate = libraryInfo?.updated_at
-    ? new Date(libraryInfo.updated_at).toLocaleDateString(i18n.language, {
+  const formattedDate = libraryInfo?.updatedAt
+    ? new Date(libraryInfo.updatedAt).toLocaleDateString(i18n.language, {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -145,13 +137,13 @@ export default function AboutPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <Link
-          to="/"
+        <button
+          onClick={() => navigate(-1)}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('common.back')}
-        </Link>
+        </button>
         <div className="flex items-center gap-3">
           <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-lg">
             <Info className="h-6 w-6 text-amber-600 dark:text-amber-400" />
@@ -267,65 +259,60 @@ export default function AboutPage() {
         </div>
       </Card>
 
-      {/* Admin section */}
-      {adminUser && (
-        <Card>
-          <div className="p-6 space-y-6">
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
-              <Code2 className="h-4 w-4" />
-              {t('about.admin.techInfo')}
-            </h2>
+      {/* Technical details — visible to all */}
+      <Card>
+        <div className="p-6 space-y-6">
+          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+            <Code2 className="h-4 w-4" />
+            {t('about.admin.techInfo')}
+          </h2>
 
-            <div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* Frontend stack */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
-                  <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    {t('about.admin.frontendStack')}
-                  </h4>
-                  <DepList deps={frontendDeps} loading={depsLoading} error={depsError} />
-                </div>
-
-                {/* Backend stack */}
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
-                  <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    {t('about.admin.backendStack')}
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {BACKEND_RUNTIME.map((tech) => (
-                      <span
-                        key={tech}
-                        className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                  <DepList deps={backendDeps} loading={depsLoading} error={depsError} />
-                </div>
-              </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Frontend stack */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                {t('about.admin.frontendStack')}
+              </h4>
+              <DepList deps={frontendDeps} loading={depsLoading} error={depsError} />
             </div>
 
-            {/* Bug report */}
-            <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
-                <Bug className="h-4 w-4" />
-                {t('about.admin.bugReport')}
-              </h3>
-              <a
-                href="https://github.com/jcollonville/elidune/issues"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                {t('about.admin.bugReportLink')}
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+            {/* Backend stack */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                {t('about.admin.backendStack')}
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {BACKEND_RUNTIME.map((tech) => (
+                  <span
+                    key={tech}
+                    className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                  >
+                    {tech}
+                  </span>
+                ))}
+              </div>
+              <DepList deps={backendDeps} loading={depsLoading} error={depsError} />
             </div>
           </div>
-        </Card>
-      )}
+
+          {/* Bug report */}
+          <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+            <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
+              <Bug className="h-4 w-4" />
+              {t('about.admin.bugReport')}
+            </h3>
+            <a
+              href="https://github.com/jcollonville/elidune/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              {t('about.admin.bugReportLink')}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

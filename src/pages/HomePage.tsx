@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { BookOpen, Users, BookMarked, TrendingUp, ArrowRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLibrary } from '@/contexts/LibraryContext';
-import { Card, CardHeader, Badge } from '@/components/common';
+import { Card, CardHeader, Badge, LibraryInfoSection } from '@/components/common';
+import { useLibrarySchedule } from '@/hooks/common/useLibrarySchedule';
 import { isLibrarian } from '@/types';
 import api from '@/services/api';
 import type { Stats, Loan } from '@/types';
@@ -12,7 +13,8 @@ import type { Stats, Loan } from '@/types';
 export default function HomePage() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { libraryName } = useLibrary();
+  const { libraryName, libraryInfo } = useLibrary();
+  const { scheduleSlots } = useLibrarySchedule();
   const [stats, setStats] = useState<Stats | null>(null);
   const [myLoans, setMyLoans] = useState<Loan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,7 +23,7 @@ export default function HomePage() {
     const fetchData = async () => {
       try {
         const [statsData, loansData] = await Promise.all([
-          isLibrarian(user?.account_type) ? api.getStats() : null,
+          isLibrarian(user?.accountType) ? api.getStats() : null,
           user?.id ? api.getUserLoans(user.id) : [],
         ]);
         if (statsData) setStats(statsData);
@@ -36,10 +38,11 @@ export default function HomePage() {
     fetchData();
   }, [user]);
 
-  const overdueLoans = myLoans.filter((loan) => loan.is_overdue);
+
+  const overdueLoans = myLoans.filter((loan) => loan.isOverdue);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 min-h-full">
       {/* Welcome section */}
       <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-7 sm:p-10">
         <img
@@ -73,7 +76,7 @@ export default function HomePage() {
       )}
 
       {/* Stats cards (for librarians) */}
-      {isLibrarian(user?.account_type) && stats && (
+      {isLibrarian(user?.accountType) && stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={BookOpen}
@@ -141,10 +144,10 @@ export default function HomePage() {
                     {loan.biblio.title}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('loans.dueDate')}: {new Date(loan.issue_at).toLocaleDateString()}
+                    {t('loans.dueDate')}: {new Date(loan.issueAt).toLocaleDateString()}
                   </p>
                 </div>
-                {loan.is_overdue && (
+                {loan.isOverdue && (
                   <Badge variant="danger">{t('loans.overdue')}</Badge>
                 )}
               </div>
@@ -161,7 +164,7 @@ export default function HomePage() {
           title={t('nav.catalog')}
           description={t('items.searchPlaceholder')}
         />
-        {isLibrarian(user?.account_type) && (
+        {isLibrarian(user?.accountType) && (
           <>
             <QuickActionCard
               to="/users"
@@ -177,6 +180,15 @@ export default function HomePage() {
             />
           </>
         )}
+      </div>
+
+      {/* Library info — fills remaining space */}
+      <div className="flex-1 flex flex-col">
+        <LibraryInfoSection
+          info={libraryInfo}
+          slots={scheduleSlots}
+          canManage={isLibrarian(user?.accountType)}
+        />
       </div>
     </div>
   );
@@ -239,4 +251,5 @@ function QuickActionCard({ to, icon: Icon, title, description }: QuickActionCard
     </Link>
   );
 }
+
 

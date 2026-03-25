@@ -135,9 +135,9 @@ export default function InventoryPage() {
               {t('inventory.sessionTitle')} #{activeSession.id.slice(0, 8)}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {new Date(activeSession.created_at ?? activeSession.createdAt ?? '').toLocaleDateString()}
-              {(activeSession.location_filter ?? activeSession.locationFilter) &&
-                ` — ${activeSession.location_filter ?? activeSession.locationFilter}`}
+              {new Date(activeSession.createdAt ?? activeSession.createdAt ?? '').toLocaleDateString()}
+              {(activeSession.locationFilter ?? activeSession.locationFilter) &&
+                ` — ${activeSession.locationFilter ?? activeSession.locationFilter}`}
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
@@ -209,21 +209,21 @@ export default function InventoryPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <StatBox
                   label={t('inventory.totalScanned')}
-                  value={report.total_scanned ?? report.totalScanned ?? 0}
+                  value={report.totalScanned ?? report.totalScanned ?? 0}
                 />
                 <StatBox
                   label={t('inventory.totalFound')}
-                  value={report.total_found ?? report.totalFound ?? 0}
+                  value={report.totalFound ?? report.totalFound ?? 0}
                   color="green"
                 />
                 <StatBox
                   label={t('inventory.totalUnknown')}
-                  value={report.total_unknown ?? report.totalUnknown ?? 0}
+                  value={report.totalUnknown ?? report.totalUnknown ?? 0}
                   color="amber"
                 />
                 <StatBox
                   label={t('inventory.missing')}
-                  value={report.missing_count ?? report.missingCount ?? 0}
+                  value={report.missingCount ?? report.missingCount ?? 0}
                   color="red"
                 />
               </div>
@@ -297,9 +297,9 @@ export default function InventoryPage() {
                     {t('inventory.sessionTitle')} #{session.id.slice(0, 8)}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(session.created_at ?? session.createdAt ?? '').toLocaleDateString()}
-                    {(session.location_filter ?? session.locationFilter) &&
-                      ` — ${session.location_filter ?? session.locationFilter}`}
+                    {new Date(session.createdAt ?? session.createdAt ?? '').toLocaleDateString()}
+                    {(session.locationFilter ?? session.locationFilter) &&
+                      ` — ${session.locationFilter ?? session.locationFilter}`}
                   </p>
                 </div>
                 <Badge variant={session.status === 'open' ? 'success' : 'default'}>

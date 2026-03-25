@@ -189,11 +189,11 @@ function SourceEditor() {
     }
   };
 
-  const activeSources = sources.filter(s => !s.is_archive);
-  const archivedSources = sources.filter(s => !!s.is_archive);
+  const activeSources = sources.filter(s => !s.isArchive);
+  const archivedSources = sources.filter(s => !!s.isArchive);
 
   const renderSourceRow = (source: Source) => {
-    const isArchived = !!source.is_archive;
+    const isArchived = !!source.isArchive;
     const isRenaming = renamingId === source.id;
     const isSelected = selectedIds.has(source.id);
 
@@ -551,10 +551,10 @@ function PublicTypesEditor() {
   const handleUpsertOverride = async (publicTypeId: string, mediaType: MediaType, duration: number, nbMax: number, nbRenews: number) => {
     try {
       await api.upsertPublicTypeLoanSetting(publicTypeId, {
-        media_type: mediaType,
+        mediaType: mediaType,
         duration: duration || null,
-        nb_max: nbMax || null,
-        nb_renews: nbRenews || null,
+        nbMax: nbMax || null,
+        nbRenews: nbRenews || null,
       });
       showSuccess(t('settings.publicTypes.overrideSuccess'));
       fetchOverrides(publicTypeId);
@@ -635,10 +635,10 @@ function PublicTypesEditor() {
                   <span className="font-medium text-gray-900 dark:text-white">{pt.label}</span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">({pt.name})</span>
                   <span className="text-xs text-gray-400">
-                    {pt.age_min != null && pt.age_max != null
-                      ? t('settings.publicTypes.ageRange', { min: pt.age_min, max: pt.age_max })
-                      : pt.subscription_price != null
-                        ? `${(pt.subscription_price / 100).toFixed(2)}€`
+                    {pt.ageMin != null && pt.ageMax != null
+                      ? t('settings.publicTypes.ageRange', { min: pt.ageMin, max: pt.ageMax })
+                      : pt.subscriptionPrice != null
+                        ? `${(pt.subscriptionPrice / 100).toFixed(2)}€`
                         : ''}
                   </span>
                 </div>
@@ -718,12 +718,12 @@ function PublicTypeEditForm({
   const [form, setForm] = useState({
     name: pt.name,
     label: pt.label,
-    subscription_duration_days: pt.subscription_duration_days ?? '',
-    age_min: pt.age_min ?? '',
-    age_max: pt.age_max ?? '',
-    subscription_price: pt.subscription_price != null ? (pt.subscription_price / 100).toString() : '',
-    max_loans: pt.max_loans ?? '',
-    loan_duration_days: pt.loan_duration_days ?? '',
+    subscriptionDurationDays: pt.subscriptionDurationDays ?? '',
+    ageMin: pt.ageMin ?? '',
+    ageMax: pt.ageMax ?? '',
+    subscriptionPrice: pt.subscriptionPrice != null ? (pt.subscriptionPrice / 100).toString() : '',
+    maxLoans: pt.maxLoans ?? '',
+    loanDurationDays: pt.loanDurationDays ?? '',
   });
 
   return (
@@ -755,8 +755,8 @@ function PublicTypeEditForm({
             type="number"
             min="0"
             placeholder="—"
-            value={form.subscription_duration_days}
-            onChange={(e) => setForm((f) => ({ ...f, subscription_duration_days: e.target.value }))}
+            value={form.subscriptionDurationDays}
+            onChange={(e) => setForm((f) => ({ ...f, subscriptionDurationDays: e.target.value }))}
             className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
         </div>
@@ -766,8 +766,8 @@ function PublicTypeEditForm({
             type="number"
             min="0"
             placeholder="—"
-            value={form.loan_duration_days}
-            onChange={(e) => setForm((f) => ({ ...f, loan_duration_days: e.target.value }))}
+            value={form.loanDurationDays}
+            onChange={(e) => setForm((f) => ({ ...f, loanDurationDays: e.target.value }))}
             className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
         </div>
@@ -777,8 +777,8 @@ function PublicTypeEditForm({
             type="number"
             min="0"
             placeholder="—"
-            value={form.age_min}
-            onChange={(e) => setForm((f) => ({ ...f, age_min: e.target.value }))}
+            value={form.ageMin}
+            onChange={(e) => setForm((f) => ({ ...f, ageMin: e.target.value }))}
             className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
         </div>
@@ -788,8 +788,8 @@ function PublicTypeEditForm({
             type="number"
             min="0"
             placeholder="—"
-            value={form.age_max}
-            onChange={(e) => setForm((f) => ({ ...f, age_max: e.target.value }))}
+            value={form.ageMax}
+            onChange={(e) => setForm((f) => ({ ...f, ageMax: e.target.value }))}
             className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
         </div>
@@ -800,8 +800,8 @@ function PublicTypeEditForm({
             step="0.01"
             min="0"
             placeholder="—"
-            value={form.subscription_price}
-            onChange={(e) => setForm((f) => ({ ...f, subscription_price: e.target.value }))}
+            value={form.subscriptionPrice}
+            onChange={(e) => setForm((f) => ({ ...f, subscriptionPrice: e.target.value }))}
             className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
         </div>
@@ -811,8 +811,8 @@ function PublicTypeEditForm({
             type="number"
             min="0"
             placeholder="—"
-            value={form.max_loans}
-            onChange={(e) => setForm((f) => ({ ...f, max_loans: e.target.value }))}
+            value={form.maxLoans}
+            onChange={(e) => setForm((f) => ({ ...f, maxLoans: e.target.value }))}
             className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
           />
         </div>
@@ -827,12 +827,12 @@ function PublicTypeEditForm({
             onSave({
               name: form.name?.trim() || undefined,
               label: form.label?.trim() || undefined,
-              subscription_duration_days: form.subscription_duration_days ? Number(form.subscription_duration_days) : null,
-              age_min: form.age_min ? Number(form.age_min) : null,
-              age_max: form.age_max ? Number(form.age_max) : null,
-              subscription_price: form.subscription_price ? Math.round(parseFloat(form.subscription_price) * 100) : null,
-              max_loans: form.max_loans ? Number(form.max_loans) : null,
-              loan_duration_days: form.loan_duration_days ? Number(form.loan_duration_days) : null,
+              subscriptionDurationDays: form.subscriptionDurationDays ? Number(form.subscriptionDurationDays) : null,
+              ageMin: form.ageMin ? Number(form.ageMin) : null,
+              ageMax: form.ageMax ? Number(form.ageMax) : null,
+              subscriptionPrice: form.subscriptionPrice ? Math.round(parseFloat(form.subscriptionPrice) * 100) : null,
+              maxLoans: form.maxLoans ? Number(form.maxLoans) : null,
+              loanDurationDays: form.loanDurationDays ? Number(form.loanDurationDays) : null,
             })
           }
         >
@@ -861,7 +861,7 @@ function LoanOverridesForm({
   const [newDuration, setNewDuration] = useState(14);
   const [newNbMax, setNewNbMax] = useState(3);
   const [newNbRenews, setNewNbRenews] = useState(1);
-  const usedMediaTypes = new Set(overrides.map((o) => o.media_type));
+  const usedMediaTypes = new Set(overrides.map((o) => o.mediaType));
   const availableMediaTypes = MEDIA_TYPE_VALUES.filter((m) => !usedMediaTypes.has(m));
 
   const handleAdd = () => {
@@ -879,7 +879,7 @@ function LoanOverridesForm({
             <li key={o.id} className="flex items-start gap-2 text-sm">
               <button
                 type="button"
-                onClick={() => onDelete(publicTypeId, o.media_type)}
+                onClick={() => onDelete(publicTypeId, o.mediaType)}
                 className="text-red-500 hover:text-red-700"
                 title={t('common.delete')}
               >
@@ -887,17 +887,17 @@ function LoanOverridesForm({
               </button>
               <div className="flex-1">
                 <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {t(`items.mediaType.${getMediaTypeKey(o.media_type)}`)}
+                  {t(`items.mediaType.${getMediaTypeKey(o.mediaType)}`)}
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
                   <span>
                     {t('settings.publicTypes.duration')}: <span className="font-medium">{o.duration}</span>
                   </span>
                   <span>
-                    {t('settings.publicTypes.nbMax')}: <span className="font-medium">{o.nb_max}</span>
+                    {t('settings.publicTypes.nbMax')}: <span className="font-medium">{o.nbMax}</span>
                   </span>
                   <span>
-                    {t('settings.publicTypes.nbRenews')}: <span className="font-medium">{o.nb_renews}</span>
+                    {t('settings.publicTypes.nbRenews')}: <span className="font-medium">{o.nbRenews}</span>
                   </span>
                 </div>
               </div>
@@ -960,12 +960,12 @@ function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePubl
   const [form, setForm] = useState({
     name: '',
     label: '',
-    subscription_duration_days: '',
-    age_min: '',
-    age_max: '',
-    subscription_price: '',
-    max_loans: '',
-    loan_duration_days: '',
+    subscriptionDurationDays: '',
+    ageMin: '',
+    ageMax: '',
+    subscriptionPrice: '',
+    maxLoans: '',
+    loanDurationDays: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -974,12 +974,12 @@ function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePubl
     onSave({
       name: form.name.trim(),
       label: form.label.trim(),
-      subscription_duration_days: form.subscription_duration_days ? Number(form.subscription_duration_days) : null,
-      age_min: form.age_min ? Number(form.age_min) : null,
-      age_max: form.age_max ? Number(form.age_max) : null,
-      subscription_price: form.subscription_price ? Math.round(parseFloat(form.subscription_price) * 100) : null,
-      max_loans: form.max_loans ? Number(form.max_loans) : null,
-      loan_duration_days: form.loan_duration_days ? Number(form.loan_duration_days) : null,
+      subscriptionDurationDays: form.subscriptionDurationDays ? Number(form.subscriptionDurationDays) : null,
+      ageMin: form.ageMin ? Number(form.ageMin) : null,
+      ageMax: form.ageMax ? Number(form.ageMax) : null,
+      subscriptionPrice: form.subscriptionPrice ? Math.round(parseFloat(form.subscriptionPrice) * 100) : null,
+      maxLoans: form.maxLoans ? Number(form.maxLoans) : null,
+      loanDurationDays: form.loanDurationDays ? Number(form.loanDurationDays) : null,
     });
   };
 
@@ -990,15 +990,15 @@ function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePubl
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input label={t('settings.publicTypes.name')} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
           <Input label={t('settings.publicTypes.label')} value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} required />
-          <Input label={t('settings.publicTypes.subscriptionDurationDays')} type="number" value={form.subscription_duration_days} onChange={(e) => setForm((f) => ({ ...f, subscription_duration_days: e.target.value }))} />
+          <Input label={t('settings.publicTypes.subscriptionDurationDays')} type="number" value={form.subscriptionDurationDays} onChange={(e) => setForm((f) => ({ ...f, subscriptionDurationDays: e.target.value }))} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('settings.publicTypes.ageMin')} type="number" value={form.age_min} onChange={(e) => setForm((f) => ({ ...f, age_min: e.target.value }))} />
-            <Input label={t('settings.publicTypes.ageMax')} type="number" value={form.age_max} onChange={(e) => setForm((f) => ({ ...f, age_max: e.target.value }))} />
+            <Input label={t('settings.publicTypes.ageMin')} type="number" value={form.ageMin} onChange={(e) => setForm((f) => ({ ...f, ageMin: e.target.value }))} />
+            <Input label={t('settings.publicTypes.ageMax')} type="number" value={form.ageMax} onChange={(e) => setForm((f) => ({ ...f, ageMax: e.target.value }))} />
           </div>
-          <Input label={t('settings.publicTypes.subscriptionPrice')} type="number" step="0.01" min="0" value={form.subscription_price} onChange={(e) => setForm((f) => ({ ...f, subscription_price: e.target.value }))} />
+          <Input label={t('settings.publicTypes.subscriptionPrice')} type="number" step="0.01" min="0" value={form.subscriptionPrice} onChange={(e) => setForm((f) => ({ ...f, subscriptionPrice: e.target.value }))} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('settings.publicTypes.maxLoans')} type="number" value={form.max_loans} onChange={(e) => setForm((f) => ({ ...f, max_loans: e.target.value }))} />
-            <Input label={t('settings.publicTypes.loanDurationDays')} type="number" value={form.loan_duration_days} onChange={(e) => setForm((f) => ({ ...f, loan_duration_days: e.target.value }))} />
+            <Input label={t('settings.publicTypes.maxLoans')} type="number" value={form.maxLoans} onChange={(e) => setForm((f) => ({ ...f, maxLoans: e.target.value }))} />
+            <Input label={t('settings.publicTypes.loanDurationDays')} type="number" value={form.loanDurationDays} onChange={(e) => setForm((f) => ({ ...f, loanDurationDays: e.target.value }))} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onCancel}>{t('common.cancel')}</Button>
@@ -1050,8 +1050,8 @@ export default function SettingsPage() {
   const updateLoanSetting = (index: number, field: keyof LoanSettings, value: string | number) => {
     if (!settings) return;
     const newSettings = { ...settings };
-    newSettings.loan_settings[index] = {
-      ...newSettings.loan_settings[index],
+    newSettings.loanSettings[index] = {
+      ...newSettings.loanSettings[index],
       [field]: value,
     };
     setSettings(newSettings);
@@ -1060,8 +1060,8 @@ export default function SettingsPage() {
   const updateZ3950Server = (index: number, field: keyof Z3950Server, value: string | number | boolean) => {
     if (!settings) return;
     const newSettings = { ...settings };
-    newSettings.z3950_servers[index] = {
-      ...newSettings.z3950_servers[index],
+    newSettings.z3950Servers[index] = {
+      ...newSettings.z3950Servers[index],
       [field]: value,
     };
     setSettings(newSettings);
@@ -1138,18 +1138,18 @@ export default function SettingsPage() {
               variant="secondary"
               leftIcon={<Plus className="h-4 w-4" />}
               onClick={() => {
-                const usedTypes = new Set(settings.loan_settings.map((s) => s.media_type));
+                const usedTypes = new Set(settings.loanSettings.map((s) => s.mediaType));
                 const firstUnused = MEDIA_TYPE_VALUES.find((m) => !usedTypes.has(m));
                 if (firstUnused) {
                   setSettings({
                     ...settings,
-                    loan_settings: [
-                      ...settings.loan_settings,
+                    loanSettings: [
+                      ...settings.loanSettings,
                       {
-                        media_type: firstUnused,
-                        max_loans: 5,
-                        max_renewals: 2,
-                        duration_days: 21,
+                        mediaType: firstUnused,
+                        maxLoans: 5,
+                        maxRenewals: 2,
+                        durationDays: 21,
                       },
                     ],
                   });
@@ -1180,12 +1180,12 @@ export default function SettingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {settings.loan_settings.map((setting, index) => (
-                <tr key={`${setting.media_type}-${index}`}>
+              {settings.loanSettings.map((setting, index) => (
+                <tr key={`${setting.mediaType}-${index}`}>
                   <td className="px-4 py-3">
                     <select
-                      value={setting.media_type}
-                      onChange={(e) => updateLoanSetting(index, 'media_type', e.target.value as MediaType)}
+                      value={setting.mediaType}
+                      onChange={(e) => updateLoanSetting(index, 'mediaType', e.target.value as MediaType)}
                       className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[140px]"
                     >
                       {MEDIA_TYPE_VALUES.map((mt) => (
@@ -1198,8 +1198,8 @@ export default function SettingsPage() {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      value={setting.duration_days}
-                      onChange={(e) => updateLoanSetting(index, 'duration_days', parseInt(e.target.value) || 0)}
+                      value={setting.durationDays}
+                      onChange={(e) => updateLoanSetting(index, 'durationDays', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={1}
                     />
@@ -1207,8 +1207,8 @@ export default function SettingsPage() {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      value={setting.max_loans}
-                      onChange={(e) => updateLoanSetting(index, 'max_loans', parseInt(e.target.value) || 0)}
+                      value={setting.maxLoans}
+                      onChange={(e) => updateLoanSetting(index, 'maxLoans', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={1}
                     />
@@ -1216,8 +1216,8 @@ export default function SettingsPage() {
                   <td className="px-4 py-3">
                     <input
                       type="number"
-                      value={setting.max_renewals}
-                      onChange={(e) => updateLoanSetting(index, 'max_renewals', parseInt(e.target.value) || 0)}
+                      value={setting.maxRenewals}
+                      onChange={(e) => updateLoanSetting(index, 'maxRenewals', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={0}
                     />
@@ -1228,7 +1228,7 @@ export default function SettingsPage() {
                       onClick={() => {
                         setSettings({
                           ...settings,
-                          loan_settings: settings.loan_settings.filter((_, i) => i !== index),
+                          loanSettings: settings.loanSettings.filter((_, i) => i !== index),
                         });
                       }}
                       className="p-1 text-gray-400 hover:text-red-600"
@@ -1264,8 +1264,8 @@ export default function SettingsPage() {
               onClick={() => {
                 setSettings({
                   ...settings,
-                  z3950_servers: [
-                    ...settings.z3950_servers,
+                  z3950Servers: [
+                    ...settings.z3950Servers,
                     {
                       id: '',
                       name: t('z3950.server'),
@@ -1275,7 +1275,7 @@ export default function SettingsPage() {
                       format: 'UNIMARC',
                       login: '',
                       password: '',
-                      is_active: false,
+                      isActive: false,
                     },
                   ],
                 });
@@ -1286,7 +1286,7 @@ export default function SettingsPage() {
           }
         />
         <div className="space-y-4">
-          {settings.z3950_servers.map((server, index) => (
+          {settings.z3950Servers.map((server, index) => (
             <div
               key={server.id || `new-${index}`}
               className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
@@ -1297,7 +1297,7 @@ export default function SettingsPage() {
                   <span className="font-medium text-gray-900 dark:text-white">
                     {server.name || t('z3950.server')}
                   </span>
-                  {server.is_active ? (
+                  {server.isActive ? (
                     <Badge variant="success">{t('common.active')}</Badge>
                   ) : (
                     <Badge>{t('items.unavailable')}</Badge>
@@ -1309,7 +1309,7 @@ export default function SettingsPage() {
                   onClick={() => {
                     setSettings({
                       ...settings,
-                      z3950_servers: settings.z3950_servers.filter((_, i) => i !== index),
+                      z3950Servers: settings.z3950Servers.filter((_, i) => i !== index),
                     });
                   }}
                 >
@@ -1357,8 +1357,8 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   id={`active-${index}`}
-                  checked={server.is_active}
-                  onChange={(e) => updateZ3950Server(index, 'is_active', e.target.checked)}
+                  checked={server.isActive}
+                  onChange={(e) => updateZ3950Server(index, 'isActive', e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 focus:ring-indigo-500"
                 />
                 <label htmlFor={`active-${index}`} className="text-sm text-gray-700 dark:text-gray-300">

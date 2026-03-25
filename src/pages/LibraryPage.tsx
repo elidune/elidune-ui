@@ -41,20 +41,20 @@ function GeneralTab() {
 
   const [form, setForm] = useState<{
     name: string;
-    addr_line1: string;
-    addr_line2: string;
-    addr_postcode: string;
-    addr_city: string;
-    addr_country: string;
+    addrLine1: string;
+    addrLine2: string;
+    addrPostcode: string;
+    addrCity: string;
+    addrCountry: string;
     email: string;
     phones: string[];
   }>({
     name: '',
-    addr_line1: '',
-    addr_line2: '',
-    addr_postcode: '',
-    addr_city: '',
-    addr_country: '',
+    addrLine1: '',
+    addrLine2: '',
+    addrPostcode: '',
+    addrCity: '',
+    addrCountry: '',
     email: '',
     phones: [],
   });
@@ -62,11 +62,11 @@ function GeneralTab() {
   const populate = useCallback((info: LibraryInfo) => {
     setForm({
       name: info.name ?? '',
-      addr_line1: info.addr_line1 ?? '',
-      addr_line2: info.addr_line2 ?? '',
-      addr_postcode: info.addr_postcode ?? '',
-      addr_city: info.addr_city ?? '',
-      addr_country: info.addr_country ?? '',
+      addrLine1: info.addrLine1 ?? '',
+      addrLine2: info.addrLine2 ?? '',
+      addrPostcode: info.addrPostcode ?? '',
+      addrCity: info.addrCity ?? '',
+      addrCountry: info.addrCountry ?? '',
       email: info.email ?? '',
       phones: info.phones ?? [],
     });
@@ -92,11 +92,11 @@ function GeneralTab() {
     try {
       const updated = await api.updateLibraryInfo({
         name: form.name || null,
-        addr_line1: form.addr_line1 || null,
-        addr_line2: form.addr_line2 || null,
-        addr_postcode: form.addr_postcode || null,
-        addr_city: form.addr_city || null,
-        addr_country: form.addr_country || null,
+        addrLine1: form.addrLine1 || null,
+        addrLine2: form.addrLine2 || null,
+        addrPostcode: form.addrPostcode || null,
+        addrCity: form.addrCity || null,
+        addrCountry: form.addrCountry || null,
         email: form.email || null,
         phones: form.phones.filter(Boolean),
       });
@@ -183,13 +183,13 @@ function GeneralTab() {
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             {t('library.general.address')}
           </p>
-          {field('library.general.addrLine1', 'addr_line1', { placeholder: t('library.general.addrLine1Placeholder') })}
-          {field('library.general.addrLine2', 'addr_line2', { placeholder: t('library.general.addrLine2Placeholder') })}
+          {field('library.general.addrLine1', 'addrLine1', { placeholder: t('library.general.addrLine1Placeholder') })}
+          {field('library.general.addrLine2', 'addrLine2', { placeholder: t('library.general.addrLine2Placeholder') })}
           <div className="grid grid-cols-2 gap-3">
-            {field('library.general.zipCode', 'addr_postcode', { placeholder: '75001' })}
-            {field('library.general.city', 'addr_city', { placeholder: 'Paris' })}
+            {field('library.general.zipCode', 'addrPostcode', { placeholder: '75001' })}
+            {field('library.general.city', 'addrCity', { placeholder: 'Paris' })}
           </div>
-          {field('library.general.country', 'addr_country', { placeholder: 'France' })}
+          {field('library.general.country', 'addrCountry', { placeholder: 'France' })}
         </div>
 
         {/* Email */}
@@ -265,8 +265,8 @@ function HoursTab() {
   });
   const [periodForm, setPeriodForm] = useState<CreateSchedulePeriod & { notes: string }>({
     name: '',
-    start_date: '',
-    end_date: '',
+    startDate: '',
+    endDate: '',
     notes: '',
   });
   const [savingPeriod, setSavingPeriod] = useState(false);
@@ -277,9 +277,9 @@ function HoursTab() {
     open: false,
   });
   const [slotForm, setSlotForm] = useState<CreateScheduleSlot>({
-    day_of_week: 0,
-    open_time: '09:00',
-    close_time: '17:00',
+    dayOfWeek: 0,
+    openTime: '09:00',
+    closeTime: '17:00',
   });
   const [savingSlot, setSavingSlot] = useState(false);
   const [slotError, setSlotError] = useState<string | null>(null);
@@ -287,7 +287,7 @@ function HoursTab() {
   // Closure modal
   const [closureModal, setClosureModal] = useState(false);
   const [closureForm, setClosureForm] = useState<CreateScheduleClosure>({
-    closure_date: '',
+    closureDate: '',
     reason: '',
   });
   const [savingClosure, setSavingClosure] = useState(false);
@@ -307,7 +307,7 @@ function HoursTab() {
         api.getScheduleClosures(),
       ]);
       setPeriods(perList);
-      setClosures(closList.sort((a, b) => a.closure_date.localeCompare(b.closure_date)));
+      setClosures(closList.sort((a, b) => a.closureDate.localeCompare(b.closureDate)));
 
       const slotMap: Record<string, ScheduleSlot[]> = {};
       await Promise.all(
@@ -334,7 +334,7 @@ function HoursTab() {
   // ── Period handlers ──────────────────────────────────────────────────────
 
   const openAddPeriod = () => {
-    setPeriodForm({ name: '', start_date: '', end_date: '', notes: '' });
+    setPeriodForm({ name: '', startDate: '', endDate: '', notes: '' });
     setPeriodError(null);
     setPeriodModal({ open: true });
   };
@@ -342,8 +342,8 @@ function HoursTab() {
   const openEditPeriod = (period: SchedulePeriod) => {
     setPeriodForm({
       name: period.name,
-      start_date: period.start_date,
-      end_date: period.end_date,
+      startDate: period.startDate,
+      endDate: period.endDate,
       notes: period.notes ?? '',
     });
     setPeriodError(null);
@@ -351,14 +351,14 @@ function HoursTab() {
   };
 
   const savePeriod = async () => {
-    if (!periodForm.name || !periodForm.start_date || !periodForm.end_date) return;
+    if (!periodForm.name || !periodForm.startDate || !periodForm.endDate) return;
     setSavingPeriod(true);
     setPeriodError(null);
     try {
       const payload: UpdateSchedulePeriod = {
         name: periodForm.name,
-        start_date: periodForm.start_date,
-        end_date: periodForm.end_date,
+        startDate: periodForm.startDate,
+        endDate: periodForm.endDate,
         notes: periodForm.notes || null,
       };
       if (periodModal.editing) {
@@ -367,8 +367,8 @@ function HoursTab() {
       } else {
         const created = await api.createSchedulePeriod({
           name: periodForm.name,
-          start_date: periodForm.start_date,
-          end_date: periodForm.end_date,
+          startDate: periodForm.startDate,
+          endDate: periodForm.endDate,
           notes: periodForm.notes || null,
         });
         setPeriods((prev) => [...prev, created]);
@@ -403,7 +403,7 @@ function HoursTab() {
   // ── Slot handlers ────────────────────────────────────────────────────────
 
   const openAddSlot = (periodId: string, dayOfWeek: number) => {
-    setSlotForm({ day_of_week: dayOfWeek, open_time: '09:00', close_time: '17:00' });
+    setSlotForm({ dayOfWeek: dayOfWeek, openTime: '09:00', closeTime: '17:00' });
     setSlotError(null);
     setSlotModal({ open: true, periodId });
   };
@@ -444,22 +444,22 @@ function HoursTab() {
   // ── Closure handlers ─────────────────────────────────────────────────────
 
   const openAddClosure = () => {
-    setClosureForm({ closure_date: '', reason: '' });
+    setClosureForm({ closureDate: '', reason: '' });
     setClosureError(null);
     setClosureModal(true);
   };
 
   const saveClosure = async () => {
-    if (!closureForm.closure_date) return;
+    if (!closureForm.closureDate) return;
     setSavingClosure(true);
     setClosureError(null);
     try {
       const created = await api.createScheduleClosure({
-        closure_date: closureForm.closure_date,
+        closureDate: closureForm.closureDate,
         reason: (closureForm.reason as string) || null,
       });
       setClosures((prev) =>
-        [...prev, created].sort((a, b) => a.closure_date.localeCompare(b.closure_date))
+        [...prev, created].sort((a, b) => a.closureDate.localeCompare(b.closureDate))
       );
       setClosureModal(false);
     } catch {
@@ -546,7 +546,7 @@ function HoursTab() {
                         {period.name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {period.start_date} → {period.end_date}
+                        {period.startDate} → {period.endDate}
                         {period.notes ? ` · ${period.notes}` : ''}
                       </p>
                     </div>
@@ -578,8 +578,8 @@ function HoursTab() {
                       <div className="space-y-2">
                         {DAYS_OF_WEEK.map((day) => {
                           const daySlots = periodSlots
-                            .filter((s) => s.day_of_week === day)
-                            .sort((a, b) => a.open_time.localeCompare(b.open_time));
+                            .filter((s) => s.dayOfWeek === day)
+                            .sort((a, b) => a.openTime.localeCompare(b.openTime));
 
                           return (
                             <div key={day} className="flex items-center gap-3 min-h-[2.25rem]">
@@ -597,7 +597,7 @@ function HoursTab() {
                                     key={slot.id}
                                     className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-full px-2.5 py-1 text-xs"
                                   >
-                                    {slot.open_time} – {slot.close_time}
+                                    {slot.openTime} – {slot.closeTime}
                                     <button
                                       onClick={() => deleteSlot(slot.id, period.id)}
                                       disabled={deletingSlot === slot.id}
@@ -651,7 +651,7 @@ function HoursTab() {
                 <div key={closure.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {closure.closure_date}
+                      {closure.closureDate}
                     </p>
                     {closure.reason && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -700,8 +700,8 @@ function HoursTab() {
               </label>
               <Input
                 type="date"
-                value={periodForm.start_date}
-                onChange={(e) => setPeriodForm((f) => ({ ...f, start_date: e.target.value }))}
+                value={periodForm.startDate}
+                onChange={(e) => setPeriodForm((f) => ({ ...f, startDate: e.target.value }))}
               />
             </div>
             <div>
@@ -710,8 +710,8 @@ function HoursTab() {
               </label>
               <Input
                 type="date"
-                value={periodForm.end_date}
-                onChange={(e) => setPeriodForm((f) => ({ ...f, end_date: e.target.value }))}
+                value={periodForm.endDate}
+                onChange={(e) => setPeriodForm((f) => ({ ...f, endDate: e.target.value }))}
               />
             </div>
           </div>
@@ -732,7 +732,7 @@ function HoursTab() {
             <Button
               onClick={savePeriod}
               isLoading={savingPeriod}
-              disabled={savingPeriod || !periodForm.name || !periodForm.start_date || !periodForm.end_date}
+              disabled={savingPeriod || !periodForm.name || !periodForm.startDate || !periodForm.endDate}
             >
               {t('common.save')}
             </Button>
@@ -753,9 +753,9 @@ function HoursTab() {
               {t('library.hours.day')}
             </label>
             <select
-              value={slotForm.day_of_week}
+              value={slotForm.dayOfWeek}
               onChange={(e) =>
-                setSlotForm((f) => ({ ...f, day_of_week: Number(e.target.value) }))
+                setSlotForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))
               }
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
@@ -773,8 +773,8 @@ function HoursTab() {
               </label>
               <Input
                 type="time"
-                value={slotForm.open_time}
-                onChange={(e) => setSlotForm((f) => ({ ...f, open_time: e.target.value }))}
+                value={slotForm.openTime}
+                onChange={(e) => setSlotForm((f) => ({ ...f, openTime: e.target.value }))}
               />
             </div>
             <div>
@@ -783,8 +783,8 @@ function HoursTab() {
               </label>
               <Input
                 type="time"
-                value={slotForm.close_time}
-                onChange={(e) => setSlotForm((f) => ({ ...f, close_time: e.target.value }))}
+                value={slotForm.closeTime}
+                onChange={(e) => setSlotForm((f) => ({ ...f, closeTime: e.target.value }))}
               />
             </div>
           </div>
@@ -815,9 +815,9 @@ function HoursTab() {
             </label>
             <Input
               type="date"
-              value={closureForm.closure_date}
+              value={closureForm.closureDate}
               onChange={(e) =>
-                setClosureForm((f) => ({ ...f, closure_date: e.target.value }))
+                setClosureForm((f) => ({ ...f, closureDate: e.target.value }))
               }
             />
           </div>
@@ -838,7 +838,7 @@ function HoursTab() {
             <Button
               onClick={saveClosure}
               isLoading={savingClosure}
-              disabled={savingClosure || !closureForm.closure_date}
+              disabled={savingClosure || !closureForm.closureDate}
             >
               {t('common.add')}
             </Button>

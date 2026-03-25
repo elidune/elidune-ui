@@ -15,7 +15,7 @@ interface StatsFiltersProps {
 export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isUserAdmin = isAdmin(user?.account_type);
+  const isUserAdmin = isAdmin(user?.accountType);
 
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
@@ -61,7 +61,7 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
   useEffect(() => {
     if (isUserAdmin && showFilters) {
       setIsLoadingUsers(true);
-      api.getUsers({ per_page: 100 })
+      api.getUsers({ perPage: 100 })
         .then((response) => setUsers(response.items))
         .catch((error) => console.error('Error fetching users:', error))
         .finally(() => setIsLoadingUsers(false));
@@ -76,19 +76,19 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
     endDateTime.setHours(23, 59, 59, 999);
 
     const params: AdvancedStatsParams = {
-      start_date: startDateTime.toISOString(),
-      end_date: endDateTime.toISOString(),
+      startDate: startDateTime.toISOString(),
+      endDate: endDateTime.toISOString(),
       interval,
     };
 
     if (mediaType) {
-      params.media_type = mediaType;
+      params.mediaType = mediaType;
     }
 
     if (selectedUserId) {
-      params.user_id = selectedUserId;
+      params.userId = selectedUserId;
     } else if (!isUserAdmin && user?.id) {
-      params.user_id = user.id;
+      params.userId = user.id;
     }
 
     onFiltersChange(params);
@@ -197,7 +197,7 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
                 <option value="">{t('stats.allUsers')}</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.firstname} {u.lastname} ({u.account_type})
+                    {u.firstname} {u.lastname} ({u.accountType})
                   </option>
                 ))}
               </select>

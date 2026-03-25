@@ -29,16 +29,16 @@ export default function PrivacyPage() {
 
   const formatAddress = (info: LibraryInfo) => {
     const parts = [
-      info.addr_line1,
-      info.addr_line2,
-      [info.addr_postcode, info.addr_city].filter(Boolean).join(' '),
-      info.addr_country,
+      info.addrLine1,
+      info.addrLine2,
+      [info.addrPostcode, info.addrCity].filter(Boolean).join(' '),
+      info.addrCountry,
     ].filter(Boolean);
     return parts;
   };
 
-  const formattedDate = libraryInfo?.updated_at
-    ? new Date(libraryInfo.updated_at).toLocaleDateString(i18n.language, {
+  const formattedDate = libraryInfo?.updatedAt
+    ? new Date(libraryInfo.updatedAt).toLocaleDateString(i18n.language, {
         year: 'numeric',
         month: 'long',
         day: 'numeric',

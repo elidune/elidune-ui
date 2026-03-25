@@ -56,16 +56,16 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: t('nav.home'), href: '/', icon: Home, show: true },
     { name: t('nav.catalog'), href: '/biblios', icon: BookOpen, show: true },
-    { name: t('nav.inventory'), href: '/inventory', icon: ClipboardList, show: isLibrarian(user?.account_type) },
+    { name: t('nav.inventory'), href: '/inventory', icon: ClipboardList, show: isLibrarian(user?.accountType) },
     { name: t('nav.myLoans'), href: '/my-loans', icon: BookMarked, show: true },
-    { name: t('nav.loans'), href: '/loans', icon: ArrowLeftRight, show: isLibrarian(user?.account_type) },
-    { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.account_type) },
-    { name: t('nav.z3950Search'), href: '/z3950', icon: Globe, show: isLibrarian(user?.account_type) },
-    { name: t('nav.importIso'), href: '/import-iso', icon: Upload, show: isLibrarian(user?.account_type) },
-    { name: t('nav.events'), href: '/events', icon: CalendarDays, show: isLibrarian(user?.account_type) },
-    { name: t('nav.stats'), href: '/stats', icon: BarChart3, show: isLibrarian(user?.account_type) },
-    { name: t('nav.library'), href: '/library', icon: LibraryBig, show: isLibrarian(user?.account_type) },
-    { name: t('nav.settings'), href: '/settings', icon: Settings, show: isAdmin(user?.account_type) },
+    { name: t('nav.loans'), href: '/loans', icon: ArrowLeftRight, show: isLibrarian(user?.accountType) },
+    { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.accountType) },
+    { name: t('nav.z3950Search'), href: '/z3950', icon: Globe, show: isLibrarian(user?.accountType) },
+    { name: t('nav.importIso'), href: '/import-iso', icon: Upload, show: isLibrarian(user?.accountType) },
+    { name: t('nav.events'), href: '/events', icon: CalendarDays, show: isLibrarian(user?.accountType) },
+    { name: t('nav.stats'), href: '/stats', icon: BarChart3, show: isLibrarian(user?.accountType) },
+    { name: t('nav.library'), href: '/library', icon: LibraryBig, show: isLibrarian(user?.accountType) },
+    { name: t('nav.settings'), href: '/settings', icon: Settings, show: isAdmin(user?.accountType) },
   ].filter(item => item.show);
 
   const themeOptions = [
@@ -168,7 +168,7 @@ export default function Layout({ children }: LayoutProps) {
                     {user?.firstname} {user?.lastname}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.account_type}
+                    {user?.accountType}
                   </p>
                 </div>
               </Link>
@@ -204,22 +204,33 @@ export default function Layout({ children }: LayoutProps) {
         <main className="p-4 lg:p-6 flex-1">{children}</main>
 
         {/* Footer */}
-        <footer className="border-t border-gray-200 dark:border-gray-800 py-3 px-4 lg:px-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
-          <span className="font-mono">UI v{uiVersion}</span>
-          <span className="font-mono">Server v{serverVersion ?? '—'}</span>
-          <span className="flex-1" />
-          <Link
-            to="/about"
-            className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            {t('nav.about')}
-          </Link>
-          <Link
-            to="/privacy"
-            className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          >
-            {t('nav.privacy')}
-          </Link>
+        <footer className="border-t border-gray-200 dark:border-gray-800 py-3 px-4 lg:px-6 text-xs text-gray-400 dark:text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="font-mono">UI v{uiVersion}</span>
+            <span className="font-mono">Server v{serverVersion ?? '—'}</span>
+            <span className="flex-1" />
+            <Link
+              to="/about"
+              className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              {t('nav.about')}
+            </Link>
+            <Link
+              to="/privacy"
+              className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              {t('nav.privacy')}
+            </Link>
+          </div>
+          <div className="text-center mt-1">
+            {t('common.poweredBy')}{' '}
+            <Link
+              to="/about"
+              className="font-semibold text-amber-600 dark:text-amber-400 hover:underline transition-colors"
+            >
+              Elidune
+            </Link>
+          </div>
         </footer>
       </div>
     </div>

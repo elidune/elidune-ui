@@ -20,11 +20,6 @@ export const PUBLIC_TYPE_OPTIONS: CodeOption[] = [
   { value: 'unknown', labelKey: 'codes.publicType.unknown' },
 ];
 
-// User/specimen status (tab_status)
-export const STATUS_OPTIONS: CodeOption[] = [
-  { value: '98', labelKey: 'codes.status.borrowable' },
-  { value: '110', labelKey: 'codes.status.notBorrowable' },
-];
 
 // Occupation (tab_occupations)
 export const OCCUPATION_OPTIONS: CodeOption[] = [

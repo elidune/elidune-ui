@@ -44,8 +44,8 @@ export default function MyLoansPage() {
     }
   };
 
-  const overdueLoans = loans.filter((l) => l.is_overdue);
-  const activeLoans = loans.filter((l) => !l.is_overdue);
+  const overdueLoans = loans.filter((l) => l.isOverdue);
+  const activeLoans = loans.filter((l) => !l.isOverdue);
 
   if (isLoading) {
     return (
@@ -131,7 +131,7 @@ interface LoanCardProps {
 
 function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
   const { t, i18n } = useTranslation();
-  const daysUntilDue = Math.ceil((new Date(loan.issue_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const daysUntilDue = Math.ceil((new Date(loan.issueAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
   return (
     <div
@@ -153,16 +153,16 @@ function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
           {(() => {
             const specs = loan.biblio?.items;
             if (specs?.length) {
-              const spec = specs.find((s) => s.availability === 1) ?? specs[0];
+              const spec = specs.find((s) => s.borrowed) ?? specs[0];
               return spec?.barcode ?? spec?.id ?? '-';
             }
-            return loan.item_identification ?? '-';
+            return loan.itemIdentification ?? '-';
           })()}
         </p>
         <div className="flex items-center gap-4 mt-2 text-sm">
           <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
             <Calendar className="h-4 w-4" />
-            <span>{t('loans.loanDate')}: {new Date(loan.start_date).toLocaleDateString(i18n.language)}</span>
+            <span>{t('loans.loanDate')}: {new Date(loan.startDate).toLocaleDateString(i18n.language)}</span>
           </div>
         </div>
       </div>
@@ -181,19 +181,19 @@ function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
             </Badge>
           ) : (
             <Badge variant="success">
-              {t('loans.dueDate')}: {new Date(loan.issue_at).toLocaleDateString(i18n.language)}
+              {t('loans.dueDate')}: {new Date(loan.issueAt).toLocaleDateString(i18n.language)}
             </Badge>
           )}
         </div>
 
-        {loan.nb_renews < 2 && (
+        {loan.nbRenews < 2 && (
           <Button
             size="sm"
             variant="secondary"
             onClick={() => onRenew(loan.id)}
             leftIcon={<RotateCcw className="h-4 w-4" />}
           >
-            {t('loans.renew')} ({2 - loan.nb_renews})
+            {t('loans.renew')} ({2 - loan.nbRenews})
           </Button>
         )}
       </div>

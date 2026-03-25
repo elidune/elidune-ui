@@ -105,7 +105,7 @@ export default function StatsPage() {
   const [userStats, setUserStats] = useState<UserStatsData[]>([]);
   const [userStatsAggregate, setUserStatsAggregate] = useState<UserAggregateStats | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [userSortBy, setUserSortBy] = useState<'total_loans' | 'active_loans' | 'overdue_loans'>('total_loans');
+  const [userSortBy, setUserSortBy] = useState<'totalLoans' | 'activeLoans' | 'overdueLoans'>('totalLoans');
   const [userStatsLimit, setUserStatsLimit] = useState(20);
   const [userStatsLeaderboardYear, setUserStatsLeaderboardYear] = useState<number | 'all'>('all');
   const [userStatsAggregateYear, setUserStatsAggregateYear] = useState<number | 'all'>('all');
@@ -147,13 +147,13 @@ export default function StatsPage() {
     endDateTime.setHours(23, 59, 59, 999);
 
     const params: AdvancedStatsParams = {
-      start_date: startDateTime.toISOString(),
-      end_date: endDateTime.toISOString(),
+      startDate: startDateTime.toISOString(),
+      endDate: endDateTime.toISOString(),
       interval,
     };
 
     if (mediaType) {
-      params.media_type = mediaType;
+      params.mediaType = mediaType;
     }
 
     setStatsParams(params);
@@ -186,7 +186,7 @@ export default function StatsPage() {
     const fetchAdvancedStats = async () => {
       try {
         const response = await api.getLoanStats(statsParams);
-        setTimelineData(response.time_series.map(item => ({
+        setTimelineData(response.timeSeries.map(item => ({
           date: item.period,
           loans: item.loans,
           returns: item.returns,
@@ -203,15 +203,15 @@ export default function StatsPage() {
     fetchAdvancedStats();
   }, [statsDetailTab, statsParams]);
 
-  // Helper function to convert year to start_date and end_date
+  // Helper function to convert year to startDate and endDate
   const yearToDateRange = (year: number) => {
     const startDate = new Date(year, 0, 1); // January 1st
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(year, 11, 31); // December 31st
     endDate.setHours(23, 59, 59, 999);
     return {
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString(),
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
     };
   };
 
@@ -225,22 +225,22 @@ export default function StatsPage() {
       setIsLoadingCatalogStats(true);
       try {
         const params: {
-          start_date?: string;
-          end_date?: string;
-          by_source?: boolean;
-          by_media_type?: boolean;
-          by_public_type?: boolean;
+          startDate?: string;
+          endDate?: string;
+          bySource?: boolean;
+          byMediaType?: boolean;
+          byPublicType?: boolean;
         } = {
-          by_source: catalogStatsBySource,
-          by_media_type: catalogStatsByMediaType,
-          by_public_type: catalogStatsByPublicType,
+          bySource: catalogStatsBySource,
+          byMediaType: catalogStatsByMediaType,
+          byPublicType: catalogStatsByPublicType,
         };
 
         // Add date range only if a specific year is selected
         if (catalogStatsYear !== 'all') {
           const dateRange = yearToDateRange(catalogStatsYear);
-          params.start_date = dateRange.start_date;
-          params.end_date = dateRange.end_date;
+          params.startDate = dateRange.startDate;
+          params.endDate = dateRange.endDate;
         }
 
         const data = await api.getCatalogStats(params);
@@ -268,15 +268,15 @@ export default function StatsPage() {
       try {
         if (userStatsMode === 'aggregate') {
           const params: {
-            start_date?: string;
-            end_date?: string;
+            startDate?: string;
+            endDate?: string;
           } = {};
           
           // Add date range only if a specific year is selected
           if (userStatsAggregateYear !== 'all') {
             const dateRange = yearToDateRange(userStatsAggregateYear);
-            params.start_date = dateRange.start_date;
-            params.end_date = dateRange.end_date;
+            params.startDate = dateRange.startDate;
+            params.endDate = dateRange.endDate;
           }
           
           const data = await api.getUserAggregateStats(params);
@@ -284,20 +284,20 @@ export default function StatsPage() {
           setUserStats([]);
         } else {
           const params: {
-            sort_by?: 'total_loans' | 'active_loans' | 'overdue_loans';
+            sortBy?: 'totalLoans' | 'activeLoans' | 'overdueLoans';
             limit?: number;
-            start_date?: string;
-            end_date?: string;
+            startDate?: string;
+            endDate?: string;
           } = {
-            sort_by: userSortBy,
+            sortBy: userSortBy,
             limit: userStatsLimit,
           };
           
           // Add date range only if a specific year is selected
           if (userStatsLeaderboardYear !== 'all') {
             const dateRange = yearToDateRange(userStatsLeaderboardYear);
-            params.start_date = dateRange.start_date;
-            params.end_date = dateRange.end_date;
+            params.startDate = dateRange.startDate;
+            params.endDate = dateRange.endDate;
           }
           
           const data = await api.getUserLoanStats(params);
@@ -365,27 +365,27 @@ export default function StatsPage() {
       ),
     },
     {
-      key: 'total_loans',
+      key: 'totalLoans',
       header: t('stats.totalLoans'),
       render: (user: UserStatsData) => (
-        <span className="text-gray-600 dark:text-gray-300">{user.total_loans}</span>
+        <span className="text-gray-600 dark:text-gray-300">{user.totalLoans}</span>
       ),
     },
     {
-      key: 'active_loans',
+      key: 'activeLoans',
       header: t('stats.activeLoansSort'),
       render: (user: UserStatsData) => (
-        <Badge variant={user.active_loans > 0 ? 'info' : 'default'}>
-          {user.active_loans}
+        <Badge variant={user.activeLoans > 0 ? 'info' : 'default'}>
+          {user.activeLoans}
         </Badge>
       ),
     },
     {
-      key: 'overdue_loans',
+      key: 'overdueLoans',
       header: t('stats.overdueLoansSort'),
       render: (user: UserStatsData) => (
-        user.overdue_loans > 0 ? (
-          <Badge variant="danger">{user.overdue_loans}</Badge>
+        user.overdueLoans > 0 ? (
+          <Badge variant="danger">{user.overdueLoans}</Badge>
         ) : (
           <span className="text-gray-400">0</span>
         )
@@ -577,15 +577,15 @@ export default function StatsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.activeSpecimens')}</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{catalogStats.totals.active_items.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{catalogStats.totals.activeItems.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.enteredSpecimens')}</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{catalogStats.totals.entered_items.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{catalogStats.totals.enteredItems.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.archivedSpecimens')}</p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{catalogStats.totals.archived_items.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{catalogStats.totals.archivedItems.toLocaleString()}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.catalogSection.loans')}</p>
@@ -673,9 +673,9 @@ export default function StatsPage() {
                       onChange={(e) => setUserSortBy(e.target.value as typeof userSortBy)}
                       className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
                     >
-                      <option value="total_loans">{t('stats.totalLoans')}</option>
-                      <option value="active_loans">{t('stats.activeLoansSort')}</option>
-                      <option value="overdue_loans">{t('stats.overdueLoansSort')}</option>
+                      <option value="totalLoans">{t('stats.totalLoans')}</option>
+                      <option value="activeLoans">{t('stats.activeLoansSort')}</option>
+                      <option value="overdueLoans">{t('stats.overdueLoansSort')}</option>
                     </select>
                     <span className="text-sm text-gray-500 dark:text-gray-400">{t('stats.usersSection.limit')}</span>
                     <select
@@ -705,28 +705,28 @@ export default function StatsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20">
                     <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.usersSection.usersTotal')}</p>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{userStatsAggregate.users_total.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{userStatsAggregate.usersTotal.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-900/20">
                     <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.usersSection.newUsersTotal')}</p>
-                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{userStatsAggregate.new_users_total.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{userStatsAggregate.newUsersTotal.toLocaleString()}</p>
                   </div>
                   <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20">
                     <p className="text-sm text-gray-600 dark:text-gray-400">{t('stats.usersSection.activeBorrowersTotal')}</p>
-                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{userStatsAggregate.active_borrowers_total.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{userStatsAggregate.activeBorrowersTotal.toLocaleString()}</p>
                   </div>
                 </div>
-                {((userStatsAggregate.new_users_by_public_type?.length ?? 0) > 0 || 
-                  (userStatsAggregate.active_borrowers_by_public_type?.length ?? 0) > 0 ||
-                  (userStatsAggregate.users_by_public_type?.length ?? 0) > 0) && (
+                {((userStatsAggregate.newUsersByPublicType?.length ?? 0) > 0 || 
+                  (userStatsAggregate.activeBorrowersByPublicType?.length ?? 0) > 0 ||
+                  (userStatsAggregate.usersByPublicType?.length ?? 0) > 0) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Colonne 1: Total users */}
                     <div className="space-y-4">
-                      {userStatsAggregate.users_by_public_type && userStatsAggregate.users_by_public_type.length > 0 && (
+                      {userStatsAggregate.usersByPublicType && userStatsAggregate.usersByPublicType.length > 0 && (
                         <div>
                           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('stats.usersSection.usersByPublicType')}</h3>
                           <ul className="space-y-1">
-                            {userStatsAggregate.users_by_public_type.map((e) => (
+                            {userStatsAggregate.usersByPublicType.map((e) => (
                               <li key={e.label} className="flex justify-between text-sm">
                                 <span className="text-gray-600 dark:text-gray-400">{translateStatLabel(t, e.label, 'publicType')}</span>
                                 <span className="font-medium">{e.value.toLocaleString()}</span>
@@ -738,11 +738,11 @@ export default function StatsPage() {
                     </div>
                     {/* Colonne 2: Nouveaux inscrits */}
                     <div className="space-y-4">
-                      {userStatsAggregate.new_users_by_public_type && userStatsAggregate.new_users_by_public_type.length > 0 && (
+                      {userStatsAggregate.newUsersByPublicType && userStatsAggregate.newUsersByPublicType.length > 0 && (
                         <div>
                           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('stats.usersSection.newUsersByPublicType')}</h3>
                           <ul className="space-y-1">
-                            {userStatsAggregate.new_users_by_public_type.map((e) => (
+                            {userStatsAggregate.newUsersByPublicType.map((e) => (
                               <li key={e.label} className="flex justify-between text-sm">
                                 <span className="text-gray-600 dark:text-gray-400">{translateStatLabel(t, e.label, 'publicType')}</span>
                                 <span className="font-medium">{e.value.toLocaleString()}</span>
@@ -754,11 +754,11 @@ export default function StatsPage() {
                     </div>
                     {/* Colonne 3: Emprunteurs actifs */}
                     <div className="space-y-4">
-                      {userStatsAggregate.active_borrowers_by_public_type && userStatsAggregate.active_borrowers_by_public_type.length > 0 && (
+                      {userStatsAggregate.activeBorrowersByPublicType && userStatsAggregate.activeBorrowersByPublicType.length > 0 && (
                         <div>
                           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('stats.usersSection.activeBorrowersByPublicType')}</h3>
                           <ul className="space-y-1">
-                            {userStatsAggregate.active_borrowers_by_public_type.map((e) => (
+                            {userStatsAggregate.activeBorrowersByPublicType.map((e) => (
                               <li key={e.label} className="flex justify-between text-sm">
                                 <span className="text-gray-600 dark:text-gray-400">{translateStatLabel(t, e.label, 'publicType')}</span>
                                 <span className="font-medium">{e.value.toLocaleString()}</span>
@@ -779,8 +779,8 @@ export default function StatsPage() {
           <Table
             columns={userColumns}
             data={userStats}
-            keyExtractor={(user) => user.user_id}
-            onRowClick={(user) => navigate(`/users/${user.user_id}`)}
+            keyExtractor={(user) => user.userId}
+            onRowClick={(user) => navigate(`/users/${user.userId}`)}
             emptyMessage={t('common.noResults')}
           />
         )}
@@ -792,9 +792,9 @@ export default function StatsPage() {
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
           <CardHeader
             title={t('stats.loansEvolution')}
-            subtitle={statsParams?.media_type 
+            subtitle={statsParams?.mediaType 
               ? t('stats.loansByType', { 
-                  type: t(`items.mediaType.${getMediaTypeTranslationKey(statsParams.media_type)}`)
+                  type: t(`items.mediaType.${getMediaTypeTranslationKey(statsParams.mediaType)}`)
                 })
               : t('stats.loansPerDay')
             }
@@ -947,7 +947,7 @@ export default function StatsPage() {
 // ---------------------------------------------------------------------------
 // Catalog breakdowns – hierarchical display
 // The server returns only one root-level list per combination of flags.
-// Nesting is detected by checking for by_media_type / by_public_type in entries.
+// Nesting is detected by checking for byMediaType / byPublicType in entries.
 // ---------------------------------------------------------------------------
 
 type TFn = (key: string, options?: Record<string, unknown>) => string;
@@ -957,18 +957,18 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
   const filterActive = (list?: CatalogStatsBreakdown[]): CatalogStatsBreakdown[] | undefined => {
     if (!list) return undefined;
     const filtered = list
-      .filter((e) => e.active_items > 0)
+      .filter((e) => e.activeItems > 0)
       .map((e) => ({
         ...e,
-        by_media_type: filterActive(e.by_media_type),
-        by_public_type: filterActive(e.by_public_type),
+        byMediaType: filterActive(e.byMediaType ?? undefined),
+        byPublicType: filterActive(e.byPublicType ?? undefined),
       }));
     return filtered.length > 0 ? filtered : undefined;
   };
 
-  const sources = filterActive(catalogStats.by_source);
-  const mediaTypes = filterActive(catalogStats.by_media_type);
-  const publicTypes = filterActive(catalogStats.by_public_type);
+  const sources = filterActive(catalogStats.bySource ?? undefined);
+  const mediaTypes = filterActive(catalogStats.byMediaType ?? undefined);
+  const publicTypes = filterActive(catalogStats.byPublicType ?? undefined);
 
   const hasSources = (sources?.length ?? 0) > 0;
   const hasMedia = (mediaTypes?.length ?? 0) > 0;
@@ -986,28 +986,28 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
           <div className="space-y-2">
             {(() => {
               const sourcesTotal = sources!.length > 0 
-                ? sources!.reduce((sum, s) => sum + s.active_items, 0)
+                ? sources!.reduce((sum, s) => sum + s.activeItems, 0)
                 : undefined;
               
               return sources!.map((source, idx) => {
-                const sourceLabel = source.source_name || `Source ${source.source_id}`;
-                const hasNestedMedia = (source.by_media_type?.length ?? 0) > 0;
-                const hasNestedPublic = !hasNestedMedia && (source.by_public_type?.length ?? 0) > 0;
-                const nestedMediaTotal = hasNestedMedia && source.by_media_type!.length > 0
-                  ? source.by_media_type!.reduce((sum, m) => sum + m.active_items, 0)
+                const sourceLabel = source.sourceName || `Source ${source.sourceId}`;
+                const hasNestedMedia = (source.byMediaType?.length ?? 0) > 0;
+                const hasNestedPublic = !hasNestedMedia && (source.byPublicType?.length ?? 0) > 0;
+                const nestedMediaTotal = hasNestedMedia && source.byMediaType!.length > 0
+                  ? source.byMediaType!.reduce((sum, m) => sum + m.activeItems, 0)
                   : undefined;
 
                 if (!hasNestedMedia && !hasNestedPublic) {
-                  return <CatalogFlatItem key={source.source_id ?? idx} label={sourceLabel} item={source} t={t} totalValue={sourcesTotal} />;
+                  return <CatalogFlatItem key={source.sourceId ?? idx} label={sourceLabel} item={source} t={t} totalValue={sourcesTotal} />;
                 }
 
                 return (
-                  <CatalogAccordionItem key={source.source_id ?? idx} label={sourceLabel} item={source} t={t} totalValue={sourcesTotal}>
+                  <CatalogAccordionItem key={source.sourceId ?? idx} label={sourceLabel} item={source} t={t} totalValue={sourcesTotal}>
                     {hasNestedMedia && (
                       <div className="space-y-2">
-                        {source.by_media_type!.map((media, mIdx) => {
+                        {source.byMediaType!.map((media, mIdx) => {
                           const mediaLabel = translateStatLabel(t, media.label || '', 'mediaType');
-                          const hasNestedPub = (media.by_public_type?.length ?? 0) > 0;
+                          const hasNestedPub = (media.byPublicType?.length ?? 0) > 0;
 
                           if (!hasNestedPub) {
                             return <CatalogFlatItem key={media.label ?? mIdx} label={mediaLabel} item={media} t={t} totalValue={nestedMediaTotal} />;
@@ -1015,14 +1015,14 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
 
                           return (
                             <CatalogAccordionItem key={media.label ?? mIdx} label={mediaLabel} item={media} t={t} nested totalValue={nestedMediaTotal}>
-                              <CatalogPublicTypeList items={media.by_public_type!} t={t} />
+                              <CatalogPublicTypeList items={media.byPublicType!} t={t} />
                             </CatalogAccordionItem>
                           );
                         })}
                       </div>
                     )}
                     {hasNestedPublic && (
-                      <CatalogPublicTypeList items={source.by_public_type!} t={t} />
+                      <CatalogPublicTypeList items={source.byPublicType!} t={t} />
                     )}
                   </CatalogAccordionItem>
                 );
@@ -1040,12 +1040,12 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
           <div className="space-y-2">
             {(() => {
               const mediaTotal = mediaTypes!.length > 0 
-                ? mediaTypes!.reduce((sum, m) => sum + m.active_items, 0)
+                ? mediaTypes!.reduce((sum, m) => sum + m.activeItems, 0)
                 : undefined;
               
               return mediaTypes!.map((media, idx) => {
                 const mediaLabel = translateStatLabel(t, media.label || '', 'mediaType');
-                const hasNestedPub = (media.by_public_type?.length ?? 0) > 0;
+                const hasNestedPub = (media.byPublicType?.length ?? 0) > 0;
 
                 if (!hasNestedPub) {
                   return <CatalogFlatItem key={media.label ?? idx} label={mediaLabel} item={media} t={t} totalValue={mediaTotal} />;
@@ -1053,7 +1053,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
 
                 return (
                   <CatalogAccordionItem key={media.label ?? idx} label={mediaLabel} item={media} t={t} totalValue={mediaTotal}>
-                    <CatalogPublicTypeList items={media.by_public_type!} t={t} />
+                    <CatalogPublicTypeList items={media.byPublicType!} t={t} />
                   </CatalogAccordionItem>
                 );
               });
@@ -1070,7 +1070,7 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
           <div className="space-y-2">
             {(() => {
               const publicTotal = publicTypes!.length > 0 
-                ? publicTypes!.reduce((sum, p) => sum + p.active_items, 0)
+                ? publicTypes!.reduce((sum, p) => sum + p.activeItems, 0)
                 : undefined;
               
               return publicTypes!.map((pub, idx) => (
@@ -1092,22 +1092,22 @@ function CatalogBreakdowns({ catalogStats, t }: { catalogStats: CatalogStats; t:
 
 /** 4-column metrics display */
 function CatalogMetrics({ item, t, totalValue }: { item: CatalogStatsBreakdown; t: TFn; totalValue?: number }) {
-  const percentage = totalValue && totalValue > 0 ? (item.active_items / totalValue) * 100 : 0;
+  const percentage = totalValue && totalValue > 0 ? (item.activeItems / totalValue) * 100 : 0;
   
   return (
     <div>
       <div className="grid grid-cols-4 gap-2 text-xs mb-2">
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.active')}</span>
-          <p className="font-medium">{item.active_items.toLocaleString()}</p>
+          <p className="font-medium">{item.activeItems.toLocaleString()}</p>
         </div>
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.entered')}</span>
-          <p className="font-medium">{item.entered_items.toLocaleString()}</p>
+          <p className="font-medium">{item.enteredItems.toLocaleString()}</p>
         </div>
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.archived')}</span>
-          <p className="font-medium">{item.archived_items.toLocaleString()}</p>
+          <p className="font-medium">{item.archivedItems.toLocaleString()}</p>
         </div>
         <div>
           <span className="text-gray-500 dark:text-gray-400">{t('stats.catalogSection.loans')}</span>
@@ -1136,10 +1136,10 @@ function CatalogFlatItem({ label, item, t, totalValue }: { label: string; item: 
   );
 }
 
-/** Flat list of public_type items — used as leaf level */
+/** Flat list of publicType items — used as leaf level */
 function CatalogPublicTypeList({ items, t }: { items: CatalogStatsBreakdown[]; t: TFn }) {
   const totalValue = items.length > 0 
-    ? items.reduce((sum, item) => sum + item.active_items, 0)
+    ? items.reduce((sum, item) => sum + item.activeItems, 0)
     : undefined;
   
   return (

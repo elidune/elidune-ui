@@ -38,7 +38,7 @@ export default function MustChangePasswordPage() {
 
     setIsLoading(true);
     try {
-      await api.changePassword({ new_password: newPassword });
+      await api.changePassword({ newPassword: newPassword });
       logout();
       navigate('/login', { replace: true });
     } catch {

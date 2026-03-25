@@ -22,6 +22,7 @@
     "no": "Non",
     "ok": "OK",
     "back": "Retour",
+    "poweredBy": "Propulsé par",
     "next": "Suivant",
     "previous": "Précédent",
     "page": "Page",
@@ -67,7 +68,11 @@
     "privacy": "Confidentialité"
   },
   "home": {
-    "welcome": "bienvenue"
+    "welcome": "bienvenue",
+    "libraryInfo": "Informations pratiques",
+    "noAddress": "Adresse non renseignée",
+    "noContact": "Aucun contact renseigné",
+    "noSchedule": "Aucun horaire disponible"
   },
   "library": {
     "title": "Ma bibliothèque",
@@ -88,6 +93,7 @@
       "zipCode": "Code postal",
       "city": "Ville",
       "country": "Pays",
+      "contact": "Contact",
       "email": "Email de contact",
       "phones": "Téléphones",
       "addPhone": "Ajouter un numéro",
@@ -335,8 +341,8 @@
     "generalInfo": "Informations générales",
     "keywordsAndSubject": "Mots-clés et sujet",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer \"{{title}}\" ? Cette action est irréversible.",
-      "itemBorrowedForceDelete": "Ce document a des exemplaires empruntés. Forcer la suppression malgré tout ?",
-      "forceDeleteItem": "Forcer la suppression",
+    "itemBorrowedForceDelete": "Ce document a des exemplaires empruntés. Forcer la suppression malgré tout ?",
+    "forceDeleteItem": "Forcer la suppression",
     "editDocument": "Modifier le document",
     "identification": "Identification",
     "notSpecified": "Non renseigné",
@@ -691,31 +697,31 @@
       "actionFailed": "Action en échec",
       "actionRunError": "Impossible de lancer les actions de maintenance",
       "actions": {
-        "cleanup_dangling_biblio_series": {
+        "cleanupDanglingBiblioSeries": {
           "label": "Nettoyer les liens série orphelins",
           "description": "Supprime les liens biblio->série pointant vers des séries inexistantes."
         },
-        "cleanup_dangling_biblio_collections": {
+        "cleanupDanglingBiblioCollections": {
           "label": "Nettoyer les liens collection orphelins",
           "description": "Supprime les liens biblio->collection pointant vers des collections inexistantes."
         },
-        "cleanup_series": {
+        "cleanupSeries": {
           "label": "Nettoyer les séries",
           "description": "Retire les guillemets autour des noms et supprime les séries sans biblio."
         },
-        "cleanup_collections": {
+        "cleanupCollections": {
           "label": "Nettoyer les collections",
           "description": "Retire les guillemets autour des noms et supprime les collections sans biblio."
         },
-        "merge_duplicate_series": {
+        "mergeDuplicateSeries": {
           "label": "Fusionner les doublons de séries",
           "description": "Fusionne les séries en doublon et déplace les liaisons biblio."
         },
-        "merge_duplicate_collections": {
+        "mergeDuplicateCollections": {
           "label": "Fusionner les doublons de collections",
           "description": "Fusionne les collections en doublon et déplace les liaisons biblio."
         },
-        "cleanup_orphan_authors": {
+        "cleanupOrphanAuthors": {
           "label": "Nettoyer les auteurs orphelins",
           "description": "Supprime les auteurs non référencés par des notices."
         }
@@ -1276,6 +1282,17 @@
     "searchOrCreateSerie": "Rechercher ou saisir une série…",
     "filteredBy": "Filtré par :",
     "clearFilter": "Effacer le filtre"
+  },
+  "backgroundTask": {
+    "status": {
+      "pending": "Tâche en attente…",
+      "running": "Tâche en cours…",
+      "completed": "Tâche terminée",
+      "failed": "Tâche en erreur"
+    },
+    "progress": "Progression",
+    "marcImport": {
+      "completedSummary": "{{imported}} notice(s) importée(s), {{failed}} échec(s)."
+    }
   }
 }
-

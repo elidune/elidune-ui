@@ -75,16 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await api.login(credentials);
 
     // If 2FA is required, store pending state
-    if (response.requires_2fa) {
+    if (response.requires2fa) {
       setPending2FA({
         userId: response.user.id,
-        method: (response.two_factor_method || 'totp') as TwoFactorMethod,
+        method: (response.twoFactorMethod || 'totp') as TwoFactorMethod,
         user: response.user,
       });
       return { requires2FA: true };
     }
 
-    if (response.must_change_password) {
+    if (response.mustChangePassword) {
       setMustChangePassword(true);
       setMustChangePasswordFlag(true);
       return { requires2FA: false, mustChangePassword: true };
@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: response.user.login,
       firstname: response.user.firstname,
       lastname: response.user.lastname,
-      account_type: response.user.account_type,
+      accountType: response.user.accountType,
       language: response.user.language,
     });
     // Refresh profile to get complete user data
@@ -113,15 +113,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const pending = pending2FA;
 
     const res = await api.verify2FA({
-      user_id: pending.userId,
+      userId: pending.userId,
       code,
-      trust_device: trustDevice,
-      device_id: api.getDeviceId() ?? undefined,
+      trustDevice,
+      deviceId: api.getDeviceId() ?? undefined,
     });
 
     setPending2FA(null);
 
-    if (res.must_change_password) {
+    if (res.mustChangePassword) {
       setMustChangePassword(true);
       setMustChangePasswordFlag(true);
       return { mustChangePassword: true };
@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: pending.user.login,
       firstname: pending.user.firstname,
       lastname: pending.user.lastname,
-      account_type: pending.user.account_type,
+      accountType: pending.user.accountType,
       language: pending.user.language,
     });
 
@@ -151,13 +151,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const pending = pending2FA;
 
     const res = await api.verifyRecovery({
-      user_id: pending.userId,
+      userId: pending.userId,
       code,
     });
 
     setPending2FA(null);
 
-    if (res.must_change_password) {
+    if (res.mustChangePassword) {
       setMustChangePassword(true);
       setMustChangePasswordFlag(true);
       return { mustChangePassword: true };
@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: pending.user.login,
       firstname: pending.user.firstname,
       lastname: pending.user.lastname,
-      account_type: pending.user.account_type,
+      accountType: pending.user.accountType,
       language: pending.user.language,
     });
 

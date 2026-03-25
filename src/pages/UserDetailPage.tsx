@@ -178,10 +178,10 @@ export default function UserDetailPage() {
         endDateTime.setHours(23, 59, 59, 999);
 
         const params: AdvancedStatsParams = {
-          start_date: startDateTime.toISOString(),
-          end_date: endDateTime.toISOString(),
+          startDate: startDateTime.toISOString(),
+          endDate: endDateTime.toISOString(),
           interval: userStatsFilters.interval,
-          user_id: user.id,
+          userId: user.id,
         };
 
         const fetches: Promise<LoanStatsResponse>[] = [api.getLoanStats(params)];
@@ -189,10 +189,10 @@ export default function UserDetailPage() {
           const allTimeStart = new Date('2000-01-01T00:00:00.000Z');
           fetches.push(
             api.getLoanStats({
-              start_date: allTimeStart.toISOString(),
-              end_date: new Date().toISOString(),
+              startDate: allTimeStart.toISOString(),
+              endDate: new Date().toISOString(),
               interval: 'year',
-              user_id: user.id,
+              userId: user.id,
             })
           );
         }
@@ -200,7 +200,7 @@ export default function UserDetailPage() {
         const results = await Promise.all(fetches);
         setLoanStats(results[0]);
         if (results[1] !== undefined) {
-          setTotalLoansAllTime(results[1].total_loans);
+          setTotalLoansAllTime(results[1].totalLoans);
         }
       } catch (error) {
         console.error('Error fetching loan stats:', error);
@@ -271,7 +271,7 @@ export default function UserDetailPage() {
     if (!user?.id || !historyPref) return;
     setIsUpdatingHistoryPref(true);
     try {
-      const enabled = historyPref.historyEnabled ?? historyPref.history_enabled ?? false;
+      const enabled = historyPref.historyEnabled ?? historyPref.historyEnabled ?? false;
       const updated = await api.updateHistoryPreference(user.id, !enabled);
       setHistoryPref(updated);
     } catch {
@@ -365,7 +365,7 @@ export default function UserDetailPage() {
     );
   }
 
-  const overdueLoans = activeLoans.filter((l) => l.is_overdue);
+  const overdueLoans = activeLoans.filter((l) => l.isOverdue);
 
   const renderLoanTitle = (loan: Loan) => (
     <button
@@ -433,21 +433,21 @@ export default function UserDetailPage() {
       key: 'date',
       header: 'Date emprunt',
       render: (loan: Loan) =>
-        new Date(loan.start_date).toLocaleDateString('fr-FR'),
+        new Date(loan.startDate).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'issue_at',
+      key: 'issueAt',
       header: 'Échéance',
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.issue_at).toLocaleDateString('fr-FR')}</span>
+          <span>{new Date(loan.issueAt).toLocaleDateString('fr-FR')}</span>
         </div>
       ),
     },
     {
       key: 'renews',
       header: 'Prolongations',
-      render: (loan: Loan) => loan.nb_renews,
+      render: (loan: Loan) => loan.nbRenews,
     },
     {
       key: 'actions',
@@ -490,18 +490,18 @@ export default function UserDetailPage() {
     {
       key: 'date',
       header: 'Date emprunt',
-      render: (loan: Loan) => new Date(loan.start_date).toLocaleDateString('fr-FR'),
+      render: (loan: Loan) => new Date(loan.startDate).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'returned_at',
+      key: 'returnedAt',
       header: 'Date retour',
       render: (loan: Loan) =>
-        loan.returned_at ? new Date(loan.returned_at).toLocaleDateString('fr-FR') : '-',
+        loan.returnedAt ? new Date(loan.returnedAt).toLocaleDateString('fr-FR') : '-',
     },
     {
       key: 'renews',
       header: 'Prolongations',
-      render: (loan: Loan) => loan.nb_renews,
+      render: (loan: Loan) => loan.nbRenews,
     },
   ];
 
@@ -526,9 +526,9 @@ export default function UserDetailPage() {
               {user.firstname} {user.lastname}
             </h1>
             <div className="flex items-center gap-2 mt-1">
-              {isAdmin(user.account_type) && <Badge>{user.account_type}</Badge>}
-              {user.public_type != null && user.public_type !== '' && (() => {
-                const pt = publicTypes.find((p) => p.id === String(user.public_type));
+              {isAdmin(user.accountType) && <Badge>{user.accountType}</Badge>}
+              {user.publicType != null && user.publicType !== '' && (() => {
+                const pt = publicTypes.find((p) => p.id === String(user.publicType));
                 return pt ? <Badge variant="info">{pt.label}</Badge> : null;
               })()}
               {overdueLoans.length > 0 && (
@@ -560,18 +560,18 @@ export default function UserDetailPage() {
             <InfoRow icon={Mail} label={t('profile.email')} value={user.email} />
             <InfoRow icon={Phone} label={t('profile.phone')} value={user.phone} />
             <InfoRow icon={Hash} label={t('profile.barcode')} value={user.barcode} />
-            {user.public_type != null && user.public_type !== '' && (
+            {user.publicType != null && user.publicType !== '' && (
               <InfoRow
                 icon={Users}
                 label={t('users.publicType')}
-                value={publicTypes.find((p) => p.id === String(user.public_type))?.label ?? String(user.public_type)}
+                value={publicTypes.find((p) => p.id === String(user.publicType))?.label ?? String(user.publicType)}
               />
             )}
-            {user.created_at && (
+            {user.createdAt && (
               <InfoRow
                 icon={Calendar}
                 label={t('users.createdAt')}
-                value={new Date(user.created_at).toLocaleDateString(i18n.language, {
+                value={new Date(user.createdAt).toLocaleDateString(i18n.language, {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -647,7 +647,7 @@ export default function UserDetailPage() {
               <p className="text-xs text-gray-500 dark:text-gray-400">Document</p>
               <div className="flex items-start gap-3 mt-1">
                 <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900/30 flex items-center justify-center">
-                  {getMediaTypeIcon(loanDetails.biblio.media_type as MediaType)}
+                  {getMediaTypeIcon(loanDetails.biblio.mediaType as MediaType)}
                 </div>
                 <div className="min-w-0">
                   <p className="text-gray-900 dark:text-white font-medium">
@@ -669,17 +669,17 @@ export default function UserDetailPage() {
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Début</p>
                 <p className="text-gray-900 dark:text-white">
-                  {new Date(loanDetails.start_date).toLocaleDateString('fr-FR')}
+                  {new Date(loanDetails.startDate).toLocaleDateString('fr-FR')}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {loanDetails.returned_at ? 'Retour' : 'Échéance'}
+                  {loanDetails.returnedAt ? 'Retour' : 'Échéance'}
                 </p>
                 <p className="text-gray-900 dark:text-white">
-                  {loanDetails.returned_at
-                    ? new Date(loanDetails.returned_at).toLocaleDateString('fr-FR')
-                    : new Date(loanDetails.issue_at).toLocaleDateString('fr-FR')}
+                  {loanDetails.returnedAt
+                    ? new Date(loanDetails.returnedAt).toLocaleDateString('fr-FR')
+                    : new Date(loanDetails.issueAt).toLocaleDateString('fr-FR')}
                 </p>
               </div>
             </div>
@@ -687,12 +687,12 @@ export default function UserDetailPage() {
             <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
               <p className="text-xs text-gray-500 dark:text-gray-400">Exemplaire emprunté</p>
               {(() => {
-                const ident = loanDetails.item_identification;
+                const ident = loanDetails.itemIdentification;
                 const spec = loanDetails.biblio?.items?.find(
                   (s) => (s.barcode != null && ident != null && s.barcode === ident) || s.id === ident
                 );
                 const barcode = spec?.barcode ?? ident ?? '-';
-                const sourceName = spec?.source_name ?? loanDetails.biblio.source_name ?? '-';
+                const sourceName = spec?.sourceName ?? loanDetails.biblio.sourceName ?? '-';
                 return (
                   <div className="mt-1 space-y-1">
                     <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -701,9 +701,9 @@ export default function UserDetailPage() {
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       Source: <span className="font-medium">{sourceName}</span>
                     </p>
-                    {spec?.call_number && (
+                    {spec?.callNumber && (
                       <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Cote: <span className="font-mono">{spec.call_number}</span>
+                        Cote: <span className="font-mono">{spec.callNumber}</span>
                       </p>
                     )}
                   </div>
@@ -829,7 +829,7 @@ export default function UserDetailPage() {
                   )}
                   <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {loanStats.total_returns}
+                      {loanStats.totalReturns}
                     </p>
                     <p className="text-xs text-green-700 dark:text-green-300">
                       {t('users.returnsInPeriod')}
@@ -837,7 +837,7 @@ export default function UserDetailPage() {
                   </div>
                   <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                     <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {loanStats.total_loans}
+                      {loanStats.totalLoans}
                     </p>
                     <p className="text-xs text-blue-700 dark:text-blue-300">
                       {t('users.loansInPeriod')}
@@ -848,7 +848,7 @@ export default function UserDetailPage() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
-                      data={loanStats.time_series.map((item) => ({
+                      data={loanStats.timeSeries.map((item) => ({
                         date: item.period,
                         loans: item.loans,
                         returns: item.returns,
@@ -933,9 +933,9 @@ export default function UserDetailPage() {
           onClick={() => setShowFines(!showFines)}
         >
           <span className="font-semibold text-gray-900 dark:text-white">{t('fines.title')}</span>
-          {finesData && parseFloat(finesData.totalUnpaid ?? finesData.total_unpaid ?? '0') > 0 && (
+          {finesData && parseFloat(finesData.totalUnpaid ?? finesData.totalUnpaid ?? '0') > 0 && (
             <span className="text-sm font-medium text-red-600 dark:text-red-400">
-              {finesData.totalUnpaid ?? finesData.total_unpaid} €
+              {finesData.totalUnpaid ?? finesData.totalUnpaid} €
             </span>
           )}
         </button>
@@ -950,7 +950,7 @@ export default function UserDetailPage() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">{t('fines.totalUnpaid')}</span>
                   <span className="font-semibold text-red-600 dark:text-red-400">
-                    {finesData.totalUnpaid ?? finesData.total_unpaid} €
+                    {finesData.totalUnpaid ?? finesData.totalUnpaid} €
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -1032,12 +1032,12 @@ export default function UserDetailPage() {
                 <Button
                   size="sm"
                   variant={
-                    historyPref?.historyEnabled ?? historyPref?.history_enabled ? 'danger' : 'secondary'
+                    historyPref?.historyEnabled ?? historyPref?.historyEnabled ? 'danger' : 'secondary'
                   }
                   isLoading={isUpdatingHistoryPref}
                   onClick={handleToggleHistoryPref}
                 >
-                  {historyPref?.historyEnabled ?? historyPref?.history_enabled
+                  {historyPref?.historyEnabled ?? historyPref?.historyEnabled
                     ? t('history.disable')
                     : t('history.enable')}
                 </Button>
@@ -1163,14 +1163,14 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
     phone: user.phone || '',
     barcode: user.barcode || '',
     birthdate: user.birthdate || '',
-    addr_street: user.addr_street || '',
-    addr_zip_code: user.addr_zip_code?.toString() || '',
-    addr_city: user.addr_city || '',
+    addrStreet: user.addrStreet || '',
+    addrZipCode: user.addrZipCode?.toString() || '',
+    addrCity: user.addrCity || '',
     notes: user.notes || '',
     fee: user.fee || '',
-    group_id: user.group_id?.toString() || '',
-    public_type: user.public_type?.toString() || '',
-    account_type: user.account_type || 'Reader',
+    groupId: user.groupId?.toString() || '',
+    publicType: user.publicType?.toString() || '',
+    accountType: user.accountType || 'Reader',
     password: '',
   });
 
@@ -1193,14 +1193,14 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
         phone: formData.phone || undefined,
         barcode: formData.barcode || undefined,
         birthdate: formData.birthdate || undefined,
-        addr_street: formData.addr_street || undefined,
-        addr_zip_code: formData.addr_zip_code ? parseInt(formData.addr_zip_code) : undefined,
-        addr_city: formData.addr_city || undefined,
+        addrStreet: formData.addrStreet || undefined,
+        addrZipCode: formData.addrZipCode ? parseInt(formData.addrZipCode) : undefined,
+        addrCity: formData.addrCity || undefined,
         notes: formData.notes || undefined,
         fee: formData.fee || undefined,
-        group_id: formData.group_id ? String(formData.group_id) : undefined,
-        public_type: formData.public_type ? String(formData.public_type) : undefined,
-        account_type: formData.account_type || undefined,
+        groupId: formData.groupId ? String(formData.groupId) : undefined,
+        publicType: formData.publicType ? String(formData.publicType) : undefined,
+        accountType: formData.accountType || undefined,
       };
       if (formData.password) {
         updateData.password = formData.password;
@@ -1273,20 +1273,20 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
       </h4>
       <Input
         label={t('profile.street')}
-        value={formData.addr_street}
-        onChange={(e) => setFormData({ ...formData, addr_street: e.target.value })}
+        value={formData.addrStreet}
+        onChange={(e) => setFormData({ ...formData, addrStreet: e.target.value })}
         leftIcon={<MapPin className="h-4 w-4" />}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label={t('profile.zipCode')}
-          value={formData.addr_zip_code}
-          onChange={(e) => setFormData({ ...formData, addr_zip_code: e.target.value })}
+          value={formData.addrZipCode}
+          onChange={(e) => setFormData({ ...formData, addrZipCode: e.target.value })}
         />
         <Input
           label={t('profile.city')}
-          value={formData.addr_city}
-          onChange={(e) => setFormData({ ...formData, addr_city: e.target.value })}
+          value={formData.addrCity}
+          onChange={(e) => setFormData({ ...formData, addrCity: e.target.value })}
         />
       </div>
 
@@ -1313,8 +1313,8 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
             {t('profile.accountType')}
           </label>
           <select
-            value={formData.account_type}
-            onChange={(e) => setFormData({ ...formData, account_type: e.target.value })}
+            value={formData.accountType}
+            onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             {ACCOUNT_TYPES.map((type) => (
@@ -1334,16 +1334,16 @@ function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }:
         <Input
           label={t('users.groupId')}
           type="number"
-          value={formData.group_id}
-          onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
+          value={formData.groupId}
+          onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
         />
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('users.publicType')}
           </label>
           <select
-            value={formData.public_type}
-            onChange={(e) => setFormData({ ...formData, public_type: e.target.value })}
+            value={formData.publicType}
+            onChange={(e) => setFormData({ ...formData, publicType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             <option value="">{t('common.select')}</option>
@@ -1388,8 +1388,8 @@ function BorrowForm({ formId, userId, onLoadingChange, onSuccess }: BorrowFormPr
   const doCreateLoan = async (force = false) => {
     try {
       await api.createLoan({
-        user_id: userId,
-        item_identification: specimenCode,
+        userId: userId,
+        itemIdentification: specimenCode,
         force: force || undefined,
       });
       setError('');

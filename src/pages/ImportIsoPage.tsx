@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, Fragment, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   Upload,
   FileText,
@@ -16,10 +17,12 @@ import {
   Server,
   RefreshCw,
   Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { Card, Button, Badge, Input, Modal } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { useBackgroundTask, restoreTaskId } from '@/hooks/common/useBackgroundTask';
 import type {
   Author,
   MediaType,
@@ -28,8 +31,12 @@ import type {
   DuplicateConfirmationRequired,
   BiblioShort,
   MarcBatchInfo,
+  BackgroundTask,
+  MarcBatchImportError,
 } from '@/types';
 import type { AxiosError } from 'axios';
+
+const MARC_IMPORT_TASK_KEY = 'elidune.marcImportTask';
 
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
@@ -90,13 +97,13 @@ interface ParsedRecord {
   identification?: string;
   authors1?: Author[];
   authors2?: Author[];
-  publication_date?: string;
+  publicationDate?: string;
   edition_name?: string;
   edition_place?: string;
-  abstract_?: string;
+  abstract?: string;
   keywords?: string;
   subject?: string;
-  media_type?: MediaType;
+  mediaType?: MediaType;
   raw_fields: Map<string, string[]>;
   /** Encoding detected for this notice (ISO 2709 only; MARCXML is UTF-8) */
   detectedEncoding?: RecordEncoding;
@@ -118,7 +125,7 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
   if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
-  if (typeof data.existing_id !== 'string') return null;
+  if (typeof data.existingId !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
 }
@@ -142,6 +149,46 @@ const SUBFIELD_DELIMITER = '\x1F'; // Hex 1F
 function normalizeIsbn(value: string | undefined): string {
   if (value == null || value === '') return '';
   return value.replace(/[^0-9Xx]/g, '').toUpperCase();
+}
+
+/** Server may return counts or arrays for `imported` / `failed` depending on task serialization. */
+function getMarcBatchImportedCount(result: unknown): number {
+  if (!result || typeof result !== 'object') return 0;
+  const r = result as Record<string, unknown>;
+  const imported = r.imported;
+  if (Array.isArray(imported)) return imported.length;
+  if (typeof imported === 'number' && Number.isFinite(imported)) return imported;
+  return 0;
+}
+
+function getMarcBatchFailedCount(result: unknown): number {
+  if (!result || typeof result !== 'object') return 0;
+  const r = result as Record<string, unknown>;
+  const failed = r.failed;
+  if (Array.isArray(failed)) return failed.length;
+  if (typeof failed === 'number' && Number.isFinite(failed)) return failed;
+  return 0;
+}
+
+function getMarcBatchFailureEntries(result: unknown): MarcBatchImportError[] {
+  if (!result || typeof result !== 'object') return [];
+  const failed = (result as Record<string, unknown>).failed;
+  if (!Array.isArray(failed)) return [];
+  return failed as MarcBatchImportError[];
+}
+
+/** Task progress.message may be a string or structured counts from the API. */
+function formatMarcTaskProgressMessage(message: unknown, t: TFunction): string | null {
+  if (message == null) return null;
+  if (typeof message === 'string') return message;
+  if (typeof message === 'object' && message !== null && 'failed' in message && 'imported' in message) {
+    const o = message as { failed: unknown; imported: unknown };
+    return t('backgroundTask.marcImport.completedSummary', {
+      imported: getMarcBatchImportedCount(o),
+      failed: getMarcBatchFailedCount(o),
+    });
+  }
+  return null;
 }
 
 // Helper to get subfield from MARC field
@@ -171,10 +218,10 @@ function has9xxFields(record: ParsedRecord): boolean {
 }
 
 /** Build specimen data from 9xx fields (e.g. 952 $a = barcode, $c = call number) */
-function buildSpecimenFrom9xx(record: ParsedRecord): { barcode: string; call_number?: string } {
+function buildSpecimenFrom9xx(record: ParsedRecord): { barcode: string; callNumber?: string } {
   const fields9xx = get9xxRawFields(record.raw_fields);
   let barcode = '';
-  let call_number: string | undefined;
+  let callNumber: string | undefined;
   // Prefer 952: $a = barcode, $c = call number (common local holdings)
   for (const [tag, values] of fields9xx.entries()) {
     for (const v of values) {
@@ -182,7 +229,7 @@ function buildSpecimenFrom9xx(record: ParsedRecord): { barcode: string; call_num
         const a = getSubfield(v.substring(2), 'a');
         const c = getSubfield(v.substring(2), 'c');
         if (a) barcode = barcode || a.trim();
-        if (c) call_number = call_number || c.trim();
+        if (c) callNumber = callNumber || c.trim();
       }
     }
   }
@@ -199,7 +246,7 @@ function buildSpecimenFrom9xx(record: ParsedRecord): { barcode: string; call_num
     }
   }
   if (!barcode) barcode = record.identification?.trim() || '';
-  return { barcode: barcode || `IMPORT-${Date.now()}`, call_number: call_number || undefined };
+  return { barcode: barcode || `IMPORT-${Date.now()}`, callNumber: callNumber || undefined };
 }
 
 // (rawFieldsToDisplayRows and recordToApiMapping removed – expanded rows now show item/specimen details only)
@@ -280,15 +327,15 @@ function buildRecordFromFields(
   const field260 = rawFields.get('260')?.[0];
   const field264 = rawFields.get('264')?.[0];
   if (field210) {
-    record.publication_date = getSubfield(field210, 'd')?.replace(/[^\d]/g, '').substring(0, 4);
+    record.publicationDate = getSubfield(field210, 'd')?.replace(/[^\d]/g, '').substring(0, 4);
     record.edition_name = getSubfield(field210, 'c');
     record.edition_place = getSubfield(field210, 'a');
   } else if (field260) {
-    record.publication_date = getSubfield(field260, 'c')?.replace(/[^\d]/g, '').substring(0, 4);
+    record.publicationDate = getSubfield(field260, 'c')?.replace(/[^\d]/g, '').substring(0, 4);
     record.edition_name = getSubfield(field260, 'b')?.replace(/[,.:]\s*$/, '');
     record.edition_place = getSubfield(field260, 'a')?.replace(/\s*:\s*$/, '');
   } else if (field264) {
-    record.publication_date = getSubfield(field264, 'c')?.replace(/[^\d]/g, '').substring(0, 4);
+    record.publicationDate = getSubfield(field264, 'c')?.replace(/[^\d]/g, '').substring(0, 4);
     record.edition_name = getSubfield(field264, 'b')?.replace(/[,.:]\s*$/, '');
     record.edition_place = getSubfield(field264, 'a')?.replace(/\s*:\s*$/, '');
   }
@@ -297,9 +344,9 @@ function buildRecordFromFields(
   const field330 = rawFields.get('330')?.[0];
   const field520 = rawFields.get('520')?.[0];
   if (field330) {
-    record.abstract_ = getSubfield(field330, 'a');
+    record.abstract = getSubfield(field330, 'a');
   } else if (field520) {
-    record.abstract_ = getSubfield(field520, 'a');
+    record.abstract = getSubfield(field520, 'a');
   }
 
   // Keywords (606, 610 for UNIMARC, 650 for MARC21)
@@ -325,30 +372,30 @@ function buildRecordFromFields(
     switch (leaderType) {
       case 'a': // Text (monographic)
       case 't': // Text (manuscript)
-        record.media_type = 'printedText';
+        record.mediaType = 'printedText';
         break;
       case 'g': // Projected medium
-        record.media_type = 'video';
+        record.mediaType = 'video';
         break;
       case 'j': // Musical sound recording
       case 'i': // Nonmusical sound recording
-        record.media_type = 'audio';
+        record.mediaType = 'audio';
         break;
       case 's': // Serial/Periodical
-        record.media_type = 'periodic';
+        record.mediaType = 'periodic';
         break;
       case 'm': // Computer file
-        record.media_type = 'cdRom';
+        record.mediaType = 'cdRom';
         break;
       case 'k': // Two-dimensional nonprojectable graphic
       case 'r': // Three-dimensional artifact
-        record.media_type = 'images';
+        record.mediaType = 'images';
         break;
       default:
-        record.media_type = 'unknown';
+        record.mediaType = 'unknown';
     }
   } else {
-    record.media_type = 'unknown';
+    record.mediaType = 'unknown';
   }
 
   return record;
@@ -450,6 +497,7 @@ export default function ImportIsoPage() {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
+  const seenImportedIdsRef = useRef<Set<string>>(new Set());
 
   // Sources (for specimen creation) — no default selection
   const [sources, setSources] = useState<Source[]>([]);
@@ -502,6 +550,120 @@ export default function ImportIsoPage() {
   const [batchesError, setBatchesError] = useState('');
   const [loadingBatchId, setLoadingBatchId] = useState<string | null>(null);
 
+  // Recovered background task (from localStorage on page reload)
+  const [recoveredTask, setRecoveredTask] = useState<BackgroundTask | null>(null);
+
+  // Background task polling for batch import
+  const importTask = useBackgroundTask('marcBatchImport', {
+    storageKey: MARC_IMPORT_TASK_KEY,
+    onProgress: (task) => {
+      // Keep recovery banner in sync when we resumed without local record state
+      setRecoveredTask((prev) => (prev && prev.id === task.id ? task : prev));
+
+      const msg = task.progress?.message;
+      if (!msg || typeof msg !== 'object') return;
+
+      const importedRaw = (msg as Record<string, unknown>).imported;
+      const failedRaw = (msg as Record<string, unknown>).failed;
+
+      // 1) Remove successfully imported rows as we learn their new IDs
+      if (Array.isArray(importedRaw)) {
+        const importedIds = importedRaw.filter((v): v is string => typeof v === 'string' && v.length > 0);
+        const newIds: string[] = [];
+        for (const id of importedIds) {
+          if (!seenImportedIdsRef.current.has(id)) {
+            seenImportedIdsRef.current.add(id);
+            newIds.push(id);
+          }
+        }
+        if (newIds.length > 0) {
+          const newIdSet = new Set(newIds);
+          let removedCount = 0;
+          setRecords((prev) => {
+            const next = prev.filter((r) => {
+              const rowId = r.importedId ?? r.biblioShort?.id;
+              const shouldRemove = rowId ? newIdSet.has(rowId) : false;
+              if (shouldRemove) removedCount += 1;
+              return !shouldRemove;
+            });
+            return next;
+          });
+          if (removedCount > 0) setSuccessCount((prev) => prev + removedCount);
+        }
+      }
+
+      // 2) Display failures on the go (map by recordIndex)
+      if (Array.isArray(failedRaw)) {
+        const failures = failedRaw as MarcBatchImportError[];
+        if (failures.length > 0) {
+          const failedByKey = new Map(
+            failures.map((f) => {
+              const idx = parseInt(f.key.split(':').pop() ?? '', 10);
+              return [idx, f] as const;
+            })
+          );
+          setRecords((prev) =>
+            prev.map((r) => {
+              if (r.status !== 'importing') return r;
+              const failure = r.recordIndex != null ? failedByKey.get(r.recordIndex) : undefined;
+              if (!failure) return r;
+              const isDuplicate = failure.existingId != null;
+              return {
+                ...r,
+                status: 'error' as const,
+                error: isDuplicate ? t('importMarc.duplicateSkippedInBatch') : failure.error,
+              };
+            })
+          );
+        }
+      }
+    },
+    onSettled: (task) => {
+      // Update recovery banner with final state
+      setRecoveredTask((prev) => (prev && prev.id === task.id ? task : prev));
+      if (task.status === 'completed' && task.result) {
+        const report = task.result;
+        const failedByKey = new Map(
+          getMarcBatchFailureEntries(report).map((f) => {
+            const idx = parseInt(f.key.split(':').pop() ?? '', 10);
+            return [idx, f] as const;
+          })
+        );
+        setRecords((prev) => {
+          const next: ParsedRecord[] = [];
+          for (const r of prev) {
+            if (r.status !== 'importing') {
+              next.push(r);
+              continue;
+            }
+            const failure = r.recordIndex != null ? failedByKey.get(r.recordIndex) : undefined;
+            if (failure) {
+              const isDuplicate = failure.existingId != null;
+              next.push({
+                ...r,
+                status: 'error',
+                error: isDuplicate ? t('importMarc.duplicateSkippedInBatch') : failure.error,
+              });
+            }
+            // no failure → imported successfully → drop from list
+          }
+          return next;
+        });
+        const failedCount = getMarcBatchFailedCount(report);
+        setSuccessCount((prev) => {
+          const importingCount = records.filter((r) => r.status === 'importing').length;
+          return prev + Math.max(0, importingCount - failedCount);
+        });
+      } else if (task.status === 'failed') {
+        setRecords((prev) =>
+          prev.map((r) => (r.status === 'importing' ? { ...r, status: 'pending' as const } : r))
+        );
+        setParseError(task.error ?? t('importMarc.importErrorGeneric'));
+      }
+      setIsImporting(false);
+    },
+  });
+
   const fetchSources = useCallback(async () => {
     try {
       setSourcesError('');
@@ -516,6 +678,18 @@ export default function ImportIsoPage() {
   useEffect(() => {
     fetchSources();
   }, [fetchSources]);
+
+  // Restore any in-progress batch import task from localStorage
+  useEffect(() => {
+    restoreTaskId(MARC_IMPORT_TASK_KEY).then((task) => {
+      if (!task) return;
+      setRecoveredTask(task);
+      if (task.status === 'pending' || task.status === 'running') {
+        importTask.resumeTask(task.id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchMarcBatches = useCallback(async () => {
     setBatchesLoading(true);
@@ -543,13 +717,13 @@ export default function ImportIsoPage() {
         identification: normalizeIsbn(item.isbn ?? undefined),
         authors1: item.author ? [item.author] : undefined,
         authors2: undefined,
-        publication_date: item.date ?? undefined,
+        publicationDate: item.date ?? undefined,
         edition_name: undefined,
         edition_place: undefined,
-        abstract_: undefined,
+        abstract: undefined,
         keywords: undefined,
         subject: undefined,
-        media_type: (item.media_type ?? undefined) as MediaType | undefined,
+        mediaType: (item.mediaType ?? undefined) as MediaType | undefined,
         raw_fields: new Map<string, string[]>(),
         detectedEncoding: undefined,
         status: 'pending',
@@ -563,8 +737,8 @@ export default function ImportIsoPage() {
       } else {
         setRecords(recordsFromBatch);
         setDetectedMarcFormat('UNIMARC');
-        setBatchId(result.batch_id);
-        setFileName(`Batch #${result.batch_id}`);
+        setBatchId(result.batchId);
+        setFileName(`Batch #${result.batchId}`);
       }
     } catch {
       setParseError(t('importMarc.batchLoadError'));
@@ -665,7 +839,7 @@ export default function ImportIsoPage() {
         return { records: parseMARCXML(content), detectedFormat: null };
       }
 
-      // For UNIMARC ISO 2709 we delegate parsing to the backend (source_id optional for load)
+      // For UNIMARC ISO 2709 we delegate parsing to the backend (sourceId optional for load)
       const enqueueResult = await api.uploadUnimarc(file, sourceId ?? undefined);
       const uploadedItems: BiblioShort[] = enqueueResult.biblios;
 
@@ -677,13 +851,13 @@ export default function ImportIsoPage() {
         identification: normalizeIsbn(item.isbn ?? undefined),
         authors1: item.author ? [item.author] : undefined,
         authors2: undefined,
-        publication_date: item.date ?? undefined,
+        publicationDate: item.date ?? undefined,
         edition_name: undefined,
         edition_place: undefined,
-        abstract_: undefined,
+        abstract: undefined,
         keywords: undefined,
         subject: undefined,
-        media_type: (item.media_type ?? undefined) as MediaType | undefined,
+        mediaType: (item.mediaType ?? undefined) as MediaType | undefined,
         raw_fields: new Map<string, string[]>(),
         detectedEncoding: undefined,
         status: 'pending',
@@ -693,7 +867,7 @@ export default function ImportIsoPage() {
         biblioShort: item,
       }));
 
-      return { records: recordsFromItems, detectedFormat: 'UNIMARC', batchId: enqueueResult.batch_id };
+      return { records: recordsFromItems, detectedFormat: 'UNIMARC', batchId: enqueueResult.batchId };
     },
     []
   );
@@ -746,76 +920,26 @@ export default function ImportIsoPage() {
       setParseError(t('importMarc.sourceRequired'));
       return;
     }
-    // For server-side UNIMARC batches: single API call (no record_id) — the server imports
-    // all records at once and returns a report. We match failures back by recordIndex
-    // extracted from record_key ("marc:record:<batch_id>:<idx>").
+    // For server-side UNIMARC batches: start an async task
     if (batchId) {
-      const importQueue = records
-        .filter((r) => r.status === 'pending' && r.recordIndex != null)
-        .map((r) => ({ id: r.id, recordIndex: r.recordIndex! }));
-
-      if (importQueue.length === 0) return;
-
-      const importingIds = new Set(importQueue.map((q) => q.id));
-      // Build a lookup: recordIndex → ParsedRecord client id
-      const indexToId = new Map(importQueue.map((q) => [q.recordIndex, q.id]));
+      const pendingIds = new Set(
+        records.filter((r) => r.status === 'pending' && r.recordIndex != null).map((r) => r.id)
+      );
+      if (pendingIds.size === 0) return;
 
       setIsImporting(true);
       setRecords((prev) =>
-        prev.map((r) => (importingIds.has(r.id) ? { ...r, status: 'importing' as const } : r))
+        prev.map((r) => (pendingIds.has(r.id) ? { ...r, status: 'importing' as const } : r))
       );
 
       try {
-        // Single call — no record_id means "import the whole batch"
-        const report = await api.importMarcBatch(batchId, undefined, selectedSourceId);
-
-        // Parse recordIndex from record_key: "marc:record:<batch_id>:<idx>"
-        const failedByIndex = new Map(
-          report.failed
-            .map((f) => {
-              const idx = parseInt(f.record_key.split(':').pop() ?? '', 10);
-              return isNaN(idx) ? null : ([idx, f] as const);
-            })
-            .filter((e): e is [number, typeof report.failed[number]] => e !== null)
-        );
-
-        setRecords((prev) => {
-          const next: ParsedRecord[] = [];
-          for (const r of prev) {
-            if (!importingIds.has(r.id)) {
-              next.push(r);
-              continue;
-            }
-            const failure = r.recordIndex != null ? failedByIndex.get(r.recordIndex) : undefined;
-            if (failure) {
-              const isDuplicate =
-                failure.existing_id != null || parseDuplicateFromErrorMessage(failure.error) != null;
-              next.push({
-                ...r,
-                status: 'error',
-                error: isDuplicate ? t('importMarc.duplicateSkippedInBatch') : failure.error,
-              });
-            }
-            // no failure → imported successfully → drop from list
-          }
-          return next;
-        });
-
-        // Count successful imports (queue entries not in failedByIndex)
-        const failedIds = new Set(
-          [...failedByIndex.keys()]
-            .map((idx) => indexToId.get(idx))
-            .filter((id): id is string => id != null)
-        );
-        const importedThisBatch = importQueue.filter((q) => !failedIds.has(q.id)).length;
-        setSuccessCount((prev) => prev + importedThisBatch);
+        const { taskId } = await api.importMarcBatch(batchId, selectedSourceId);
+        importTask.startTask(taskId);
       } catch (error) {
-        // On API error reset importing records back to pending
         setRecords((prev) =>
-          prev.map((r) => (importingIds.has(r.id) ? { ...r, status: 'pending' as const } : r))
+          prev.map((r) => (pendingIds.has(r.id) ? { ...r, status: 'pending' as const } : r))
         );
         setParseError(getApiErrorMessage(error, t));
-      } finally {
         setIsImporting(false);
       }
 
@@ -842,17 +966,17 @@ export default function ImportIsoPage() {
     title: record.title1 ?? undefined,
     isbn: record.identification ?? undefined,
     authors: [...(record.authors1 ?? []), ...(record.authors2 ?? [])],
-    publication_date: record.publication_date ?? undefined,
-    abstract_: record.abstract_ ?? undefined,
+    publicationDate: record.publicationDate ?? undefined,
+    abstract: record.abstract ?? undefined,
     keywords: record.keywords ?? undefined,
     subject: record.subject ?? undefined,
-    media_type: record.media_type ?? undefined,
+    mediaType: record.mediaType ?? undefined,
     edition: record.edition_name || record.edition_place
       ? {
           id: null,
-          publisher_name: record.edition_name ?? undefined,
-          place_of_publication: record.edition_place ?? undefined,
-          date: record.publication_date ?? undefined,
+          publisherName: record.edition_name ?? undefined,
+          placeOfPublication: record.edition_place ?? undefined,
+          date: record.publicationDate ?? undefined,
         }
       : undefined,
   });
@@ -866,7 +990,7 @@ export default function ImportIsoPage() {
       const specimenData = buildSpecimenFrom9xx(record);
       await api.createItem(itemId, {
         ...specimenData,
-        ...(selectedSourceId != null && { source_id: selectedSourceId }),
+        ...(selectedSourceId != null && { sourceId: selectedSourceId }),
       });
     }
     setRecords(prev => prev.filter(r => r.id !== record.id));
@@ -889,60 +1013,9 @@ export default function ImportIsoPage() {
     ));
 
     try {
-      // UNIMARC batch mode: import single record by index
-      if (batchId && record.recordIndex != null) {
-        const report = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId);
-        if (report.imported > 0) {
-          setRecords(prev => prev.filter(r => r.id !== record.id));
-          setSuccessCount(prev => prev + 1);
-          return;
-        }
-
-        const combinedError =
-          report.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
-
-        // Prefer existing_id from the structured response, fall back to regex on error string
-        const failedRecord = report.failed[0];
-        const existingIdFromServer =
-          failedRecord?.existing_id != null ? String(failedRecord.existing_id) : null;
-        const duplicate =
-          existingIdFromServer != null
-            ? { existingId: existingIdFromServer }
-            : parseDuplicateFromErrorMessage(combinedError);
-
-        if (duplicate) {
-          if (!showDuplicateModal) {
-            // In "import all" mode: mark as error silently, user can handle individually later
-            setRecords(prev =>
-              prev.map(r =>
-                r.id === record.id
-                  ? { ...r, status: 'error' as const, error: t('importMarc.duplicateSkippedInBatch') }
-                  : r
-              )
-            );
-            return;
-          }
-          setReplaceConfirmError(null);
-          setReplaceConfirmModal({ record, existingId: duplicate.existingId, existingTitle: undefined });
-          setRecords(prev => prev.map(r => (r.id === record.id ? { ...r, status: 'pending' as const } : r)));
-          return;
-        }
-
-        setRecords(prev =>
-          prev.map(r => r.id === record.id ? { ...r, status: 'error' as const, error: combinedError } : r)
-        );
-        if (showErrorModal) {
-          setSingleErrorModal({
-            title: record.title1 || record.identification || t('items.notSpecified'),
-            message: combinedError,
-          });
-        }
-        return;
-      }
-
       // Legacy path (MARCXML → /items)
-      const { biblio, import_report } = await api.createBiblio(buildItemPayload(record));
-      if (biblio.id != null) await completeImportWithItemId(record, biblio.id, import_report);
+      const { biblio, importReport } = await api.createBiblio(buildItemPayload(record));
+      if (biblio.id != null) await completeImportWithItemId(record, biblio.id, importReport);
     } catch (error) {
       const confirm = getDuplicateConfirmationRequired(error);
       if (confirm) {
@@ -957,7 +1030,7 @@ export default function ImportIsoPage() {
           return;
         }
         setReplaceConfirmError(null);
-        setReplaceConfirmModal({ record, existingId: confirm.existing_id, existingTitle: undefined });
+        setReplaceConfirmModal({ record, existingId: confirm.existingId, existingTitle: undefined });
         setRecords(prev => prev.map(r =>
           r.id === record.id ? { ...r, status: 'pending' as const } : r
         ));
@@ -987,26 +1060,10 @@ export default function ImportIsoPage() {
     setReplaceConfirmError(null);
     try {
       const { record, existingId } = replaceConfirmModal as { record: ParsedRecord; existingId: string; existingTitle?: string | null };
-      if (batchId && record.recordIndex != null) {
-        const report = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId, {
-          confirmReplaceExistingId: existingId,
-        });
-        if (report.imported > 0) {
-          setRecords((prev) => prev.filter((r) => r.id !== record.id));
-          setSuccessCount(prev => prev + 1);
-          setReplaceConfirmModal(null);
-          return;
-        }
-        const msg = report.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
-        setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'error' as const, error: msg } : r)));
-        setReplaceConfirmModal(null);
-        return;
-      }
-
-      const { biblio, import_report } = await api.createBiblio(buildItemPayload(record), {
+      const { biblio, importReport } = await api.createBiblio(buildItemPayload(record), {
         confirmReplaceExistingId: existingId,
       });
-      if (biblio.id != null) await completeImportWithItemId(record, biblio.id, import_report);
+      if (biblio.id != null) await completeImportWithItemId(record, biblio.id, importReport);
       setReplaceConfirmModal(null);
     } catch (err) {
       console.error('Error confirming replace existing item:', err);
@@ -1022,26 +1079,10 @@ export default function ImportIsoPage() {
     setReplaceConfirmError(null);
     try {
       const { record } = replaceConfirmModal;
-      if (batchId && record.recordIndex != null) {
-        const report = await api.importMarcBatch(batchId, record.recordIndex, selectedSourceId, {
-          allowDuplicateIsbn: true,
-        });
-        if (report.imported > 0) {
-          setRecords((prev) => prev.filter((r) => r.id !== record.id));
-          setSuccessCount(prev => prev + 1);
-          setReplaceConfirmModal(null);
-          return;
-        }
-        const msg = report.failed.map((f) => f.error).join(' ; ') || t('importMarc.importErrorGeneric');
-        setRecords((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'error' as const, error: msg } : r)));
-        setReplaceConfirmModal(null);
-        return;
-      }
-
-      const { biblio, import_report } = await api.createBiblio(buildItemPayload(record), {
+      const { biblio, importReport } = await api.createBiblio(buildItemPayload(record), {
         allowDuplicateIsbn: true,
       });
-      if (biblio.id != null) await completeImportWithItemId(record, biblio.id, import_report);
+      if (biblio.id != null) await completeImportWithItemId(record, biblio.id, importReport);
       setReplaceConfirmModal(null);
     } catch (err) {
       console.error('Error creating item with duplicate ISBN:', err);
@@ -1199,7 +1240,7 @@ export default function ImportIsoPage() {
     {
       key: 'date',
       header: t('common.date'),
-      render: (record: ParsedRecord) => record.publication_date || '-',
+      render: (record: ParsedRecord) => record.publicationDate || '-',
       className: 'hidden md:table-cell',
     },
     {
@@ -1207,8 +1248,8 @@ export default function ImportIsoPage() {
       header: t('common.type'),
       render: (record: ParsedRecord) => (
         <Badge>
-          {record.media_type 
-            ? t(`items.mediaType.${getMediaTypeTranslationKey(record.media_type)}`)
+          {record.mediaType 
+            ? t(`items.mediaType.${getMediaTypeTranslationKey(record.mediaType)}`)
             : t('items.mediaType.unknown')
           }
         </Badge>
@@ -1267,6 +1308,66 @@ export default function ImportIsoPage() {
           {t('importMarc.subtitle')}
         </p>
       </div>
+
+      {/* Recovered background task banner */}
+      {recoveredTask && !importTask.task && (
+        <div className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${
+          recoveredTask.status === 'completed'
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+            : recoveredTask.status === 'failed'
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+        }`}>
+          {recoveredTask.status === 'completed' ? (
+            <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+          ) : recoveredTask.status === 'failed' ? (
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
+          ) : (
+            <Loader2 className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5 animate-spin" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {t(`backgroundTask.status.${recoveredTask.status}`)}
+            </p>
+            {recoveredTask.status === 'completed' && recoveredTask.result && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                {t('backgroundTask.marcImport.completedSummary', {
+                  imported: getMarcBatchImportedCount(recoveredTask.result),
+                  failed: getMarcBatchFailedCount(recoveredTask.result),
+                })}
+              </p>
+            )}
+            {(recoveredTask.status === 'pending' || recoveredTask.status === 'running') && recoveredTask.progress && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  <span>{t('backgroundTask.progress')}</span>
+                  <span>{recoveredTask.progress.current} / {recoveredTask.progress.total}</span>
+                </div>
+                <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${recoveredTask.progress.total > 0
+                        ? (recoveredTask.progress.current / recoveredTask.progress.total) * 100
+                        : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+            {recoveredTask.status === 'failed' && recoveredTask.error && (
+              <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">{recoveredTask.error}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setRecoveredTask(null)}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Import section — file upload or existing batch */}
       {records.length === 0 && (
@@ -1368,20 +1469,20 @@ export default function ImportIsoPage() {
               ) : (
                 <ul className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                   {marcBatches.map((batch) => {
-                    const isExpired = batch.ttl_seconds < 0;
-                    const isLoadingThis = loadingBatchId === batch.batch_id;
+                    const isExpired = batch.ttlSeconds < 0;
+                    const isLoadingThis = loadingBatchId === batch.batchId;
                     return (
                       <li
-                        key={batch.batch_id}
+                        key={batch.batchId}
                         className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-mono text-sm font-medium text-gray-900 dark:text-white">
-                              Batch #{batch.batch_id}
+                              Batch #{batch.batchId}
                             </span>
                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {t('importMarc.batchRecords', { count: batch.record_count })}
+                              {t('importMarc.batchRecords', { count: batch.recordCount })}
                             </span>
                           </div>
                           <div className="mt-0.5">
@@ -1390,7 +1491,7 @@ export default function ImportIsoPage() {
                             ) : (
                               <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
                                 <Clock className="h-3 w-3" />
-                                {t('importMarc.batchTtl', { time: formatTtlSeconds(batch.ttl_seconds) })}
+                                {t('importMarc.batchTtl', { time: formatTtlSeconds(batch.ttlSeconds) })}
                               </span>
                             )}
                           </div>
@@ -1398,7 +1499,7 @@ export default function ImportIsoPage() {
                         <Button
                           size="sm"
                           variant="primary"
-                          onClick={() => handleLoadBatch(batch.batch_id)}
+                          onClick={() => handleLoadBatch(batch.batchId)}
                           isLoading={isLoadingThis}
                           disabled={isExpired || (loadingBatchId !== null && !isLoadingThis)}
                           leftIcon={<Download className="h-4 w-4" />}
@@ -1488,21 +1589,61 @@ export default function ImportIsoPage() {
               </div>
             </div>
 
-            {/* Import progress (legacy MARCXML path only — batch path is a single call) */}
-            {isImporting && importProgress.total > 0 && (
+            {/* Import progress */}
+            {isImporting && (
               <div className="mt-4">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-gray-600 dark:text-gray-400">{t('importMarc.importProgress')}</span>
-                  <span className="text-gray-900 dark:text-white font-medium">
-                    {importProgress.current} / {importProgress.total}
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
-                  />
-                </div>
+                {importTask.task?.progress ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t('importMarc.importProgress')}
+                        {(() => {
+                          const progressMsg = formatMarcTaskProgressMessage(
+                            importTask.task.progress.message,
+                            t
+                          );
+                          return progressMsg ? (
+                            <span className="text-xs">— {progressMsg}</span>
+                          ) : null;
+                        })()}
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {importTask.task.progress.current} / {importTask.task.progress.total}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${importTask.task.progress.total > 0
+                            ? (importTask.task.progress.current / importTask.task.progress.total) * 100
+                            : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : importProgress.total > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-gray-600 dark:text-gray-400">{t('importMarc.importProgress')}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {importProgress.current} / {importProgress.total}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                        style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('importMarc.importProgress')}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1684,16 +1825,16 @@ export default function ImportIsoPage() {
                                         <div className="flex gap-2">
                                           <dt className="w-32 whitespace-nowrap text-gray-500 dark:text-gray-400">{t('items.publicationDate')} :</dt>
                                           <dd className="flex-1 text-gray-900 dark:text-gray-100">
-                                            {itemPayload.publication_date || '-'}
+                                            {itemPayload.publicationDate || '-'}
                                           </dd>
                                         </div>
-                                        {itemPayload.media_type && (
+                                        {itemPayload.mediaType && (
                                           <div className="flex gap-2">
                                             <dt className="w-32 whitespace-nowrap text-gray-500 dark:text-gray-400">{t('common.type')} :</dt>
                                             <dd className="flex-1 text-gray-900 dark:text-gray-100">
                                               {t(
                                                 `items.mediaType.${getMediaTypeTranslationKey(
-                                                  itemPayload.media_type as MediaType
+                                                  itemPayload.mediaType as MediaType
                                                 )}`
                                               )}
                                             </dd>
@@ -1706,7 +1847,7 @@ export default function ImportIsoPage() {
                                                 {t('items.publisher')}
                                               </dt>
                                               <dd className="flex-1 text-gray-900 dark:text-gray-100">
-                                                {itemPayload.edition.publisher_name || '-'}
+                                                {itemPayload.edition.publisherName || '-'}
                                               </dd>
                                             </div>
                                             <div className="flex gap-2">
@@ -1714,18 +1855,18 @@ export default function ImportIsoPage() {
                                                 {t('items.placeOfPublication')}
                                               </dt>
                                               <dd className="flex-1 text-gray-900 dark:text-gray-100">
-                                                {itemPayload.edition.place_of_publication || '-'}
+                                                {itemPayload.edition.placeOfPublication || '-'}
                                               </dd>
                                             </div>
                                           </>
                                         )}
-                                        {itemPayload.abstract_ && (
+                                        {itemPayload.abstract && (
                                           <div className="flex gap-2">
                                             <dt className="w-32 whitespace-nowrap text-gray-500 dark:text-gray-400">
                                               {t('items.abstract')}
                                             </dt>
                                             <dd className="flex-1 text-gray-900 dark:text-gray-100">
-                                              {itemPayload.abstract_}
+                                              {itemPayload.abstract}
                                             </dd>
                                           </div>
                                         )}
@@ -1768,10 +1909,10 @@ export default function ImportIsoPage() {
                                                   {spec.barcode || spec.id}
                                                 </td>
                                                 <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">
-                                                  {spec.call_number || '-'}
+                                                  {spec.callNumber || '-'}
                                                 </td>
                                                 <td className="py-2 text-gray-700 dark:text-gray-300">
-                                                  {spec.source_name || '-'}
+                                                  {spec.sourceName || '-'}
                                                 </td>
                                               </tr>
                                             ))}

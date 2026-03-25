@@ -51,7 +51,7 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
   if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
-  if (typeof data.existing_id !== 'string') return null;
+  if (typeof data.existingId !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
 }
@@ -67,7 +67,7 @@ interface Z3950SearchResponse {
 
 interface SpecimenToAdd {
   barcode: string;
-  call_number: string;
+  callNumber: string;
 }
 
 export default function Z3950SearchPage() {
@@ -100,7 +100,7 @@ export default function Z3950SearchPage() {
   const [selectedItem, setSelectedItem] = useState<Z3950Result | null>(null);
   /** Id of the item to import (kept as string to preserve i64/u64 precision). */
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ barcode: '', call_number: '' }]);
+  const [specimens, setSpecimens] = useState<SpecimenToAdd[]>([{ barcode: '', callNumber: '' }]);
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
@@ -119,7 +119,7 @@ export default function Z3950SearchPage() {
     const fetchServers = async () => {
       try {
         const settings = await api.getSettings();
-        const activeServers = (settings.z3950_servers || []).filter(s => s.is_active);
+        const activeServers = (settings.z3950Servers || []).filter(s => s.isActive);
         setServers(activeServers);
         // Select first server by default if available
         if (activeServers.length > 0) {
@@ -178,8 +178,8 @@ export default function Z3950SearchPage() {
         isbn: searchParams.isbn || undefined,
         title: searchParams.title || undefined,
         author: searchParams.author || undefined,
-        server_id: selectedServerId,
-        max_results: maxResults,
+        serverId: selectedServerId,
+        maxResults: maxResults,
       });
       setResults(response.biblios);
       setTotalResults(response.total);
@@ -205,7 +205,7 @@ export default function Z3950SearchPage() {
   const handleOpenImport = (item: Z3950Result) => {
     setSelectedItem(item);
     setSelectedItemId(item.id ?? null);
-    setSpecimens([{ barcode: '', call_number: '' }]);
+    setSpecimens([{ barcode: '', callNumber: '' }]);
     setImportSuccess(null);
     setImportReport(null);
     setConfirmReplaceModal(null);
@@ -222,7 +222,7 @@ export default function Z3950SearchPage() {
   };
 
   const handleAddSpecimen = () => {
-    setSpecimens([...specimens, { barcode: '', call_number: '' }]);
+    setSpecimens([...specimens, { barcode: '', callNumber: '' }]);
   };
 
   const handleRemoveSpecimen = (index: number) => {
@@ -243,7 +243,7 @@ export default function Z3950SearchPage() {
       setImportError(t('z3950.sourceRequired'));
       return;
     }
-    const invalidCallNumber = specimens.find(s => s.call_number.trim() !== '' && !validateCallNumber(s.call_number));
+    const invalidCallNumber = specimens.find(s => s.callNumber.trim() !== '' && !validateCallNumber(s.callNumber));
     if (invalidCallNumber) {
       setImportError(t('items.callNumberInvalid'));
       return;
@@ -260,12 +260,12 @@ export default function Z3950SearchPage() {
       );
       
       setImportSuccess(imported.biblio.id ?? null);
-      setImportReport(imported.import_report);
+      setImportReport(imported.importReport);
     } catch (error) {
       const confirm = getDuplicateConfirmationRequired(error);
       if (confirm) {
         setConfirmReplaceError(null);
-        setConfirmReplaceModal({ existingId: confirm.existing_id, message: confirm.message });
+        setConfirmReplaceModal({ existingId: confirm.existingId, message: confirm.message });
       } else {
         console.error('Error importing biblio:', error);
         setImportError(t('z3950.importError'));
@@ -289,7 +289,7 @@ export default function Z3950SearchPage() {
       );
       setConfirmReplaceModal(null);
       setImportSuccess(imported.biblio.id ?? null);
-      setImportReport(imported.import_report);
+      setImportReport(imported.importReport);
     } catch (err) {
       console.error('Error confirming replace existing item:', err);
       setConfirmReplaceError(t('z3950.importError'));
@@ -344,16 +344,16 @@ export default function Z3950SearchPage() {
     {
       key: 'date',
       header: t('common.date'),
-      render: (item: Z3950Result) => item.publication_date || '-',
+      render: (item: Z3950Result) => item.publicationDate || '-',
       className: 'hidden md:table-cell',
     },
     {
-      key: 'media_type',
+      key: 'mediaType',
       header: t('common.type'),
       render: (item: Z3950Result) => (
         <Badge>
-          {item.media_type 
-            ? t(`items.mediaType.${getMediaTypeTranslationKey(item.media_type as MediaType)}`)
+          {item.mediaType
+            ? t(`items.mediaType.${getMediaTypeTranslationKey(item.mediaType as MediaType)}`)
             : t('items.document')
           }
         </Badge>
@@ -574,7 +574,7 @@ export default function Z3950SearchPage() {
               <div className="mx-auto max-w-xl text-left mb-6 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10">
                 <div className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
                   {importReport.message || importReport.action}
-                  {importReport.existing_id != null ? ` (ID: ${importReport.existing_id})` : ''}
+                  {importReport.existingId != null ? ` (ID: ${importReport.existingId})` : ''}
                 </div>
                 {importReport.warnings?.length > 0 && (
                   <ul className="mt-2 list-disc pl-5 text-sm text-emerald-800 dark:text-emerald-300 space-y-1">
@@ -609,7 +609,7 @@ export default function Z3950SearchPage() {
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {formatAuthors(selectedItem.authors && selectedItem.authors.length > 0 ? selectedItem.authors : [])}
-                  {selectedItem.publication_date && ` • ${selectedItem.publication_date}`}
+                  {selectedItem.publicationDate && ` • ${selectedItem.publicationDate}`}
                 </p>
                 {selectedItem.isbn && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -671,13 +671,13 @@ export default function Z3950SearchPage() {
                         onChange={(e) => handleSpecimenChange(index, 'barcode', e.target.value)}
                       />
                       <CallNumberField
-                        value={specimen.call_number}
-                        onChange={(v) => handleSpecimenChange(index, 'call_number', v)}
+                        value={specimen.callNumber}
+                        onChange={(v) => handleSpecimenChange(index, 'callNumber', v)}
                         suggestedValue={
                           selectedItem
                             ? buildSuggestedCallNumber({
                                 categoryCode: 'IMP',
-                                year: selectedItem.publication_date,
+                                year: selectedItem.publicationDate,
                                 authorOrCollectorName: selectedItem.authors?.[0]?.lastname,
                               })
                             : undefined

@@ -53,23 +53,17 @@ export default function AuditLogViewer() {
     try {
       const params: Parameters<typeof api.getAuditLog>[0] = {
         page,
-        per_page: perPage,
+        perPage,
       };
-      if (applied.eventType.trim()) params.event_type = applied.eventType.trim();
-      if (applied.entityType.trim()) params.entity_type = applied.entityType.trim();
-      if (applied.entityId.trim()) {
-        const n = parseInt(applied.entityId.trim(), 10);
-        if (!Number.isNaN(n)) params.entity_id = n;
-      }
-      if (applied.userId.trim()) {
-        const n = parseInt(applied.userId.trim(), 10);
-        if (!Number.isNaN(n)) params.user_id = n;
-      }
-      if (applied.fromDate) params.from_date = new Date(applied.fromDate).toISOString();
+      if (applied.eventType.trim()) params.eventType = applied.eventType.trim();
+      if (applied.entityType.trim()) params.entityType = applied.entityType.trim();
+      if (applied.entityId.trim()) params.entityId = applied.entityId.trim();
+      if (applied.userId.trim()) params.userId = applied.userId.trim();
+      if (applied.fromDate) params.fromDate = new Date(applied.fromDate).toISOString();
       if (applied.toDate) {
         const d = new Date(applied.toDate);
         d.setHours(23, 59, 59, 999);
-        params.to_date = d.toISOString();
+        params.toDate = d.toISOString();
       }
       const data = await api.getAuditLog(params);
       setEntries(data.entries);
@@ -96,10 +90,10 @@ export default function AuditLogViewer() {
     try {
       const blob = await api.exportAuditLog({
         format,
-        ...(applied.eventType.trim() && { event_type: applied.eventType.trim() }),
-        ...(applied.fromDate && { from_date: new Date(applied.fromDate).toISOString() }),
+        ...(applied.eventType.trim() && { eventType: applied.eventType.trim() }),
+        ...(applied.fromDate && { fromDate: new Date(applied.fromDate).toISOString() }),
         ...(applied.toDate && {
-          to_date: (() => {
+          toDate: (() => {
             const d = new Date(applied.toDate);
             d.setHours(23, 59, 59, 999);
             return d.toISOString();
@@ -267,13 +261,13 @@ export default function AuditLogViewer() {
                         }`}
                       >
                         <td className="px-3 py-2 font-mono text-xs">{row.id}</td>
-                        <td className="px-3 py-2 font-mono text-xs break-all">{row.event_type}</td>
-                        <td className="px-3 py-2">{row.entity_type ?? '—'}</td>
-                        <td className="px-3 py-2">{row.entity_id ?? '—'}</td>
-                        <td className="px-3 py-2">{row.user_id ?? '—'}</td>
-                        <td className="px-3 py-2 font-mono text-xs">{row.ip_address ?? '—'}</td>
+                        <td className="px-3 py-2 font-mono text-xs break-all">{row.eventType}</td>
+                        <td className="px-3 py-2">{row.entityType ?? '—'}</td>
+                        <td className="px-3 py-2">{row.entityId ?? '—'}</td>
+                        <td className="px-3 py-2">{row.userId ?? '—'}</td>
+                        <td className="px-3 py-2 font-mono text-xs">{row.ipAddress ?? '—'}</td>
                         <td className="px-3 py-2 whitespace-nowrap">
-                          {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
+                          {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
                         </td>
                         <td className="px-2 py-2 text-gray-400">
                           {isOpen ? (

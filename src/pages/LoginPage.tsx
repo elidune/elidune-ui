@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Search, LogIn, Shield, ArrowLeft, KeyRound, X, ChevronRight } from 'lucide-react';
+import { Search, LogIn, Shield, ArrowLeft, KeyRound, X, ChevronRight, BookOpen, Newspaper, Video, Music, Disc, Image, FileText, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLibrary } from '@/contexts/LibraryContext';
-import { Card, Badge, Input, Button } from '@/components/common';
+import { Card, Badge, Input, Button, LibraryInfoSection } from '@/components/common';
+import { useLibrarySchedule } from '@/hooks/common/useLibrarySchedule';
 import api from '@/services/api';
 import type { MediaType } from '@/types';
 
@@ -30,6 +31,67 @@ const MEDIA_SPINE_COLORS: Record<string, string> = {
 
 function getSpineColor(mediaType?: string | null): string {
   return MEDIA_SPINE_COLORS[mediaType ?? ''] ?? '#9CA3AF';
+}
+
+function getMediaTypeIcon(mediaType?: string | null): React.ReactNode {
+  const cls = 'h-4 w-4';
+  switch (mediaType) {
+    case 'printedText':
+    case 'comics':
+      return <BookOpen className={`${cls} text-amber-600 dark:text-amber-400`} />;
+    case 'periodic':
+      return <Newspaper className={`${cls} text-orange-600 dark:text-orange-400`} />;
+    case 'video':
+    case 'videoTape':
+    case 'videoDvd':
+      return <Video className={`${cls} text-red-600 dark:text-red-400`} />;
+    case 'audio':
+    case 'audioMusic':
+    case 'audioMusicTape':
+    case 'audioMusicCd':
+    case 'audioNonMusic':
+    case 'audioNonMusicTape':
+    case 'audioNonMusicCd':
+      return <Music className={`${cls} text-blue-600 dark:text-blue-400`} />;
+    case 'cdRom':
+      return <Disc className={`${cls} text-purple-600 dark:text-purple-400`} />;
+    case 'images':
+      return <Image className={`${cls} text-green-600 dark:text-green-400`} />;
+    case 'multimedia':
+      return <Layers className={`${cls} text-indigo-600 dark:text-indigo-400`} />;
+    default:
+      return <FileText className={`${cls} text-gray-400 dark:text-gray-500`} />;
+  }
+}
+
+function getMediaTypeBgColor(mediaType?: string | null): string {
+  switch (mediaType) {
+    case 'printedText':
+    case 'comics':
+      return 'bg-amber-50 dark:bg-amber-900/30';
+    case 'periodic':
+      return 'bg-orange-50 dark:bg-orange-900/30';
+    case 'video':
+    case 'videoTape':
+    case 'videoDvd':
+      return 'bg-red-50 dark:bg-red-900/30';
+    case 'audio':
+    case 'audioMusic':
+    case 'audioMusicTape':
+    case 'audioMusicCd':
+    case 'audioNonMusic':
+    case 'audioNonMusicTape':
+    case 'audioNonMusicCd':
+      return 'bg-blue-50 dark:bg-blue-900/30';
+    case 'cdRom':
+      return 'bg-purple-50 dark:bg-purple-900/30';
+    case 'images':
+      return 'bg-green-50 dark:bg-green-900/30';
+    case 'multimedia':
+      return 'bg-indigo-50 dark:bg-indigo-900/30';
+    default:
+      return 'bg-gray-50 dark:bg-gray-800';
+  }
 }
 
 // ── Two-factor verification ──────────────────────────────────────────────────
@@ -198,11 +260,11 @@ function BiblioDetailPane({
 
   const metaRows: Array<{ label: string; value: string | null | undefined }> = detail
     ? [
-        { label: t('items.mediaTypeLabel'), value: detail.media_type ? t(`items.mediaType.${detail.media_type}`, { defaultValue: detail.media_type as string }) : null },
+        { label: t('items.mediaTypeLabel'), value: detail.mediaType ? t(`items.mediaType.${detail.mediaType}`, { defaultValue: detail.mediaType as string }) : null },
         { label: t('items.isbn'), value: detail.isbn },
-        { label: t('items.publisher'), value: detail.edition?.publisher_name },
-        { label: t('items.publicationDate'), value: detail.publication_date ?? detail.edition?.date },
-        { label: t('items.publicationPlace'), value: detail.edition?.place_of_publication },
+        { label: t('items.publisher'), value: detail.edition?.publisherName },
+        { label: t('items.publicationDate'), value: detail.publicationDate ?? detail.edition?.date },
+        { label: t('items.publicationPlace'), value: detail.edition?.placeOfPublication },
         { label: t('items.language'), value: detail.lang ? t(`languages.${detail.lang}`, { defaultValue: detail.lang }) : null },
       ].filter((r) => r.value)
     : [];
@@ -254,6 +316,21 @@ function BiblioDetailPane({
               </dl>
             )}
 
+            {detail.series && detail.series.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('items.series')}</p>
+                <p className="text-gray-700 dark:text-gray-300">
+                  {detail.series.map((s, i) => (
+                    <span key={s.id ?? i}>
+                      {s.name}
+                      {s.volumeNumber != null && ` (${t('items.volume')} ${s.volumeNumber})`}
+                      {i < detail.series!.length - 1 && ', '}
+                    </span>
+                  ))}
+                </p>
+              </div>
+            )}
+
             {detail.subject && (
               <div>
                 <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('items.subject')}</p>
@@ -261,10 +338,10 @@ function BiblioDetailPane({
               </div>
             )}
 
-            {detail.abstract_ && (
+            {detail.abstract && (
               <div>
                 <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">{t('items.abstract')}</p>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-5">{detail.abstract_}</p>
+                <p className="text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-5">{detail.abstract}</p>
               </div>
             )}
 
@@ -280,15 +357,18 @@ function BiblioDetailPane({
                 <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('items.specimens')}</p>
                 <div className="space-y-1.5">
                   {detail.items.map((item) => {
-                    const available = item.availability === 0;
+                    const available = item.borrowable === true && !item.borrowed;
+
                     return (
                       <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60">
                         <Badge variant={available ? 'success' : 'danger'} size="sm">
                           {available ? t('opac.available') : t('opac.borrowed')}
                         </Badge>
-                        <span className="font-mono text-xs text-gray-700 dark:text-gray-300">{item.call_number ?? '—'}</span>
-                        {item.source_name && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500 truncate ml-auto">{item.source_name}</span>
+                        {item.callNumber && (
+                          <span className="font-mono text-xs font-semibold text-gray-800 dark:text-gray-200">{item.callNumber}</span>
+                        )}
+                        {item.sourceName && (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 truncate ml-auto">{item.sourceName}</span>
                         )}
                       </div>
                     );
@@ -321,7 +401,8 @@ export default function LoginPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { login, isAuthenticated, pending2FA, mustChangePassword } = useAuth();
-  const { libraryName } = useLibrary();
+  const { libraryName, libraryInfo } = useLibrary();
+  const { scheduleSlots } = useLibrarySchedule();
   const navigate = useNavigate();
 
   // Ctrl/Cmd+K focuses the search bar
@@ -443,7 +524,7 @@ export default function LoginPage() {
         <div className="flex gap-4 sm:gap-6 items-start">
 
           {/* Results card — flex-1, contains list pane + optional detail pane */}
-          <Card padding="none" className="flex-1 flex overflow-hidden min-h-0 max-h-[600px]">
+          <Card padding="none" className="flex-1 flex overflow-hidden min-h-[800px] max-h-[800px]">
 
             {/* List pane — shrinks to fixed width when detail is open */}
             <div className={`flex flex-col overflow-hidden flex-shrink-0 ${selectedBiblioId ? 'w-72 border-r border-gray-100 dark:border-gray-800' : 'flex-1'}`}>
@@ -479,7 +560,7 @@ export default function LoginPage() {
                 ) : (
                   <div>
                     {biblios.map((biblio) => {
-                      const hasAvailable = biblio.items?.some((i) => i.availability === 0) ?? false;
+                      const hasAvailable = biblio.items?.some((i) => i.borrowable === true && !i.borrowed) ?? false;
                       const totalItems = biblio.items?.length ?? 0;
                       const authorName = biblio.author
                         ? [biblio.author.firstname, biblio.author.lastname].filter(Boolean).join(' ')
@@ -500,12 +581,9 @@ export default function LoginPage() {
                           <div className={`w-8 h-11 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${
                             isSelected
                               ? 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'
-                              : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+                              : `${getMediaTypeBgColor(biblio.mediaType)} border-transparent`
                           }`}>
-                            <div
-                              className="w-1.5 h-7 rounded-sm opacity-80"
-                              style={{ background: getSpineColor(biblio.media_type) }}
-                            />
+                            {getMediaTypeIcon(biblio.mediaType)}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-medium truncate ${isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>
@@ -610,15 +688,32 @@ export default function LoginPage() {
 
         </div>
 
+        {/* ── Library info ─────────────────────────────────────────────── */}
+        <LibraryInfoSection
+          info={libraryInfo}
+          slots={scheduleSlots}
+        />
+
         {/* ── Footer ───────────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 pb-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500">
-          <span className="flex-1" />
-          <Link to="/about" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            {t('nav.about')}
-          </Link>
-          <Link to="/privacy" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-            {t('nav.privacy')}
-          </Link>
+        <div className="pt-1 pb-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex-1" />
+            <Link to="/about" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              {t('nav.about')}
+            </Link>
+            <Link to="/privacy" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+              {t('nav.privacy')}
+            </Link>
+          </div>
+          <div className="text-center mt-1">
+            {t('common.poweredBy')}{' '}
+            <Link
+              to="/about"
+              className="font-semibold text-amber-600 dark:text-amber-400 hover:underline transition-colors"
+            >
+              Elidune
+            </Link>
+          </div>
         </div>
 
       </div>

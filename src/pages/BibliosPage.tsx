@@ -6,7 +6,7 @@ import { Card, Button, Table, Badge, SearchInput, Modal, Input } from '@/compone
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType, type MediaTypeOption, type Serie, type Collection } from '@/types';
 import api from '@/services/api';
-import type { BiblioShort, Author, Z3950Server, ImportReport, DuplicateConfirmationRequired, Source, PaginatedResponse } from '@/types';
+import type { BiblioShort, Author, Z3950Server, ImportReport, DuplicateConfirmationRequired, Source, PaginatedResponse, CreateBiblioItemInput } from '@/types';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS } from '@/utils/codeLabels';
@@ -37,7 +37,7 @@ function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmation
   const data = ax.response?.data as Partial<DuplicateConfirmationRequired> | undefined;
   if (!data) return null;
   if (data.code !== 'duplicate_isbn_needs_confirmation') return null;
-  if (typeof data.existing_id !== 'string') return null;
+  if (typeof data.existingId !== 'string') return null;
   if (typeof data.message !== 'string') return null;
   return data as DuplicateConfirmationRequired;
 }
@@ -197,15 +197,15 @@ export default function BibliosPage() {
     queryFn: async ({ pageParam }) => {
       return api.getBiblios({
         freesearch: !showFilters ? (searchQuery || undefined) : undefined,
-        media_type: mediaType || undefined,
-        audience_type: audienceType || undefined,
+        mediaType: mediaType || undefined,
+        audienceType: audienceType || undefined,
         title: showFilters ? (advancedFilters.title || undefined) : undefined,
         author: showFilters ? (advancedFilters.author || undefined) : undefined,
         isbn: showFilters ? (advancedFilters.isbn || undefined) : undefined,
-        serie_id: activeFilterSerieId || undefined,
-        collection_id: activeFilterCollectionId || undefined,
+        serieId: activeFilterSerieId || undefined,
+        collectionId: activeFilterCollectionId || undefined,
         page: pageParam,
-        per_page: PAGE_SIZE,
+        perPage: PAGE_SIZE,
       });
     },
     staleTime: 0,
@@ -363,8 +363,8 @@ export default function BibliosPage() {
       header: t('items.titleField'),
       render: (item: BiblioShort) => (
         <div className="flex items-center gap-3">
-          <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.media_type as MediaType)} flex items-center justify-center`}>
-            {getMediaTypeIcon(item.media_type as MediaType)}
+          <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.mediaType as MediaType)} flex items-center justify-center`}>
+            {getMediaTypeIcon(item.mediaType as MediaType)}
           </div>
           <div className="min-w-0">
             <p className="font-medium text-gray-900 dark:text-white truncate">
@@ -392,7 +392,7 @@ export default function BibliosPage() {
       render: (item: BiblioShort) => {
         const list = item.items ?? [];
         const total = list.length;
-        const available = list.filter((s) => s.availability === 0).length;
+        const available = list.filter((s) => s.borrowable === true && !s.borrowed).length;
         if (total === 0) return <span className="text-gray-500 dark:text-gray-400">-</span>;
         return (
           <span className="text-gray-600 dark:text-gray-300">
@@ -415,7 +415,7 @@ export default function BibliosPage() {
     },
   ];
 
-  const canManage = canManageItems(user?.account_type);
+  const canManage = canManageItems(user?.accountType);
 
   return (
     <div className="space-y-4">
@@ -496,7 +496,7 @@ export default function BibliosPage() {
             {t('items.count', { count: totalItems })}
           </p>
         </div>
-        {canManageItems(user?.account_type) && (
+        {canManageItems(user?.accountType) && (
           <Button onClick={() => setShowCreateModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
             {t('items.add')}
           </Button>
@@ -682,7 +682,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     isbn: '',
     media_type: 'printedText' as MediaType,
     publication_date: '',
-    abstract_: '',
+    abstract: '',
     keywords: '',
     subject: '',
     audience_type: '',
@@ -745,8 +745,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
 
   // Sources and specimens (optional when creating item)
   const [sources, setSources] = useState<Source[]>([]);
-  const [specimens, setSpecimens] = useState<{ barcode: string; call_number: string; source_id: string }[]>([
-    { barcode: '', call_number: '', source_id: '' },
+  const [specimens, setSpecimens] = useState<{ barcode: string; callNumber: string; sourceId: string }[]>([
+    { barcode: '', callNumber: '', sourceId: '' },
   ]);
 
   const MEDIA_TYPES: MediaTypeOption[] = [
@@ -772,7 +772,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     const fetchServers = async () => {
       try {
         const settings = await api.getSettings();
-        const activeServers = (settings.z3950_servers || []).filter(s => s.is_active);
+        const activeServers = (settings.z3950Servers || []).filter(s => s.isActive);
         setZ3950Servers(activeServers);
       } catch (error) {
         console.error('Error fetching Z39.50 servers:', error);
@@ -784,8 +784,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         setSources(list);
         const defaultId = list.find((s) => s.default)?.id ?? list[0]?.id ?? '';
         setSpecimens((prev) =>
-          prev.length === 1 && prev[0].source_id === '' && defaultId
-            ? [{ ...prev[0], source_id: defaultId }]
+          prev.length === 1 && prev[0].sourceId === '' && defaultId
+            ? [{ ...prev[0], sourceId: defaultId }]
             : prev
         );
       } catch (error) {
@@ -814,8 +814,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       // Use first active server
       const response = await api.searchZ3950({
         isbn: formData.isbn,
-        server_id: z3950Servers[0].id,
-        max_results: 1,
+        serverId: z3950Servers[0].id,
+        maxResults: 1,
       });
 
       if (response.biblios && response.biblios.length > 0) {
@@ -824,15 +824,15 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
           ...prev,
           isbn: item.isbn || prev.isbn,
           title: item.title || prev.title,
-          media_type: (item.media_type || prev.media_type) as MediaType,
-          publication_date: item.publication_date || prev.publication_date,
+          media_type: (item.mediaType || prev.media_type) as MediaType,
+          publication_date: item.publicationDate || prev.publication_date,
           subject: item.subject || prev.subject,
-          abstract_: item.abstract_ || prev.abstract_,
-          keywords: item.keywords || prev.keywords,
-          audience_type: item.audience_type || prev.audience_type,
+          abstract: item.abstract || prev.abstract,
+          keywords: Array.isArray(item.keywords) ? item.keywords.join(', ') : (item.keywords || prev.keywords),
+          audience_type: item.audienceType || prev.audience_type,
           lang: item.lang || prev.lang,
-          edition_publisher: item.edition?.publisher_name || prev.edition_publisher,
-          edition_place: item.edition?.place_of_publication || prev.edition_place,
+          edition_publisher: item.edition?.publisherName || prev.edition_publisher,
+          edition_place: item.edition?.placeOfPublication || prev.edition_place,
           edition_date: item.edition?.date || prev.edition_date,
           authors:
             item.authors && item.authors.length > 0
@@ -849,7 +849,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
           setLinkedSeries(item.series.map((s) => ({
             id: s.id ?? undefined,
             name: s.name ?? '',
-            volumeNumber: (s.volume_number ?? s.volumeNumber)?.toString() ?? '',
+            volumeNumber: s.volumeNumber?.toString() ?? '',
           })));
         }
         // Populate linked collections from Z3950 result
@@ -857,8 +857,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
         if (firstColl) {
           setLinkedCollections([{
             id: firstColl.id ?? undefined,
-            name: firstColl.name ?? firstColl.primary_title ?? '',
-            volumeNumber: (firstColl.volume_number ?? firstColl.volumeNumber)?.toString() ?? '',
+            name: firstColl.name ?? '',
+            volumeNumber: firstColl.volumeNumber?.toString() ?? '',
           }]);
         }
         setZ3950Message({ type: 'success', text: t('z3950.dataFound') });
@@ -879,30 +879,30 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       .map((s) => ({
         id: s.id || null,
         name: s.name.trim() || undefined,
-        volume_number: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
+        volumeNumber: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
       }));
     const collections = linkedCollections
       .filter((c) => c.name.trim())
       .map((c) => ({
         id: c.id || null,
         name: c.name.trim() || undefined,
-        volume_number: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
+        volumeNumber: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
       }));
     return { series, collections };
   };
 
-  const buildSpecimensPayload = (): { barcode: string; call_number?: string; source_id: string }[] | undefined => {
-    const filled = specimens.filter((s) => s.source_id.trim() !== '' && s.barcode.trim() !== '');
+  const buildSpecimensPayload = (): CreateBiblioItemInput[] | undefined => {
+    const filled = specimens.filter((s) => s.sourceId.trim() !== '' && s.barcode.trim() !== '');
     if (filled.length === 0) return undefined;
     return filled.map((s) => ({
       barcode: s.barcode.trim(),
-      call_number: s.call_number.trim() || undefined,
-      source_id: s.source_id,
+      callNumber: s.callNumber.trim() || undefined,
+      sourceId: s.sourceId,
     }));
   };
 
   const handleAddSpecimen = () => {
-    setSpecimens([...specimens, { barcode: '', call_number: '', source_id: sources.find((s) => s.default)?.id ?? sources[0]?.id ?? '' }]);
+    setSpecimens([...specimens, { barcode: '', callNumber: '', sourceId: sources.find((s) => s.default)?.id ?? sources[0]?.id ?? '' }]);
   };
 
   const handleRemoveSpecimen = (index: number) => {
@@ -910,7 +910,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
     setSpecimens(specimens.filter((_, i) => i !== index));
   };
 
-  const handleSpecimenChange = (index: number, field: 'barcode' | 'call_number' | 'source_id', value: string) => {
+  const handleSpecimenChange = (index: number, field: 'barcode' | 'callNumber' | 'sourceId', value: string) => {
     const next = [...specimens];
     next[index] = { ...next[index], [field]: value };
     setSpecimens(next);
@@ -919,10 +919,10 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.title.trim() === '') return;
-    const invalidCallNumber = specimens.find((s) => s.call_number.trim() !== '' && !validateCallNumber(s.call_number));
+    const invalidCallNumber = specimens.find((s) => s.callNumber.trim() !== '' && !validateCallNumber(s.callNumber));
     if (invalidCallNumber) return;
     const specimenPayload = buildSpecimensPayload();
-    if (specimenPayload?.some((s) => !s.source_id)) return;
+    if (specimenPayload?.some((s) => !s.sourceId)) return;
     setIsLoading(true);
     try {
       const authorsPayload: Author[] = formData.authors.map((a) => ({
@@ -934,19 +934,19 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       const payload = {
         title: formData.title,
         isbn: formData.isbn || undefined,
-        media_type: formData.media_type,
-        publication_date: formData.publication_date || undefined,
-        abstract_: formData.abstract_ || undefined,
+        mediaType: formData.media_type,
+        publicationDate: formData.publication_date || undefined,
+        abstract: formData.abstract || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        audience_type: formData.audience_type || undefined,
+        audienceType: formData.audience_type || undefined,
         lang: formData.lang || undefined,
         edition:
           formData.edition_publisher || formData.edition_place || formData.edition_date
             ? {
                 id: null,
-                publisher_name: formData.edition_publisher || undefined,
-                place_of_publication: formData.edition_place || undefined,
+                publisherName: formData.edition_publisher || undefined,
+                placeOfPublication: formData.edition_place || undefined,
                 date: formData.edition_date || undefined,
               }
             : undefined,
@@ -956,14 +956,14 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       };
       const created = await api.createBiblio(payload);
       setCreatedItemId(created.biblio.id ?? null);
-      setImportReport(created.import_report);
+      setImportReport(created.importReport);
       onCreated();
     } catch (error) {
       const confirm = getDuplicateConfirmationRequired(error);
       if (confirm) {
         setConfirmReplaceError(null);
         setConfirmReplaceModal({
-          existingId: confirm.existing_id,
+          existingId: confirm.existingId,
           isbn: formData.isbn || undefined,
           existingTitle: undefined,
         });
@@ -990,19 +990,19 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       const payload = {
         title: formData.title,
         isbn: formData.isbn || undefined,
-        media_type: formData.media_type,
-        publication_date: formData.publication_date || undefined,
-        abstract_: formData.abstract_ || undefined,
+        mediaType: formData.media_type,
+        publicationDate: formData.publication_date || undefined,
+        abstract: formData.abstract || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        audience_type: formData.audience_type || undefined,
+        audienceType: formData.audience_type || undefined,
         lang: formData.lang || undefined,
         edition:
           formData.edition_publisher || formData.edition_place || formData.edition_date
             ? {
                 id: null,
-                publisher_name: formData.edition_publisher || undefined,
-                place_of_publication: formData.edition_place || undefined,
+                publisherName: formData.edition_publisher || undefined,
+                placeOfPublication: formData.edition_place || undefined,
                 date: formData.edition_date || undefined,
               }
             : undefined,
@@ -1013,7 +1013,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       const created = await api.createBiblio(payload, { confirmReplaceExistingId: confirmReplaceModal.existingId });
       setConfirmReplaceModal(null);
       setCreatedItemId(created.biblio.id ?? null);
-      setImportReport(created.import_report);
+      setImportReport(created.importReport);
       onCreated();
     } catch (err) {
       console.error('Error confirming replace existing item:', err);
@@ -1038,19 +1038,19 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       const payload = {
         title: formData.title,
         isbn: formData.isbn || undefined,
-        media_type: formData.media_type,
-        publication_date: formData.publication_date || undefined,
-        abstract_: formData.abstract_ || undefined,
+        mediaType: formData.media_type,
+        publicationDate: formData.publication_date || undefined,
+        abstract: formData.abstract || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
-        audience_type: formData.audience_type || undefined,
+        audienceType: formData.audience_type || undefined,
         lang: formData.lang || undefined,
         edition:
           formData.edition_publisher || formData.edition_place || formData.edition_date
             ? {
                 id: null,
-                publisher_name: formData.edition_publisher || undefined,
-                place_of_publication: formData.edition_place || undefined,
+                publisherName: formData.edition_publisher || undefined,
+                placeOfPublication: formData.edition_place || undefined,
                 date: formData.edition_date || undefined,
               }
             : undefined,
@@ -1061,7 +1061,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
       const created = await api.createBiblio(payload, { allowDuplicateIsbn: true });
       setConfirmReplaceModal(null);
       setCreatedItemId(created.biblio.id ?? null);
-      setImportReport(created.import_report);
+      setImportReport(created.importReport);
       onCreated();
     } catch (err) {
       console.error('Error creating item with duplicate ISBN:', err);
@@ -1085,7 +1085,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
             <div className="mx-auto max-w-xl text-left mb-4 p-4 rounded-lg border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10">
               <div className="text-sm font-medium text-green-900 dark:text-green-200">
                 {importReport.message || importReport.action}
-                {importReport.existing_id != null ? ` (ID: ${importReport.existing_id})` : ''}
+                {importReport.existingId != null ? ` (ID: ${importReport.existingId})` : ''}
               </div>
               {importReport.warnings?.length > 0 && (
                 <ul className="mt-2 list-disc pl-5 text-sm text-green-800 dark:text-green-300 space-y-1">
@@ -1186,8 +1186,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
           {t('items.abstract')}
         </label>
         <textarea
-          value={formData.abstract_}
-          onChange={(e) => setFormData({ ...formData, abstract_: e.target.value })}
+          value={formData.abstract}
+          onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
           rows={3}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         />
@@ -1330,7 +1330,7 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
             onChange={setLinkedCollections}
             onSearch={async (q) => {
               const res = await api.getCollections({ name: q, perPage: 10 });
-              return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? c.primary_title ?? '' }));
+              return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? '' }));
             }}
             volumeLabel={t('catalog.volumeNumber')}
           />
@@ -1370,8 +1370,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
                   onChange={(e) => handleSpecimenChange(index, 'barcode', e.target.value)}
                 />
                 <CallNumberField
-                  value={specimen.call_number}
-                  onChange={(v) => handleSpecimenChange(index, 'call_number', v)}
+                  value={specimen.callNumber}
+                  onChange={(v) => handleSpecimenChange(index, 'callNumber', v)}
                   suggestedValue={buildSuggestedCallNumber({
                     categoryCode: 'GEN',
                     year: formData.publication_date,
@@ -1381,8 +1381,8 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
                 />
                 <div>
                   <select
-                    value={specimen.source_id}
-                    onChange={(e) => handleSpecimenChange(index, 'source_id', e.target.value)}
+                    value={specimen.sourceId}
+                    onChange={(e) => handleSpecimenChange(index, 'sourceId', e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
                   >
                     <option value="">{t('items.selectSource')}</option>
@@ -1526,7 +1526,7 @@ function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
   };
 
   const collName = (c: Collection) =>
-    c.name ?? c.primary_title ?? c.secondary_title ?? '—';
+    c.name ?? c.secondaryTitle ?? '—';
 
   const columns = [
     {
@@ -1535,9 +1535,9 @@ function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
       render: (c: Collection) => (
         <div>
           <p className="font-medium text-gray-900 dark:text-white">{collName(c)}</p>
-          {(c.secondary_title ?? c.secondaryTitle) && (
+          {c.secondaryTitle && (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {c.secondary_title ?? c.secondaryTitle}
+              {c.secondaryTitle}
             </p>
           )}
         </div>
@@ -1687,9 +1687,9 @@ function CollectionForm({ initial, onSuccess, onCancel }: CollectionFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: initial?.name ?? initial?.primary_title ?? '',
-    secondaryTitle: initial?.secondaryTitle ?? initial?.secondary_title ?? '',
-    tertiaryTitle: initial?.tertiaryTitle ?? initial?.tertiary_title ?? '',
+    name: initial?.name ?? '',
+    secondaryTitle: initial?.secondaryTitle ?? '',
+    tertiaryTitle: initial?.tertiaryTitle ?? '',
     issn: initial?.issn ?? '',
   });
 

@@ -31,8 +31,9 @@ import type {
   CreateItem,
   UpdateItem,
   EnqueueResult,
-  MarcBatchImportReport,
   MarcBatchInfo,
+  TaskStartResponse,
+  BackgroundTask,
   PublicType,
   PublicTypeLoanSettings,
   CreatePublicType,
@@ -43,7 +44,6 @@ import type {
   AdminConfigResponse,
   ReindexSearchResponse,
   MaintenanceAction,
-  MaintenanceResponse,
   AuditLogPage,
   OverdueLoansPage,
   ReminderReport,
@@ -170,15 +170,15 @@ class ApiService {
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const deviceId = this.getDeviceId();
-    const loginData = deviceId ? { ...credentials, device_id: deviceId } : credentials;
+    const loginData = deviceId ? { ...credentials, deviceId } : credentials;
     const response = await this.client.post<LoginResponse>('/auth/login', loginData);
     const responseData = response.data;
 
-    if (responseData.device_id) {
-      this.setDeviceId(responseData.device_id);
+    if (responseData.deviceId) {
+      this.setDeviceId(responseData.deviceId);
     }
 
-    if (!responseData.requires_2fa && responseData.token) {
+    if (!responseData.requires2fa && responseData.token) {
       this.setToken(responseData.token);
     }
     return responseData;
@@ -226,20 +226,20 @@ class ApiService {
     title?: string;
     author?: string;
     isbn?: string;
-    media_type?: MediaType;
-    audience_type?: string;
+    mediaType?: MediaType;
+    audienceType?: string;
     freesearch?: string;
     page?: number;
-    per_page?: number;
+    perPage?: number;
     archive?: boolean;
-    serie_id?: string;
-    collection_id?: string;
+    serieId?: string;
+    collectionId?: string;
   }): Promise<PaginatedResponse<BiblioShort>> {
     const response = await this.client.get('/biblios', { params });
     return normalizePaginatedResponse<BiblioShort>(response.data);
   }
 
-  async getBiblio(id: string, params?: { full_record?: boolean }): Promise<Biblio> {
+  async getBiblio(id: string, params?: { fullRecord?: boolean }): Promise<Biblio> {
     const response = await this.client.get<Biblio>(`/biblios/${id}`, { params });
     return response.data;
   }
@@ -249,10 +249,10 @@ class ApiService {
     options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: string | null }
   ): Promise<ImportResult<Biblio>> {
     const params: Record<string, unknown> = {
-      allow_duplicate_isbn: options?.allowDuplicateIsbn === true,
+      allowDuplicateIsbn: options?.allowDuplicateIsbn === true,
     };
     if (options?.confirmReplaceExistingId != null) {
-      params.confirm_replace_existing_id = options.confirmReplaceExistingId;
+      params.confirmReplaceExistingId = options.confirmReplaceExistingId;
     }
     const response = await this.client.post<ImportResult<Biblio>>('/biblios', payload, { params });
     return response.data;
@@ -274,13 +274,7 @@ class ApiService {
     page?: number;
     perPage?: number;
   }): Promise<PaginatedResponse<Serie>> {
-    const response = await this.client.get('/series', {
-      params: {
-        name: params?.name,
-        page: params?.page,
-        per_page: params?.perPage,
-      },
-    });
+    const response = await this.client.get('/series', { params });
     return normalizePaginatedResponse<Serie>(response.data);
   }
 
@@ -315,13 +309,7 @@ class ApiService {
     page?: number;
     perPage?: number;
   }): Promise<PaginatedResponse<Collection>> {
-    const response = await this.client.get('/collections', {
-      params: {
-        name: params?.name,
-        page: params?.page,
-        per_page: params?.perPage,
-      },
-    });
+    const response = await this.client.get('/collections', { params });
     return normalizePaginatedResponse<Collection>(response.data);
   }
 
@@ -374,7 +362,7 @@ class ApiService {
     name?: string;
     barcode?: string;
     page?: number;
-    per_page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<UserShort>> {
     const response = await this.client.get('/users', { params });
     return normalizePaginatedResponse<UserShort>(response.data);
@@ -409,11 +397,11 @@ class ApiService {
   }
 
   async createLoan(data: {
-    user_id: string;
-    item_id?: string;
-    item_identification?: string;
+    userId: string;
+    itemId?: string;
+    itemIdentification?: string;
     force?: boolean;
-  }): Promise<{ id: string; issue_at: string; message: string }> {
+  }): Promise<{ id: string; issueAt: string; message: string }> {
     const response = await this.client.post('/loans', data);
     return response.data;
   }
@@ -423,7 +411,7 @@ class ApiService {
     return response.data;
   }
 
-  async renewLoan(loanId: string): Promise<{ id: string; issue_at: string; message: string }> {
+  async renewLoan(loanId: string): Promise<{ id: string; issueAt: string; message: string }> {
     const response = await this.client.post(`/loans/${loanId}/renew`);
     return response.data;
   }
@@ -433,21 +421,21 @@ class ApiService {
     return response.data;
   }
 
-  async renewLoanByBarcode(itemBarcode: string): Promise<{ id: string; issue_at: string; message: string }> {
+  async renewLoanByBarcode(itemBarcode: string): Promise<{ id: string; issueAt: string; message: string }> {
     const response = await this.client.post(`/loans/items/${itemBarcode}/renew`);
     return response.data;
   }
 
-  async getOverdueLoans(params?: { page?: number; per_page?: number }): Promise<OverdueLoansPage> {
+  async getOverdueLoans(params?: { page?: number; perPage?: number }): Promise<OverdueLoansPage> {
     const response = await this.client.get<OverdueLoansPage>('/loans/overdue', { params });
     return response.data;
   }
 
-  async sendOverdueReminders(options?: { dry_run?: boolean }): Promise<ReminderReport> {
+  async sendOverdueReminders(options?: { dryRun?: boolean }): Promise<ReminderReport> {
     const response = await this.client.post<ReminderReport>(
       '/loans/send-overdue-reminders',
       {},
-      { params: { dry_run: options?.dry_run === true } }
+      { params: { dryRun: options?.dryRun === true } }
     );
     return response.data;
   }
@@ -522,9 +510,7 @@ class ApiService {
   }
 
   async createInventorySession(data: CreateInventorySession): Promise<InventorySession> {
-    const response = await this.client.post<InventorySession>('/inventory/sessions', {
-      location_filter: data.locationFilter ?? null,
-    });
+    const response = await this.client.post<InventorySession>('/inventory/sessions', data);
     return response.data;
   }
 
@@ -584,36 +570,36 @@ class ApiService {
 
   async getStats(params?: {
     year?: number;
-    media_type?: MediaType;
-    public_type?: string;
+    mediaType?: MediaType;
+    publicType?: string;
   }): Promise<Stats> {
     const response = await this.client.get('/stats', { params });
     const d = response.data as Partial<Stats> & { items?: Stats['biblios'] };
-    // Server may send `biblios` (new) or legacy `items` for catalog totals
+    // Server sends `items` (catalog totals); keep `biblios` as the frontend key
     const biblios =
       d.biblios ??
       d.items ?? {
         total: 0,
-        by_media_type: [],
-        by_public_type: [],
+        byMediaType: [],
+        byPublicType: [],
       };
     const users = d.users ?? {
       total: 0,
       active: 0,
-      by_account_type: [],
+      byAccountType: [],
     };
     const loans = d.loans ?? {
       active: 0,
       overdue: 0,
-      returned_today: 0,
-      by_media_type: [],
+      returnedToday: 0,
+      byMediaType: [],
     };
     return { biblios, users, loans };
   }
 
   async getUserAggregateStats(params: {
-    start_date?: string;
-    end_date?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<UserAggregateStats> {
     const response = await this.client.get<UserAggregateStats>('/stats/users', {
       params: { ...params, mode: 'aggregate' },
@@ -622,10 +608,10 @@ class ApiService {
   }
 
   async getUserLoanStats(params?: {
-    sort_by?: 'total_loans' | 'active_loans' | 'overdue_loans';
+    sortBy?: 'totalLoans' | 'activeLoans' | 'overdueLoans';
     limit?: number;
-    start_date?: string;
-    end_date?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<UserLoanStats[]> {
     const response = await this.client.get('/stats/users', { params });
     const data = response.data;
@@ -641,11 +627,11 @@ class ApiService {
   }
 
   async getCatalogStats(params?: {
-    start_date?: string;
-    end_date?: string;
-    by_source?: boolean;
-    by_media_type?: boolean;
-    by_public_type?: boolean;
+    startDate?: string;
+    endDate?: string;
+    bySource?: boolean;
+    byMediaType?: boolean;
+    byPublicType?: boolean;
   }): Promise<CatalogStats> {
     const response = await this.client.get<CatalogStats>('/stats/catalog', { params });
     return response.data;
@@ -706,7 +692,7 @@ class ApiService {
 
   async getSources(includeArchived = false): Promise<Source[]> {
     const response = await this.client.get('/sources', {
-      params: { include_archived: includeArchived },
+      params: { includeArchived },
     });
     const data = response.data;
     if (Array.isArray(data)) return data;
@@ -734,7 +720,7 @@ class ApiService {
 
   async mergeSources(sourceIds: string[], name: string): Promise<Source> {
     const response = await this.client.post<Source>('/sources/merge', {
-      source_ids: sourceIds,
+      sourceIds,
       name,
     });
     return response.data;
@@ -746,8 +732,8 @@ class ApiService {
     isbn?: string;
     title?: string;
     author?: string;
-    server_id?: string;
-    max_results?: number;
+    serverId?: string;
+    maxResults?: number;
   }): Promise<{ total: number; biblios: Biblio[]; source: string }> {
     const cqlParts: string[] = [];
 
@@ -759,8 +745,8 @@ class ApiService {
 
     const requestParams: Record<string, unknown> = {
       query: cqlQuery,
-      server_id: params.server_id,
-      max_results: params.max_results,
+      serverId: params.serverId,
+      maxResults: params.maxResults,
     };
 
     const response = await this.client.get('/z3950/search', { params: requestParams });
@@ -769,22 +755,22 @@ class ApiService {
 
   async importZ3950(
     biblioId: string,
-    items?: { barcode: string; call_number?: string }[],
+    items?: { barcode: string; callNumber?: string }[],
     sourceId?: string,
     options?: { confirmReplaceExistingId?: string | null }
   ): Promise<ImportResult<Biblio>> {
     const itemsWithSource =
       items?.map((item) => ({
         ...item,
-        source_id: sourceId,
+        sourceId,
       })) ?? undefined;
 
     const response = await this.client.post<ImportResult<Biblio>>('/z3950/import', {
-      biblio_id: biblioId,
+      biblioId,
       items: itemsWithSource,
-      source_id: sourceId,
+      sourceId,
       ...(options?.confirmReplaceExistingId != null && {
-        confirm_replace_existing_id: options.confirmReplaceExistingId,
+        confirmReplaceExistingId: options.confirmReplaceExistingId,
       }),
     });
     return response.data;
@@ -798,7 +784,7 @@ class ApiService {
 
     const response = await this.client.post<EnqueueResult>('/biblios/load-marc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      params: sourceId != null ? { source_id: sourceId } : undefined,
+      params: sourceId != null ? { sourceId } : undefined,
     });
     return response.data;
   }
@@ -815,18 +801,12 @@ class ApiService {
 
   async importMarcBatch(
     batchId: string,
-    recordId?: number,
     sourceId?: string | number | null,
-    options?: { allowDuplicateIsbn?: boolean; confirmReplaceExistingId?: string | null }
-  ): Promise<MarcBatchImportReport> {
-    const params: Record<string, unknown> = { batch_id: batchId };
-    if (recordId != null) params.record_id = recordId;
-    if (sourceId != null) params.source_id = sourceId;
-    if (options?.allowDuplicateIsbn === true) params.allow_duplicate_isbn = true;
-    if (options?.confirmReplaceExistingId != null)
-      params.confirm_replace_existing_id = options.confirmReplaceExistingId;
+  ): Promise<TaskStartResponse> {
+    const params: Record<string, unknown> = { batchId };
+    if (sourceId != null) params.sourceId = sourceId;
 
-    const response = await this.client.post<MarcBatchImportReport>('/biblios/import-marc-batch', null, {
+    const response = await this.client.post<TaskStartResponse>('/biblios/import-marc-batch', null, {
       params,
     });
     return response.data;
@@ -838,7 +818,7 @@ class ApiService {
     title?: string;
     author?: string;
     isbn?: string;
-    media_type?: MediaType;
+    mediaType?: MediaType;
   }): Promise<Blob> {
     const response = await this.client.get('/biblios/export.csv', {
       params,
@@ -860,9 +840,9 @@ class ApiService {
     title?: string;
     author?: string;
     isbn?: string;
-    media_type?: MediaType;
+    mediaType?: MediaType;
     page?: number;
-    per_page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<BiblioShort>> {
     const response = await this.client.get('/opac/biblios', {
       params,
@@ -913,22 +893,34 @@ class ApiService {
     return response.data;
   }
 
-  async postMaintenance(actions: MaintenanceAction[]): Promise<MaintenanceResponse> {
-    const response = await this.client.post<MaintenanceResponse>('/maintenance', { actions });
+  async postMaintenance(actions: MaintenanceAction[]): Promise<TaskStartResponse> {
+    const response = await this.client.post<TaskStartResponse>('/maintenance', { actions });
+    return response.data;
+  }
+
+  // ─── Background tasks ────────────────────────────────────────────
+
+  async getTask(id: string): Promise<BackgroundTask> {
+    const response = await this.client.get<BackgroundTask>(`/tasks/${id}`);
+    return response.data;
+  }
+
+  async listTasks(): Promise<BackgroundTask[]> {
+    const response = await this.client.get<BackgroundTask[]>('/tasks');
     return response.data;
   }
 
   // ─── Audit log ───────────────────────────────────────────────────
 
   async getAuditLog(params?: {
-    event_type?: string;
-    entity_type?: string;
-    entity_id?: number;
-    user_id?: number;
-    from_date?: string;
-    to_date?: string;
+    eventType?: string;
+    entityType?: string;
+    entityId?: string;
+    userId?: string;
+    fromDate?: string;
+    toDate?: string;
     page?: number;
-    per_page?: number;
+    perPage?: number;
   }): Promise<AuditLogPage> {
     const response = await this.client.get<AuditLogPage>('/audit', { params });
     return response.data;
@@ -936,9 +928,9 @@ class ApiService {
 
   async exportAuditLog(params?: {
     format?: 'json' | 'csv';
-    event_type?: string;
-    from_date?: string;
-    to_date?: string;
+    eventType?: string;
+    fromDate?: string;
+    toDate?: string;
   }): Promise<Blob> {
     const response = await this.client.get('/audit/export', {
       params,
@@ -950,11 +942,11 @@ class ApiService {
   // ─── Events ──────────────────────────────────────────────────────
 
   async getEvents(params?: {
-    start_date?: string;
-    end_date?: string;
-    event_type?: number;
+    startDate?: string;
+    endDate?: string;
+    eventType?: number;
     page?: number;
-    per_page?: number;
+    perPage?: number;
   }): Promise<EventsListResponse> {
     const response = await this.client.get<EventsListResponse>('/events', { params });
     return response.data;
@@ -1042,8 +1034,8 @@ class ApiService {
   // ─── Schedules — Closures ────────────────────────────────────────
 
   async getScheduleClosures(params?: {
-    start_date?: string;
-    end_date?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<ScheduleClosure[]> {
     const response = await this.client.get('/schedules/closures', { params });
     const data = response.data;

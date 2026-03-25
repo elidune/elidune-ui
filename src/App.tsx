@@ -58,7 +58,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function LibrarianRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
-  if (!isLibrarian(user?.account_type)) {
+  if (!isLibrarian(user?.accountType)) {
     return <Navigate to="/" replace />;
   }
 
@@ -68,7 +68,7 @@ function LibrarianRoute({ children }: { children: React.ReactNode }) {
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
-  if (!isAdmin(user?.account_type)) {
+  if (!isAdmin(user?.accountType)) {
     return <Navigate to="/" replace />;
   }
 

@@ -32,7 +32,7 @@ export default function UsersPage() {
       const response = await api.getUsers({
         name: searchQuery || undefined,
         page: currentPage,
-        per_page: USERS_PER_PAGE,
+        perPage: USERS_PER_PAGE,
       });
       setUsers(response.items);
       setTotalUsers(response.total);
@@ -73,9 +73,9 @@ export default function UsersPage() {
               {user.firstname} {user.lastname}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {user.account_type}
-              {user.public_type && (() => {
-                const pt = publicTypes.find((p) => p.id === String(user.public_type));
+              {user.accountType}
+              {user.publicType && (() => {
+                const pt = publicTypes.find((p) => p.id === String(user.publicType));
                 return pt ? <> · {pt.label}</> : null;
               })()}
             </p>
@@ -87,14 +87,14 @@ export default function UsersPage() {
       key: 'loans',
       header: t('users.loans'),
       render: (user: UserShort) => {
-        const loanCount = user.loans?.length ?? user.nb_loans ?? 0;
+        const loanCount = user.loans?.length ?? user.nbLoans ?? 0;
         return (
           <div className="flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-gray-400" />
             <span>{loanCount}</span>
-            {(user.nb_late_loans || 0) > 0 && (
+            {(user.nbLateLoans || 0) > 0 && (
               <Badge variant="danger" size="sm">
-                {user.nb_late_loans} {t('users.lateLoans')}
+                {user.nbLateLoans} {t('users.lateLoans')}
               </Badge>
             )}
           </div>
@@ -105,7 +105,7 @@ export default function UsersPage() {
       key: 'status',
       header: t('common.status'),
       render: (user: UserShort) =>
-        (user.nb_late_loans || 0) > 0 ? (
+        (user.nbLateLoans || 0) > 0 ? (
           <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm">{t('users.late')}</span>
@@ -212,15 +212,15 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
     email: '',
     phone: '',
     barcode: '',
-    account_type: 'reader',
+    accountType: 'reader',
     birthdate: '',
-    addr_street: '',
-    addr_zip_code: '',
-    addr_city: '',
+    addrStreet: '',
+    addrZipCode: '',
+    addrCity: '',
     notes: '',
     fee: '',
-    group_id: '',
-    public_type: '',
+    groupId: '',
+    publicType: '',
   });
 
   const ACCOUNT_TYPES = [
@@ -242,15 +242,15 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         barcode: formData.barcode || undefined,
-        account_type: formData.account_type || undefined,
+        accountType: formData.accountType || undefined,
         birthdate: formData.birthdate || undefined,
-        addr_street: formData.addr_street || undefined,
-        addr_zip_code: formData.addr_zip_code ? parseInt(formData.addr_zip_code) : undefined,
-        addr_city: formData.addr_city || undefined,
+        addrStreet: formData.addrStreet || undefined,
+        addrZipCode: formData.addrZipCode ? parseInt(formData.addrZipCode) : undefined,
+        addrCity: formData.addrCity || undefined,
         notes: formData.notes || undefined,
         fee: formData.fee || undefined,
-        group_id: formData.group_id ? String(formData.group_id) : undefined,
-        public_type: formData.public_type ? String(formData.public_type) : undefined,
+        groupId: formData.groupId ? String(formData.groupId) : undefined,
+        publicType: formData.publicType ? String(formData.publicType) : undefined,
       };
       await api.createUser(createData);
       onSuccess();
@@ -320,20 +320,20 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
       </h4>
       <Input
         label={t('profile.street')}
-        value={formData.addr_street}
-        onChange={(e) => setFormData({ ...formData, addr_street: e.target.value })}
+        value={formData.addrStreet}
+        onChange={(e) => setFormData({ ...formData, addrStreet: e.target.value })}
         leftIcon={<MapPin className="h-4 w-4" />}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label={t('profile.zipCode')}
-          value={formData.addr_zip_code}
-          onChange={(e) => setFormData({ ...formData, addr_zip_code: e.target.value })}
+          value={formData.addrZipCode}
+          onChange={(e) => setFormData({ ...formData, addrZipCode: e.target.value })}
         />
         <Input
           label={t('profile.city')}
-          value={formData.addr_city}
-          onChange={(e) => setFormData({ ...formData, addr_city: e.target.value })}
+          value={formData.addrCity}
+          onChange={(e) => setFormData({ ...formData, addrCity: e.target.value })}
         />
       </div>
 
@@ -360,8 +360,8 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
             {t('profile.accountType')}
           </label>
           <select
-            value={formData.account_type}
-            onChange={(e) => setFormData({ ...formData, account_type: e.target.value })}
+            value={formData.accountType}
+            onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             {ACCOUNT_TYPES.map((type) => (
@@ -381,16 +381,16 @@ function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: Cre
         <Input
           label={t('users.groupId')}
           type="number"
-          value={formData.group_id}
-          onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
+          value={formData.groupId}
+          onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
         />
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('users.publicType')}
           </label>
           <select
-            value={formData.public_type}
-            onChange={(e) => setFormData({ ...formData, public_type: e.target.value })}
+            value={formData.publicType}
+            onChange={(e) => setFormData({ ...formData, publicType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
             <option value="">{t('common.select')}</option>
