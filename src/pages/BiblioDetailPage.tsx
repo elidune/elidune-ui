@@ -15,6 +15,7 @@ import {
   Plus,
   Minus,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
@@ -70,6 +71,10 @@ function getSuggestedCallNumberFromItem(item: Biblio): string {
     year: year ? parseInt(year, 10) : undefined,
     authorOrCollectorName: authorName,
   });
+}
+
+function volumeBadgeVisible(vol: number | null | undefined): vol is number {
+  return vol != null && vol !== 0;
 }
 
 export default function BiblioDetailPage() {
@@ -301,7 +306,7 @@ export default function BiblioDetailPage() {
                   icon={Plus} 
                   label={t('items.specimens')} 
                   value={item.items.length > 0
-                    ? `${item.items.filter(s => s.borrowable === true).length}/${item.items.length}`
+                    ? `${item.items.filter((s) => !s.borrowed).length}/${item.items.length}`
                     : '0'
                   } 
                 />
@@ -403,22 +408,59 @@ export default function BiblioDetailPage() {
                       item.collectionVolumeNumbers?.[i] ??
                       item.collectionVolumeNumber ??
                       null;
+                    const title = c.name ?? c.secondaryTitle ?? '—';
+                    const openCollectionCatalog = () => {
+                      if (!c.id) return;
+                      const params = new URLSearchParams();
+                      params.set('collection_id', c.id);
+                      params.set('collection_name', title);
+                      navigate(`/biblios?${params.toString()}`);
+                    };
                     return (
                       <div key={c.id ?? i} className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {c.name ?? c.secondaryTitle ?? '—'}
-                          </p>
-                          {c.secondaryTitle && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {c.secondaryTitle}
-                            </p>
-                          )}
-                          {c.issn && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {c.issn}</p>
+                        <div className="min-w-0 flex-1">
+                          {c.id ? (
+                            <button
+                              type="button"
+                              onClick={openCollectionCatalog}
+                              title={t('catalog.openInCatalog')}
+                              className="group w-full text-left rounded-lg -m-1 p-1.5 border border-transparent hover:border-amber-200/90 dark:hover:border-amber-800/60 hover:bg-amber-50/90 dark:hover:bg-amber-950/35 transition-colors"
+                            >
+                              <div className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-amber-800 dark:text-amber-200 group-hover:underline underline-offset-2 decoration-amber-600/50">
+                                    {title}
+                                  </p>
+                                  {c.secondaryTitle && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                      {c.secondaryTitle}
+                                    </p>
+                                  )}
+                                  {c.issn && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {c.issn}</p>
+                                  )}
+                                </div>
+                                <ExternalLink
+                                  className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5 opacity-80 group-hover:opacity-100"
+                                  aria-hidden
+                                />
+                              </div>
+                            </button>
+                          ) : (
+                            <>
+                              <p className="font-medium text-gray-900 dark:text-white">{title}</p>
+                              {c.secondaryTitle && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {c.secondaryTitle}
+                                </p>
+                              )}
+                              {c.issn && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {c.issn}</p>
+                              )}
+                            </>
                           )}
                         </div>
-                        {volNum != null && (
+                        {volumeBadgeVisible(volNum) && (
                           <span className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                             {t('catalog.volumeNumber')} {volNum}
                           </span>
@@ -442,15 +484,49 @@ export default function BiblioDetailPage() {
                     item.seriesVolumeNumbers?.[i] ??
                     item.seriesVolumeNumbers?.[i] ??
                     null;
+                  const serieTitle = s.name ?? '—';
+                  const openSerieCatalog = () => {
+                    if (!s.id) return;
+                    const params = new URLSearchParams();
+                    params.set('serie_id', s.id);
+                    params.set('serie_name', serieTitle);
+                    navigate(`/biblios?${params.toString()}`);
+                  };
                   return (
                     <div key={s.id ?? i} className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{s.name ?? '—'}</p>
-                        {s.issn && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {s.issn}</p>
+                      <div className="min-w-0 flex-1">
+                        {s.id ? (
+                          <button
+                            type="button"
+                            onClick={openSerieCatalog}
+                            title={t('catalog.openInCatalog')}
+                            className="group w-full text-left rounded-lg -m-1 p-1.5 border border-transparent hover:border-amber-200/90 dark:hover:border-amber-800/60 hover:bg-amber-50/90 dark:hover:bg-amber-950/35 transition-colors"
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-amber-800 dark:text-amber-200 group-hover:underline underline-offset-2 decoration-amber-600/50">
+                                  {serieTitle}
+                                </p>
+                                {s.issn && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">ISSN: {s.issn}</p>
+                                )}
+                              </div>
+                              <ExternalLink
+                                className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5 opacity-80 group-hover:opacity-100"
+                                aria-hidden
+                              />
+                            </div>
+                          </button>
+                        ) : (
+                          <>
+                            <p className="font-medium text-gray-900 dark:text-white">{serieTitle}</p>
+                            {s.issn && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400">ISSN: {s.issn}</p>
+                            )}
+                          </>
                         )}
                       </div>
-                      {volNum != null && (
+                      {volumeBadgeVisible(volNum) && (
                         <span className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                           {t('catalog.volumeNumber')} {volNum}
                         </span>
@@ -657,10 +733,9 @@ interface SpecimenCardProps {
 function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardProps) { // specimen is physical Item
   const { t } = useTranslation();
 
-  const getAvailabilityBadge = (borrowable?: boolean | null) => {
-    if (borrowable === true) return <Badge variant="success">{t('items.available')}</Badge>;
-    if (borrowable === false) return <Badge variant="danger">{t('items.borrowed')}</Badge>;
-    return <Badge>{t('items.unavailable')}</Badge>;
+  const getAvailabilityBadge = (borrowed?: boolean) => {
+    if (borrowed === true) return <Badge variant="warning">{t('items.borrowed')}</Badge>;
+    return <Badge variant="success">{t('items.available')}</Badge>;
   };
 
   const borrowableBadge =
@@ -677,7 +752,7 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
           {specimen.barcode || t('items.noSpecimens')}
         </p>
         <div className="flex items-center gap-2">
-          {getAvailabilityBadge(specimen.borrowable)}
+          {getAvailabilityBadge(specimen.borrowed)}
           {borrowableBadge}
           {canManage && (
             <div className="flex gap-1">

@@ -63,6 +63,7 @@ export default function BibliosPage() {
             next.delete('tab');
           } else {
             next.set('tab', tab);
+            next.delete('freesearch');
           }
           return next;
         },
@@ -97,6 +98,7 @@ export default function BibliosPage() {
         (prev) => {
           const next = new URLSearchParams(prev);
           next.delete('tab');
+          next.delete('freesearch');
           next.delete('serie_id');
           next.delete('serie_name');
           next.delete('collection_id');
@@ -194,6 +196,7 @@ export default function BibliosPage() {
         activeFilterCollectionId,
       },
     ],
+    enabled: activeTab === 'catalog',
     queryFn: async ({ pageParam }) => {
       return api.getBiblios({
         freesearch: !showFilters ? (searchQuery || undefined) : undefined,
@@ -292,6 +295,20 @@ export default function BibliosPage() {
     if (status === 0) return <Badge variant="success">{t('items.available')}</Badge>;
     if (status === 1) return <Badge variant="warning">{t('items.borrowed')}</Badge>;
     return <Badge>{t('items.unavailable')}</Badge>;
+  };
+
+  const getCatalogRowStatusBadge = (row: BiblioShort) => {
+    const list = row.items ?? [];
+    if (list.length > 0) {
+      if (list.every((s) => s.borrowed === true)) {
+        return <Badge variant="warning">{t('items.borrowed')}</Badge>;
+      }
+      if (list.some((s) => s.borrowable === true && !s.borrowed)) {
+        return <Badge variant="success">{t('items.available')}</Badge>;
+      }
+      return <Badge>{t('items.unavailable')}</Badge>;
+    }
+    return getStatusBadge(row.status);
   };
 
   const getMediaTypeIcon = (mediaType?: MediaType) => {
@@ -411,7 +428,7 @@ export default function BibliosPage() {
     {
       key: 'status',
       header: t('common.status'),
-      render: (item: BiblioShort) => getStatusBadge(item.status),
+      render: (item: BiblioShort) => getCatalogRowStatusBadge(item),
     },
   ];
 
@@ -503,7 +520,8 @@ export default function BibliosPage() {
         )}
       </div>
 
-      {/* Search and filters */}
+      {/* Search and filters — hidden while a serie/collection filter is active */}
+      {!(activeFilterSerieId || activeFilterCollectionId) && (
       <Card>
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
@@ -610,6 +628,7 @@ export default function BibliosPage() {
           </div>
         )}
       </Card>
+      )}
 
       {/* Items list: fixed-height scroll area so header/filters stay static */}
       <Card padding="none" className="flex flex-col min-h-0">
@@ -1474,6 +1493,13 @@ function CreateItemForm({ onCreated, onClose }: CreateItemFormProps) {
 
 // ─── Collections Tab ─────────────────────────────────────────────────────────
 
+const ENTITY_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function looksLikeEntityUuid(s: string): boolean {
+  return ENTITY_UUID_RE.test(s.trim());
+}
+
 const COLL_PAGE_SIZE = 25;
 
 interface CollectionsTabProps {
@@ -1497,6 +1523,20 @@ function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
   const load = useCallback(async (q: string, p: number) => {
     setIsLoading(true);
     try {
+      const trimmed = q.trim();
+      if (looksLikeEntityUuid(trimmed)) {
+        const one = await api.getCollection(trimmed).catch(() => null);
+        if (one) {
+          setData({
+            items: [one],
+            total: 1,
+            page: 1,
+            perPage: COLL_PAGE_SIZE,
+            pageCount: 1,
+          });
+          return;
+        }
+      }
       const res = await api.getCollections({ name: q || undefined, page: p, perPage: COLL_PAGE_SIZE });
       setData(res);
     } catch {
@@ -1781,6 +1821,20 @@ function SeriesTab({ canManage, onSelect }: SeriesTabProps) {
   const load = useCallback(async (q: string, p: number) => {
     setIsLoading(true);
     try {
+      const trimmed = q.trim();
+      if (looksLikeEntityUuid(trimmed)) {
+        const one = await api.getSerie(trimmed).catch(() => null);
+        if (one) {
+          setData({
+            items: [one],
+            total: 1,
+            page: 1,
+            perPage: SERIES_PAGE_SIZE,
+            pageCount: 1,
+          });
+          return;
+        }
+      }
       const res = await api.getSeries({ name: q || undefined, page: p, perPage: SERIES_PAGE_SIZE });
       setData(res);
     } catch {

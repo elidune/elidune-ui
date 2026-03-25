@@ -41,7 +41,7 @@ import {
 } from 'recharts';
 import { Card, CardHeader, Button, Badge, Modal, Input, Table } from '@/components/common';
 import api from '@/services/api';
-import { getApiErrorMessage } from '@/utils/apiError';
+import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType, type FinesResponse, type Reservation, type HistoryPreference } from '@/types';
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +57,8 @@ export default function UserDetailPage() {
   const [hasLoadedPastLoans, setHasLoadedPastLoans] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteUserLoading, setDeleteUserLoading] = useState(false);
+  const [deleteUserActiveLoansError, setDeleteUserActiveLoansError] = useState(false);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [isBorrowLoading, setIsBorrowLoading] = useState(false);
@@ -319,13 +321,29 @@ export default function UserDetailPage() {
     { value: 'year', label: t('stats.interval.year') },
   ];
 
-  const handleDelete = async () => {
+  const handleDelete = async (force = false) => {
     if (!user) return;
+    if (deleteUserLoading) return;
+    setDeleteUserLoading(true);
     try {
-      await api.deleteUser(user.id);
+      await api.deleteUser(user.id, force);
       navigate('/users');
-    } catch (error) {
-      console.error('Error deleting user:', error);
+    } catch (error: unknown) {
+      const code = getApiErrorCode(error);
+      const msg =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+      if (
+        !force &&
+        (code === 'business_rule_violation' ||
+          (typeof msg === 'string' &&
+            (msg.includes('active loans') || msg.includes('force=true'))))
+      ) {
+        setDeleteUserActiveLoansError(true);
+      } else {
+        console.error('Error deleting user:', error);
+      }
+    } finally {
+      setDeleteUserLoading(false);
     }
   };
 
@@ -1050,25 +1068,54 @@ export default function UserDetailPage() {
       {/* Delete confirmation modal */}
       <Modal
         isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Confirmer la suppression"
+        onClose={() => {
+          if (deleteUserLoading) return;
+          setShowDeleteModal(false);
+          setDeleteUserActiveLoansError(false);
+        }}
+        title={t('common.confirm')}
         size="sm"
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-              Annuler
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (deleteUserLoading) return;
+                setShowDeleteModal(false);
+                setDeleteUserActiveLoansError(false);
+              }}
+            >
+              {t('common.cancel')}
             </Button>
-            <Button variant="danger" onClick={handleDelete}>
-              Supprimer
-            </Button>
+            {deleteUserActiveLoansError ? (
+              <Button
+                variant="danger"
+                disabled={deleteUserLoading}
+                isLoading={deleteUserLoading}
+                onClick={() => handleDelete(true)}
+              >
+                {t('users.forceDelete')}
+              </Button>
+            ) : (
+              <Button
+                variant="danger"
+                disabled={deleteUserLoading}
+                isLoading={deleteUserLoading}
+                onClick={() => handleDelete(false)}
+              >
+                {t('common.delete')}
+              </Button>
+            )}
           </div>
         }
       >
         <p className="text-gray-600 dark:text-gray-300">
-          Êtes-vous sûr de vouloir supprimer le compte de {user.firstname} {user.lastname} ?
-          {activeLoans.length > 0 && (
+          {deleteUserActiveLoansError
+            ? t('users.activeLoansForceDelete')
+            : t('users.deleteConfirm', { name: `${user.firstname} ${user.lastname}`.trim() })}
+          {!deleteUserActiveLoansError && activeLoans.length > 0 && (
             <span className="block mt-2 text-amber-600 dark:text-amber-400">
-              ⚠️ Cet usager a encore {activeLoans.length} emprunt(s) en cours.
+              {t('users.hasLoansWarning', { count: activeLoans.length })}
             </span>
           )}
         </p>

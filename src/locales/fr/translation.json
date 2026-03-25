@@ -231,6 +231,8 @@
     "identifier": "Identifiant",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer le compte de {{name}} ?",
     "hasLoansWarning": "Cet usager a encore {{count}} emprunt(s) en cours.",
+    "activeLoansForceDelete": "Cet usager a encore des emprunts en cours. La suppression forcée est irréversible. Confirmer ?",
+    "forceDelete": "Forcer la suppression",
     "reader": "Lecteur",
     "librarian": "Bibliothécaire",
     "administrator": "Administrateur",
@@ -1266,14 +1268,14 @@
     "addCollection": "Nouvelle collection",
     "editCollection": "Modifier la collection",
     "deleteCollectionConfirm": "Supprimer la collection « {{name}} » ? Cette action est irréversible.",
-    "searchCollections": "Rechercher une collection…",
+    "searchCollections": "Rechercher par nom ou par identifiant (UUID)…",
     "serieName": "Nom",
     "serieCount": "{{count}} série(s)",
     "noSeries": "Aucune série.",
     "addSerie": "Nouvelle série",
     "editSerie": "Modifier la série",
     "deleteSerieConfirm": "Supprimer la série « {{name}} » ? Cette action est irréversible.",
-    "searchSeries": "Rechercher une série…",
+    "searchSeries": "Rechercher par nom ou par identifiant (UUID)…",
     "key": "Clé",
     "volumeNumber": "n°",
     "willCreate": "sera créé",
@@ -1281,7 +1283,8 @@
     "searchOrCreateCollection": "Rechercher ou saisir une collection…",
     "searchOrCreateSerie": "Rechercher ou saisir une série…",
     "filteredBy": "Filtré par :",
-    "clearFilter": "Effacer le filtre"
+    "clearFilter": "Effacer le filtre",
+    "openInCatalog": "Afficher les documents correspondants dans le catalogue"
   },
   "backgroundTask": {
     "status": {
