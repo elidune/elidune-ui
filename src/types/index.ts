@@ -101,7 +101,8 @@ export interface User {
   createdAt?: string;
   updateAt?: string;
   archivedAt?: string;
-  issueAt?: string;
+  /** Subscription / membership expiry (ISO). Null = unlimited. */
+  expiryAt?: string | null;
   // 2FA fields
   twoFactorEnabled?: boolean;
   twoFactorMethod?: string | null;
@@ -145,6 +146,9 @@ export interface UserShort {
   nbLoans?: number | null;
   nbLateLoans?: number | null;
   loans?: Loan[];
+  /** Subscription / membership expiry (ISO). Null = unlimited. */
+  expiryAt?: string | null;
+  createdAt?: string | null;
 }
 
 export interface LoginRequest {
@@ -434,7 +438,7 @@ export interface UpdateItem {
 export interface Loan {
   id: string;
   startDate: string;
-  issueAt: string;
+  expiryAt: string;
   /** Present when the loan has been returned */
   returnedAt?: string | null;
   renewalDate?: string | null;
@@ -555,6 +559,126 @@ export interface LoanStatsResponse {
   totalReturns: number;
   timeSeries: LoanStatsTimeSeries[];
   byMediaType: StatEntry[];
+}
+
+// Flexible stats builder (`GET /stats/schema`, `POST /stats/query`, `/stats/saved`)
+export type StatsFilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'notIn'
+  | 'isNull'
+  | 'isNotNull';
+
+export type StatsAggregateFunction = 'count' | 'countDistinct' | 'sum' | 'avg' | 'min' | 'max';
+
+export type StatsTimeGranularity = 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+export interface StatsSelectField {
+  field: string;
+  alias?: string | null;
+}
+
+export interface StatsGroupByField {
+  field: string;
+  alias?: string | null;
+}
+
+export interface StatsFilterClause {
+  field: string;
+  op: StatsFilterOperator;
+  value: unknown;
+}
+
+export interface StatsHavingFilter {
+  field: string;
+  op: StatsFilterOperator;
+  value: unknown;
+}
+
+export interface StatsAggregation {
+  fn: StatsAggregateFunction;
+  field: string;
+  alias: string;
+}
+
+export interface StatsTimeBucket {
+  field: string;
+  granularity: StatsTimeGranularity;
+  alias?: string | null;
+}
+
+export interface StatsOrderBy {
+  field: string;
+  dir?: 'asc' | 'desc' | null;
+}
+
+export interface StatsBuilderBody {
+  entity: string;
+  joins: string[];
+  select: StatsSelectField[];
+  filters: StatsFilterClause[];
+  aggregations: StatsAggregation[];
+  groupBy: StatsGroupByField[];
+  having: StatsHavingFilter[];
+  timeBucket?: StatsTimeBucket | null;
+  orderBy: StatsOrderBy[];
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface StatsColumnMeta {
+  name: string;
+  label: string;
+  dataType: string;
+}
+
+export interface StatsTableResponse {
+  columns: StatsColumnMeta[];
+  rows: Record<string, unknown>[];
+  totalRows: number;
+  limit: number;
+  offset: number;
+}
+
+export interface StatsSchemaRelation {
+  join: [string, string];
+  label: string;
+}
+
+export interface StatsSchemaEntity {
+  label: string;
+  fields: Record<string, { type: string; label: string }>;
+  relations: Record<string, StatsSchemaRelation>;
+}
+
+export interface StatsSchema {
+  entities: Record<string, StatsSchemaEntity>;
+  aggregationFunctions: string[];
+  operators: string[];
+  timeGranularities: string[];
+}
+
+export interface SavedStatsQuery {
+  id: number;
+  name: string;
+  description?: string | null;
+  query: StatsBuilderBody;
+  userId: number;
+  isShared: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedStatsQueryWrite {
+  name: string;
+  description?: string | null;
+  query: StatsBuilderBody;
+  isShared: boolean;
 }
 
 /** Normalized client shape; server JSON uses `per_page` and `page_count` (see `normalizePaginatedResponse`). */
@@ -850,7 +974,7 @@ export interface OverdueLoanInfo {
   authors?: string;
   itemBarcode?: string;
   loanDate: string;
-  issueAt: string | null;
+  expiryAt: string | null;
   lastReminderSentAt: string | null;
   reminderCount: number;
 }

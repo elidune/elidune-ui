@@ -3,6 +3,8 @@ interface Column<T> {
   header: string;
   render?: (item: T) => React.ReactNode;
   className?: string;
+  /** Right-align header and cell (action columns, numeric columns). Default: left. */
+  align?: 'left' | 'right';
 }
 
 interface TableProps<T> {
@@ -49,7 +51,9 @@ export default function Table<T>({
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${column.className || ''}`}
+                  className={`px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
+                    column.align === 'right' ? 'text-right' : 'text-left'
+                  } ${column.className || ''}`}
                 >
                   {column.header}
                 </th>
@@ -71,7 +75,9 @@ export default function Table<T>({
               {columns.map((column) => (
                 <td
                   key={column.key}
-                  className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${column.className || ''}`}
+                  className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${
+                    column.align === 'right' ? 'text-right' : 'text-left'
+                  } ${column.className || ''}`}
                 >
                   {column.render
                     ? column.render(item)

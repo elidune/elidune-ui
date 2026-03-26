@@ -230,7 +230,7 @@ export default function AuditLogViewer() {
                 <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
                   {t('common.date')}
                 </th>
-                <th className="w-10 px-2 py-2" aria-hidden />
+                <th className="w-10 px-2 py-2 text-right" aria-hidden />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -269,12 +269,14 @@ export default function AuditLogViewer() {
                         <td className="px-3 py-2 whitespace-nowrap">
                           {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
                         </td>
-                        <td className="px-2 py-2 text-gray-400">
-                          {isOpen ? (
-                            <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
-                          )}
+                        <td className="px-2 py-2 text-right text-gray-400">
+                          <div className="flex justify-end">
+                            {isOpen ? (
+                              <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+                            )}
+                          </div>
                         </td>
                       </tr>
                       {isOpen && (

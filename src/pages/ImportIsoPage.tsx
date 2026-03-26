@@ -22,6 +22,7 @@ import {
 import { Card, Button, Badge, Input, Modal } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { useBackgroundTask, restoreTaskId } from '@/hooks/common/useBackgroundTask';
 import type {
   Author,
@@ -1223,7 +1224,7 @@ export default function ImportIsoPage() {
       header: t('items.isbn'),
       render: (record: ParsedRecord) => (
         <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
-          {record.identification || '-'}
+          {record.identification ? formatIsbnDisplay(record.identification) : '-'}
         </span>
       ),
     },
@@ -1259,8 +1260,9 @@ export default function ImportIsoPage() {
     {
       key: 'actions',
       header: '',
+      align: 'right' as const,
       render: (record: ParsedRecord) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
           {record.status === 'pending' && (
             <Button
               size="sm"
@@ -1760,7 +1762,9 @@ export default function ImportIsoPage() {
                     {columns.map((column) => (
                       <th
                         key={column.key}
-                        className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${column.className || ''}`}
+                        className={`px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
+                          column.align === 'right' ? 'text-right' : 'text-left'
+                        } ${column.className || ''}`}
                       >
                         {column.header}
                       </th>
@@ -1778,7 +1782,9 @@ export default function ImportIsoPage() {
                         {columns.map((column) => (
                           <td
                             key={column.key}
-                            className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${column.className || ''}`}
+                            className={`px-4 py-3 text-sm text-gray-900 dark:text-gray-100 ${
+                              column.align === 'right' ? 'text-right' : 'text-left'
+                            } ${column.className || ''}`}
                           >
                             {column.render
                               ? column.render(record)
@@ -1813,7 +1819,7 @@ export default function ImportIsoPage() {
                                         <div className="flex gap-2">
                                           <dt className="w-32 whitespace-nowrap text-gray-500 dark:text-gray-400">{t('items.isbn')} :</dt>
                                           <dd className="flex-1 text-gray-900 dark:text-gray-100 font-mono">
-                                            {itemPayload.isbn || '-'}
+                                            {itemPayload.isbn ? formatIsbnDisplay(itemPayload.isbn) : '-'}
                                           </dd>
                                         </div>
                                         <div className="flex gap-2">
@@ -2063,7 +2069,9 @@ export default function ImportIsoPage() {
           <div className="space-y-4">
             <p className="text-sm text-gray-700 dark:text-gray-300">
               {t('importMarc.duplicateIsbnPrompt', {
-                isbn: replaceConfirmModal.record.identification || '-',
+                isbn: replaceConfirmModal.record.identification
+                  ? formatIsbnDisplay(replaceConfirmModal.record.identification)
+                  : '-',
                 title: replaceConfirmModal.existingTitle || t('items.notSpecified'),
               })}
             </p>

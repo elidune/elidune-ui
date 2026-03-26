@@ -16,15 +16,18 @@ import {
   Send,
   FlaskConical,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Input, Modal } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Table, Input, Modal, MessageModal } from '@/components/common';
 import Pagination from '@/components/common/Pagination';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/types';
 import type { User as UserType, Loan, UserShort, OverdueLoanInfo, ReminderReport } from '@/types';
 
 type TabType = 'borrow' | 'return' | 'overdue';
+
+const BORROW_LOANS_PAGE_SIZE = 20;
 
 function maxReminderSentAt(loans: OverdueLoanInfo[]): string | null {
   let best: string | null = null;
@@ -45,6 +48,8 @@ export default function LoansPage() {
   // Borrow section state
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [loansPage, setLoansPage] = useState(1);
+  const [loansTotal, setLoansTotal] = useState(0);
   const [isLoadingLoans, setIsLoadingLoans] = useState(false);
   const [userSearchDraft, setUserSearchDraft] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<UserShort[]>([]);
@@ -62,6 +67,7 @@ export default function LoansPage() {
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   const [returnError, setReturnError] = useState('');
   const [renewError, setRenewError] = useState('');
+  const [messageDialog, setMessageDialog] = useState<string | null>(null);
 
   const [overduePage, setOverduePage] = useState(1);
   const [overduePerPage, setOverduePerPage] = useState(50);
@@ -125,39 +131,59 @@ export default function LoansPage() {
     }
   };
 
-  const handleUserSearch = async () => {
+  const userSearchSeqRef = useRef(0);
+
+  useEffect(() => {
     const query = userSearchDraft.trim();
     if (!query) {
+      userSearchSeqRef.current += 1;
       setUserSearchResults([]);
+      setIsSearchingUsers(false);
       return;
     }
-    setIsSearchingUsers(true);
-    try {
-      const response = await api.getUsers({
-        name: query,
-        perPage: 10,
-      });
-      setUserSearchResults(response.items);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      setUserSearchResults([]);
-    } finally {
-      setIsSearchingUsers(false);
-    }
-  };
 
-  // Load user details and loans when user is selected
+    const timer = window.setTimeout(() => {
+      const seq = ++userSearchSeqRef.current;
+      setIsSearchingUsers(true);
+      void (async () => {
+        try {
+          const response = await api.getUsers({
+            name: query,
+            perPage: 10,
+          });
+          if (seq !== userSearchSeqRef.current) return;
+          setUserSearchResults(response.items);
+        } catch (error) {
+          console.error('Error searching users:', error);
+          if (seq !== userSearchSeqRef.current) return;
+          setUserSearchResults([]);
+        } finally {
+          if (seq === userSearchSeqRef.current) {
+            setIsSearchingUsers(false);
+          }
+        }
+      })();
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [userSearchDraft]);
+
   useEffect(() => {
     if (!selectedUser) {
       setLoans([]);
+      setLoansTotal(0);
       return;
     }
 
     const loadUserLoans = async () => {
       setIsLoadingLoans(true);
       try {
-        const loansData = await api.getUserLoans(selectedUser.id);
-        setLoans(loansData);
+        const res = await api.getUserLoans(selectedUser.id, {
+          page: loansPage,
+          perPage: BORROW_LOANS_PAGE_SIZE,
+        });
+        setLoans(res.items);
+        setLoansTotal(res.total);
       } catch (error) {
         console.error('Error loading loans:', error);
       } finally {
@@ -166,12 +192,13 @@ export default function LoansPage() {
     };
 
     loadUserLoans();
-  }, [selectedUser]);
+  }, [selectedUser, loansPage]);
 
   const handleUserSelect = async (user: UserShort) => {
     try {
       const fullUser = await api.getUser(user.id);
       setSelectedUser(fullUser);
+      setLoansPage(1);
       setUserSearchDraft('');
       setUserSearchResults([]);
     } catch (error) {
@@ -191,17 +218,18 @@ export default function LoansPage() {
       if (response.items.length > 0) {
         const fullUser = await api.getUser(response.items[0].id);
         setSelectedUser(fullUser);
+        setLoansPage(1);
         setUserSearchDraft('');
         setUserSearchResults([]);
         if (userBarcodeInputRef.current) {
           userBarcodeInputRef.current.value = '';
         }
       } else {
-        alert(t('loans.userNotFound', { barcode }));
+        setMessageDialog(t('loans.userNotFound', { barcode }));
       }
     } catch (error) {
       console.error('Error finding user by barcode:', error);
-      alert(t('loans.errorFindingUser'));
+      setMessageDialog(t('loans.errorFindingUser'));
     }
   };
 
@@ -216,9 +244,12 @@ export default function LoansPage() {
         itemIdentification: specimenBarcode.trim(),
         force: force || undefined,
       });
-      // Refresh loans
-      const loansData = await api.getUserLoans(selectedUser.id);
-      setLoans(loansData);
+      const res = await api.getUserLoans(selectedUser.id, {
+        page: loansPage,
+        perPage: BORROW_LOANS_PAGE_SIZE,
+      });
+      setLoans(res.items);
+      setLoansTotal(res.total);
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { code?: string; message?: string } } };
       const axiosData = axiosError?.response?.data;
@@ -237,10 +268,13 @@ export default function LoansPage() {
   const handleReturn = async (loanId: string) => {
     try {
       await api.returnLoan(loanId);
-      // Refresh loans
       if (selectedUser) {
-        const loansData = await api.getUserLoans(selectedUser.id);
-        setLoans(loansData);
+        const res = await api.getUserLoans(selectedUser.id, {
+          page: loansPage,
+          perPage: BORROW_LOANS_PAGE_SIZE,
+        });
+        setLoans(res.items);
+        setLoansTotal(res.total);
       }
     } catch (error: unknown) {
       console.error('Error returning loan:', error);
@@ -283,7 +317,9 @@ export default function LoansPage() {
       header: t('loans.document'),
       render: (loan: Loan) => {
         const specs = loan.biblio?.items;
-        const spec = specs?.length ? (specs.find((s) => s.borrowable === false) ?? specs[0]) : null;
+        const spec = specs?.length
+          ? (specs.find((s) => s.borrowed) ?? specs[0])
+          : null;
         const specimenBarcode = spec ? (spec.barcode ?? spec.id) : loan.itemIdentification;
         return (
           <div>
@@ -293,7 +329,7 @@ export default function LoansPage() {
             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-0.5 mt-0.5">
               {loan.biblio.isbn && (
                 <p>
-                  {t('items.isbn')}: <span className="font-mono">{loan.biblio.isbn}</span>
+                  {t('items.isbn')}: <span className="font-mono">{formatIsbnDisplay(loan.biblio.isbn)}</span>
                 </p>
               )}
               <p>{t('items.barcode')}: <span className="font-mono">{specimenBarcode ?? '-'}</span></p>
@@ -309,11 +345,11 @@ export default function LoansPage() {
         new Date(loan.startDate).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'issueAt',
+      key: 'expiryAt',
       header: t('loans.dueDate'),
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.issueAt).toLocaleDateString('fr-FR')}</span>
+          <span>{new Date(loan.expiryAt).toLocaleDateString('fr-FR')}</span>
           {loan.isOverdue && <Badge variant="danger">{t('loans.overdue')}</Badge>}
         </div>
       ),
@@ -326,8 +362,9 @@ export default function LoansPage() {
     {
       key: 'actions',
       header: t('common.actions'),
+      align: 'right' as const,
       render: (loan: Loan) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <Button
             size="sm"
             variant="ghost"
@@ -360,8 +397,12 @@ export default function LoansPage() {
     try {
       await api.renewLoan(loanId);
       if (selectedUser) {
-        const loansData = await api.getUserLoans(selectedUser.id);
-        setLoans(loansData);
+        const res = await api.getUserLoans(selectedUser.id, {
+          page: loansPage,
+          perPage: BORROW_LOANS_PAGE_SIZE,
+        });
+        setLoans(res.items);
+        setLoansTotal(res.total);
       }
     } catch (error: unknown) {
       console.error('Error renewing loan:', error);
@@ -491,28 +532,13 @@ export default function LoansPage() {
                   {t('loans.searchByName')}
                 </label>
                 <div className="relative">
-                  <div className="flex gap-2">
-                    <Input
-                      value={userSearchDraft}
-                      onChange={(e) => setUserSearchDraft(e.target.value)}
-                      placeholder={t('loans.searchUserPlaceholder')}
-                      leftIcon={<Search className="h-4 w-4" />}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          void handleUserSearch();
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => void handleUserSearch()}
-                      leftIcon={<Search className="h-4 w-4" />}
-                      disabled={isSearchingUsers}
-                    >
-                      {t('common.search')}
-                    </Button>
-                  </div>
+                  <Input
+                    value={userSearchDraft}
+                    onChange={(e) => setUserSearchDraft(e.target.value)}
+                    placeholder={t('loans.searchUserPlaceholder')}
+                    leftIcon={<Search className="h-4 w-4" />}
+                    aria-busy={isSearchingUsers}
+                  />
                   {userSearchResults.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {userSearchResults.map((user) => (
@@ -567,6 +593,8 @@ export default function LoansPage() {
                       onClick={() => {
                         setSelectedUser(null);
                         setLoans([]);
+                        setLoansTotal(0);
+                        setLoansPage(1);
                         setUserSearchDraft('');
                       }}
                       leftIcon={<X className="h-4 w-4" />}
@@ -617,6 +645,15 @@ export default function LoansPage() {
                 isLoading={isLoadingLoans}
                 emptyMessage={t('loans.noLoans')}
               />
+              {loansTotal > 0 && (
+                <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+                  <Pagination
+                    currentPage={loansPage}
+                    totalPages={Math.max(1, Math.ceil(loansTotal / BORROW_LOANS_PAGE_SIZE))}
+                    onPageChange={setLoansPage}
+                  />
+                </div>
+              )}
             </Card>
           )}
 
@@ -790,7 +827,7 @@ export default function LoansPage() {
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{t('loans.dueDate')}</p>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(returnResult.loan.issueAt).toLocaleDateString('fr-FR', {
+                          {new Date(returnResult.loan.expiryAt).toLocaleDateString('fr-FR', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
@@ -957,8 +994,8 @@ export default function LoansPage() {
                                   </td>
                                   <td className="px-3 py-2 font-mono text-xs">{row.itemBarcode ?? '—'}</td>
                                   <td className="px-3 py-2 whitespace-nowrap">
-                                    {row.issueAt
-                                      ? new Date(row.issueAt).toLocaleDateString('fr-FR')
+                                    {row.expiryAt
+                                      ? new Date(row.expiryAt).toLocaleDateString('fr-FR')
                                       : '—'}
                                   </td>
                                   <td className="px-3 py-2 whitespace-nowrap">
@@ -1012,6 +1049,12 @@ export default function LoansPage() {
           </Card>
         </div>
       )}
+
+      <MessageModal
+        isOpen={messageDialog !== null}
+        onClose={() => setMessageDialog(null)}
+        message={messageDialog ?? ''}
+      />
     </div>
   );
 }

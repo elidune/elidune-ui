@@ -27,6 +27,7 @@
     "i18next": "^25.7.3",
     "i18next-browser-languagedetector": "^8.2.0",
     "iconv-lite": "^0.7.2",
+    "isbn3": "^2.0.6",
     "lucide-react": "^0.562.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",

@@ -1176,7 +1176,7 @@ export default function SettingsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                   {t('settings.maxRenewals')}
                 </th>
-                <th className="px-4 py-3 w-12" />
+                <th className="px-4 py-3 w-12 text-right" aria-label={t('common.actions')} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -1222,20 +1222,22 @@ export default function SettingsPage() {
                       min={0}
                     />
                   </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSettings({
-                          ...settings,
-                          loanSettings: settings.loanSettings.filter((_, i) => i !== index),
-                        });
-                      }}
-                      className="p-1 text-gray-400 hover:text-red-600"
-                      title={t('common.delete')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettings({
+                            ...settings,
+                            loanSettings: settings.loanSettings.filter((_, i) => i !== index),
+                          });
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600"
+                        title={t('common.delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

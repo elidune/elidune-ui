@@ -22,12 +22,12 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsData, loansData] = await Promise.all([
+        const [statsData, loansRes] = await Promise.all([
           isLibrarian(user?.accountType) ? api.getStats() : null,
-          user?.id ? api.getUserLoans(user.id) : [],
+          user?.id ? api.getUserLoans(user.id, { page: 1, perPage: 20 }) : null,
         ]);
         if (statsData) setStats(statsData);
-        setMyLoans(loansData);
+        setMyLoans(loansRes?.items ?? []);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -144,7 +144,7 @@ export default function HomePage() {
                     {loan.biblio.title}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('loans.dueDate')}: {new Date(loan.issueAt).toLocaleDateString()}
+                    {t('loans.dueDate')}: {new Date(loan.expiryAt).toLocaleDateString()}
                   </p>
                 </div>
                 {loan.isOverdue && (

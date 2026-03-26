@@ -25,6 +25,11 @@ import type {
   UserLoanStats,
   UserAggregateStats,
   CatalogStats,
+  StatsSchema,
+  StatsBuilderBody,
+  StatsTableResponse,
+  SavedStatsQuery,
+  SavedStatsQueryWrite,
   Source,
   Item,
   CreateBiblioItemInput,
@@ -389,11 +394,18 @@ class ApiService {
 
   // ─── Loans ──────────────────────────────────────────────────────
 
-  async getUserLoans(userId: string, options?: { archived?: boolean }): Promise<Loan[]> {
-    const response = await this.client.get<Loan[]>(`/users/${userId}/loans`, {
-      params: { archived: options?.archived },
+  async getUserLoans(
+    userId: string,
+    options?: { archived?: boolean; page?: number; perPage?: number }
+  ): Promise<PaginatedResponse<Loan>> {
+    const response = await this.client.get(`/users/${userId}/loans`, {
+      params: {
+        archived: options?.archived,
+        page: options?.page,
+        perPage: options?.perPage,
+      },
     });
-    return response.data;
+    return normalizePaginatedResponse<Loan>(response.data);
   }
 
   async createLoan(data: {
@@ -401,7 +413,7 @@ class ApiService {
     itemId?: string;
     itemIdentification?: string;
     force?: boolean;
-  }): Promise<{ id: string; issueAt: string; message: string }> {
+  }): Promise<{ id: string; expiryAt: string; message: string }> {
     const response = await this.client.post('/loans', data);
     return response.data;
   }
@@ -411,7 +423,7 @@ class ApiService {
     return response.data;
   }
 
-  async renewLoan(loanId: string): Promise<{ id: string; issueAt: string; message: string }> {
+  async renewLoan(loanId: string): Promise<{ id: string; expiryAt: string; message: string }> {
     const response = await this.client.post(`/loans/${loanId}/renew`);
     return response.data;
   }
@@ -421,7 +433,7 @@ class ApiService {
     return response.data;
   }
 
-  async renewLoanByBarcode(itemBarcode: string): Promise<{ id: string; issueAt: string; message: string }> {
+  async renewLoanByBarcode(itemBarcode: string): Promise<{ id: string; expiryAt: string; message: string }> {
     const response = await this.client.post(`/loans/items/${itemBarcode}/renew`);
     return response.data;
   }
@@ -637,6 +649,41 @@ class ApiService {
     return response.data;
   }
 
+  async getStatsSchema(): Promise<StatsSchema> {
+    const response = await this.client.get<StatsSchema>('/stats/schema');
+    return response.data;
+  }
+
+  async postStatsQuery(body: StatsBuilderBody): Promise<StatsTableResponse> {
+    const response = await this.client.post<StatsTableResponse>('/stats/query', body);
+    return response.data;
+  }
+
+  async getSavedStatsQueries(): Promise<SavedStatsQuery[]> {
+    const response = await this.client.get<SavedStatsQuery[]>('/stats/saved');
+    return response.data;
+  }
+
+  async createSavedStatsQuery(body: SavedStatsQueryWrite): Promise<SavedStatsQuery> {
+    const response = await this.client.post<SavedStatsQuery>('/stats/saved', body);
+    return response.data;
+  }
+
+  async updateSavedStatsQuery(id: number | string, body: SavedStatsQueryWrite): Promise<SavedStatsQuery> {
+    const response = await this.client.put<SavedStatsQuery>(`/stats/saved/${id}`, body);
+    return response.data;
+  }
+
+  async deleteSavedStatsQuery(id: number | string): Promise<{ ok: boolean }> {
+    const response = await this.client.delete<{ ok: boolean }>(`/stats/saved/${id}`);
+    return response.data;
+  }
+
+  async runSavedStatsQuery(id: number | string): Promise<StatsTableResponse> {
+    const response = await this.client.get<StatsTableResponse>(`/stats/saved/${id}/run`);
+    return response.data;
+  }
+
   // ─── Settings ───────────────────────────────────────────────────
 
   async getSettings(): Promise<Settings> {
@@ -746,8 +793,10 @@ class ApiService {
     const requestParams: Record<string, unknown> = {
       query: cqlQuery,
       serverId: params.serverId,
-      maxResults: params.maxResults,
     };
+    if (params.maxResults != null) {
+      requestParams.maxResults = params.maxResults;
+    }
 
     const response = await this.client.get('/z3950/search', { params: requestParams });
     return response.data;

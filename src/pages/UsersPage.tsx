@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Mail, Phone, BookMarked, AlertTriangle, MapPin } from 'lucide-react';
-import { Card, Button, Table, Badge, Pagination, SearchInput, Modal, Input } from '@/components/common';
+import { Plus, BookMarked, RefreshCw } from 'lucide-react';
+import { Card, Button, Table, Badge, Pagination, SearchInput, Modal } from '@/components/common';
+import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
 import api from '@/services/api';
 import type { UserShort, PublicType } from '@/types';
+import { isSubscriptionExpired } from '@/utils/userSubscription';
 
 const USERS_PER_PAGE = 20;
 
@@ -21,6 +23,7 @@ export default function UsersPage() {
   const [searchDraft, setSearchDraft] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreateLoading, setIsCreateLoading] = useState(false);
+  const [renewModalUser, setRenewModalUser] = useState<UserShort | null>(null);
 
   useEffect(() => {
     api.getPublicTypes().then(setPublicTypes).catch(() => {});
@@ -56,6 +59,8 @@ export default function UsersPage() {
   const handleRowClick = (user: UserShort) => {
     navigate(`/users/${user.id}`);
   };
+
+  const openRenewModal = (user: UserShort) => setRenewModalUser(user);
 
   const columns = [
     {
@@ -104,15 +109,28 @@ export default function UsersPage() {
     {
       key: 'status',
       header: t('common.status'),
-      render: (user: UserShort) =>
-        (user.nbLateLoans || 0) > 0 ? (
-          <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm">{t('users.late')}</span>
+      align: 'right' as const,
+      render: (user: UserShort) => {
+        const expired = isSubscriptionExpired(user.expiryAt);
+        return (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {expired && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openRenewModal(user);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-2.5 py-1.5 text-sm font-medium text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+              >
+                <span>{t('users.subscriptionExpired')}</span>
+                <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </button>
+            )}
+            {!expired && <Badge variant="success">OK</Badge>}
           </div>
-        ) : (
-          <Badge variant="success">OK</Badge>
-        ),
+        );
+      },
     },
   ];
 
@@ -167,12 +185,20 @@ export default function UsersPage() {
         )}
       </Card>
 
-      {/* Create modal */}
+      <RenewSubscriptionModal
+        user={renewModalUser}
+        isOpen={renewModalUser !== null}
+        onClose={() => setRenewModalUser(null)}
+        onSuccess={async () => {
+          await fetchUsers();
+        }}
+      />
+
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title={t('users.newUser')}
-        size="lg"
+        size="2xl"
         footer={
           <div className="flex justify-end gap-2">
             <Button type="submit" form="create-user-form" isLoading={isCreateLoading}>
@@ -181,7 +207,8 @@ export default function UsersPage() {
           </div>
         }
       >
-        <CreateUserForm
+        <UserEditorForm
+          mode="create"
           formId="create-user-form"
           publicTypes={publicTypes}
           onLoadingChange={setIsCreateLoading}
@@ -192,230 +219,5 @@ export default function UsersPage() {
         />
       </Modal>
     </div>
-  );
-}
-
-interface CreateUserFormProps {
-  formId: string;
-  publicTypes: PublicType[];
-  onLoadingChange: (loading: boolean) => void;
-  onSuccess: () => void;
-}
-
-function CreateUserForm({ formId, publicTypes, onLoadingChange, onSuccess }: CreateUserFormProps) {
-  const { t } = useTranslation();
-  const [formData, setFormData] = useState({
-    login: '',
-    password: '',
-    firstname: '',
-    lastname: '',
-    email: '',
-    phone: '',
-    barcode: '',
-    accountType: 'reader',
-    birthdate: '',
-    addrStreet: '',
-    addrZipCode: '',
-    addrCity: '',
-    notes: '',
-    fee: '',
-    groupId: '',
-    publicType: '',
-  });
-
-  const ACCOUNT_TYPES = [
-    { value: 'reader', label: t('users.reader') },
-    { value: 'librarian', label: t('users.librarian') },
-    { value: 'admin', label: t('users.administrator') },
-    { value: 'guest', label: t('users.guest') },
-  ];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    onLoadingChange(true);
-    try {
-      const createData: Record<string, unknown> = {
-        login: formData.login,
-        password: formData.password || undefined,
-        firstname: formData.firstname || undefined,
-        lastname: formData.lastname || undefined,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        barcode: formData.barcode || undefined,
-        accountType: formData.accountType || undefined,
-        birthdate: formData.birthdate || undefined,
-        addrStreet: formData.addrStreet || undefined,
-        addrZipCode: formData.addrZipCode ? parseInt(formData.addrZipCode) : undefined,
-        addrCity: formData.addrCity || undefined,
-        notes: formData.notes || undefined,
-        fee: formData.fee || undefined,
-        groupId: formData.groupId ? String(formData.groupId) : undefined,
-        publicType: formData.publicType ? String(formData.publicType) : undefined,
-      };
-      await api.createUser(createData);
-      onSuccess();
-    } catch (error) {
-      console.error('Error creating user:', error);
-    } finally {
-      onLoadingChange(false);
-    }
-  };
-
-  return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      {/* Identity */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        {t('users.identity')}
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('users.identifier')}
-          value={formData.login}
-          onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-          required
-        />
-        <Input
-          label={t('auth.password')}
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.firstName')}
-          value={formData.firstname}
-          onChange={(e) => setFormData({ ...formData, firstname: e.target.value })}
-        />
-        <Input
-          label={t('profile.lastName')}
-          value={formData.lastname}
-          onChange={(e) => setFormData({ ...formData, lastname: e.target.value })}
-        />
-      </div>
-
-      {/* Contact */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">
-        {t('users.contact')}
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.email')}
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          leftIcon={<Mail className="h-4 w-4" />}
-        />
-        <Input
-          label={t('profile.phone')}
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          leftIcon={<Phone className="h-4 w-4" />}
-        />
-      </div>
-
-      {/* Address */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">
-        {t('profile.address')}
-      </h4>
-      <Input
-        label={t('profile.street')}
-        value={formData.addrStreet}
-        onChange={(e) => setFormData({ ...formData, addrStreet: e.target.value })}
-        leftIcon={<MapPin className="h-4 w-4" />}
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.zipCode')}
-          value={formData.addrZipCode}
-          onChange={(e) => setFormData({ ...formData, addrZipCode: e.target.value })}
-        />
-        <Input
-          label={t('profile.city')}
-          value={formData.addrCity}
-          onChange={(e) => setFormData({ ...formData, addrCity: e.target.value })}
-        />
-      </div>
-
-      {/* Additional info */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">
-        {t('users.additionalInfo')}
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.barcode')}
-          value={formData.barcode}
-          onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-        />
-        <Input
-          label={t('profile.birthdate')}
-          type="date"
-          value={formData.birthdate}
-          onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('profile.accountType')}
-          </label>
-          <select
-            value={formData.accountType}
-            onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            {ACCOUNT_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Input
-          label={t('users.fee')}
-          value={formData.fee}
-          onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('users.groupId')}
-          type="number"
-          value={formData.groupId}
-          onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-        />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('users.publicType')}
-          </label>
-          <select
-            value={formData.publicType}
-            onChange={(e) => setFormData({ ...formData, publicType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">{t('common.select')}</option>
-            {publicTypes.map((pt) => (
-              <option key={pt.id} value={String(pt.id)}>
-                {pt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('users.notes')}
-        </label>
-        <textarea
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          rows={3}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none"
-        />
-      </div>
-
-    </form>
   );
 }

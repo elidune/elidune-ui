@@ -1,25 +1,37 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Calendar, RotateCcw, AlertTriangle } from 'lucide-react';
-import { Card, CardHeader, Button, Badge } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Pagination } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import type { Loan } from '@/types';
 import { getApiErrorMessage } from '@/utils/apiError';
 
+const MY_LOANS_PAGE_SIZE = 20;
+
 export default function MyLoansPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [loansPage, setLoansPage] = useState(1);
+  const [loansTotal, setLoansTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [renewError, setRenewError] = useState('');
+
+  useLayoutEffect(() => {
+    setLoansPage(1);
+  }, [user?.id]);
 
   useEffect(() => {
     const fetchLoans = async () => {
       if (!user?.id) return;
       try {
-        const data = await api.getUserLoans(user.id);
-        setLoans(data);
+        const res = await api.getUserLoans(user.id, {
+          page: loansPage,
+          perPage: MY_LOANS_PAGE_SIZE,
+        });
+        setLoans(res.items);
+        setLoansTotal(res.total);
       } catch (error) {
         console.error('Error fetching loans:', error);
       } finally {
@@ -28,15 +40,19 @@ export default function MyLoansPage() {
     };
 
     fetchLoans();
-  }, [user?.id]);
+  }, [user?.id, loansPage]);
 
   const handleRenewLoan = async (loanId: string) => {
     setRenewError('');
     try {
       await api.renewLoan(loanId);
       if (user?.id) {
-        const data = await api.getUserLoans(user.id);
-        setLoans(data);
+        const res = await api.getUserLoans(user.id, {
+          page: loansPage,
+          perPage: MY_LOANS_PAGE_SIZE,
+        });
+        setLoans(res.items);
+        setLoansTotal(res.total);
       }
     } catch (error) {
       console.error('Error renewing loan:', error);
@@ -44,8 +60,7 @@ export default function MyLoansPage() {
     }
   };
 
-  const overdueLoans = loans.filter((l) => l.isOverdue);
-  const activeLoans = loans.filter((l) => !l.isOverdue);
+  const loansSorted = [...loans].sort((a, b) => Number(b.isOverdue) - Number(a.isOverdue));
 
   if (isLoading) {
     return (
@@ -61,21 +76,9 @@ export default function MyLoansPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('loans.myLoans')}</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          {t('loans.count', { count: loans.length })}
+          {t('loans.count', { count: loansTotal })}
         </p>
       </div>
-
-      {/* Overdue loans alert */}
-      {overdueLoans.length > 0 && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
-          <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-red-800 dark:text-red-200">
-              {t('loans.overdueCount', { count: overdueLoans.length })}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Renew error */}
       {renewError && (
@@ -85,37 +88,30 @@ export default function MyLoansPage() {
         </div>
       )}
 
-      {/* Overdue loans */}
-      {overdueLoans.length > 0 && (
-        <Card>
-          <CardHeader
-            title={t('loans.overdue')}
-            subtitle={t('items.count', { count: overdueLoans.length })}
-          />
-          <div className="space-y-3">
-            {overdueLoans.map((loan) => (
-              <LoanCard key={loan.id} loan={loan} onRenew={handleRenewLoan} isOverdue />
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Active loans */}
       <Card>
         <CardHeader
           title={t('loans.activeLoans')}
-          subtitle={t('items.count', { count: activeLoans.length })}
+          subtitle={t('items.count', { count: loansTotal })}
         />
-        {activeLoans.length === 0 ? (
+        {loans.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p>{t('loans.noLoans')}</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {activeLoans.map((loan) => (
-              <LoanCard key={loan.id} loan={loan} onRenew={handleRenewLoan} />
+            {loansSorted.map((loan) => (
+              <LoanCard key={loan.id} loan={loan} onRenew={handleRenewLoan} isOverdue={loan.isOverdue} />
             ))}
+          </div>
+        )}
+        {loansTotal > 0 && (
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+            <Pagination
+              currentPage={loansPage}
+              totalPages={Math.max(1, Math.ceil(loansTotal / MY_LOANS_PAGE_SIZE))}
+              onPageChange={setLoansPage}
+            />
           </div>
         )}
       </Card>
@@ -131,7 +127,10 @@ interface LoanCardProps {
 
 function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
   const { t, i18n } = useTranslation();
-  const daysUntilDue = Math.ceil((new Date(loan.issueAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const [referenceMs] = useState(() => Date.now());
+  const daysUntilDue = Math.ceil(
+    (new Date(loan.expiryAt).getTime() - referenceMs) / (1000 * 60 * 60 * 24)
+  );
 
   return (
     <div
@@ -181,7 +180,7 @@ function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
             </Badge>
           ) : (
             <Badge variant="success">
-              {t('loans.dueDate')}: {new Date(loan.issueAt).toLocaleDateString(i18n.language)}
+              {t('loans.dueDate')}: {new Date(loan.expiryAt).toLocaleDateString(i18n.language)}
             </Badge>
           )}
         </div>

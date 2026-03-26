@@ -7,10 +7,20 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  /** Renders above other modals (e.g. nested error dialog). */
+  stackOnTop?: boolean;
 }
 
-export default function Modal({ isOpen, onClose, title, children, footer, size = 'md' }: ModalProps) {
+export default function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+  stackOnTop = false,
+}: ModalProps) {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -34,10 +44,13 @@ export default function Modal({ isOpen, onClose, title, children, footer, size =
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    '2xl': 'max-w-6xl',
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={`fixed inset-0 flex items-center justify-center p-4 ${stackOnTop ? 'z-[100]' : 'z-50'}`}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"

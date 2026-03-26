@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   TrendingUp,
+  Table2,
 } from 'lucide-react';
 import {
   XAxis,
@@ -26,6 +27,7 @@ import { Card, CardHeader, Badge, Table, Input } from '@/components/common';
 import api from '@/services/api';
 import type { Stats, AdvancedStatsParams, MediaType, MediaTypeOption, StatsInterval, UserLoanStats, UserAggregateStats, CatalogStats, CatalogStatsBreakdown } from '@/types';
 import { translateStatLabel } from '@/utils/codeLabels';
+import StatsAdvancedTab from '@/components/stats/StatsAdvancedTab';
 
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
@@ -60,7 +62,7 @@ interface LoanTimeData {
 
 type UserStatsData = UserLoanStats;
 
-type StatsDetailTab = 'catalog' | 'users' | 'loans';
+type StatsDetailTab = 'catalog' | 'users' | 'loans' | 'advanced';
 
 export default function StatsPage() {
   const { t, i18n } = useTranslation();
@@ -492,6 +494,20 @@ export default function StatsPage() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 shrink-0" />
                 {t('stats.loansEvolution')}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatsDetailTab('advanced')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                statsDetailTab === 'advanced'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Table2 className="h-5 w-5 shrink-0" />
+                {t('stats.advanced.tabLabel')}
               </div>
             </button>
           </nav>
@@ -938,6 +954,8 @@ export default function StatsPage() {
         </div>
       </Card>
       )}
+
+      {statsDetailTab === 'advanced' && <StatsAdvancedTab />}
         </div>
       </div>
     </div>

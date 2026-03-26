@@ -12,11 +12,11 @@ import {
   Calendar,
   BookMarked,
   RotateCcw,
+  RefreshCw,
   Check,
   BarChart3,
   ChevronDown,
   ChevronUp,
-  MapPin,
   Hash,
   Filter,
   X,
@@ -39,10 +39,16 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { Card, CardHeader, Button, Badge, Modal, Input, Table } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Modal, Input, Table, Pagination } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
+import { isSubscriptionExpired } from '@/utils/userSubscription';
+import { formatIsbnDisplay } from '@/utils/isbnDisplay';
+import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
 import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType, type FinesResponse, type Reservation, type HistoryPreference } from '@/types';
+
+const USER_LOANS_PAGE_SIZE = 20;
+
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -52,9 +58,12 @@ export default function UserDetailPage() {
   const [activeLoans, setActiveLoans] = useState<Loan[]>([]);
   const [pastLoans, setPastLoans] = useState<Loan[]>([]);
   const [activeLoansTab, setActiveLoansTab] = useState<'active' | 'past'>('active');
+  const [activeLoansPage, setActiveLoansPage] = useState(1);
+  const [activeLoansTotal, setActiveLoansTotal] = useState(0);
+  const [pastLoansPage, setPastLoansPage] = useState(1);
+  const [pastLoansTotal, setPastLoansTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingPastLoans, setIsLoadingPastLoans] = useState(false);
-  const [hasLoadedPastLoans, setHasLoadedPastLoans] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
@@ -64,6 +73,7 @@ export default function UserDetailPage() {
   const [isBorrowLoading, setIsBorrowLoading] = useState(false);
   const [loanDetails, setLoanDetails] = useState<Loan | null>(null);
   const [renewError, setRenewError] = useState('');
+  const [showRenewSubscriptionModal, setShowRenewSubscriptionModal] = useState(false);
 
   // Fines state
   const [finesData, setFinesData] = useState<FinesResponse | null>(null);
@@ -109,17 +119,17 @@ export default function UserDetailPage() {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchUser = async () => {
       if (!id) return;
       try {
-        const [userData, activeLoansData] = await Promise.all([
-          api.getUser(id),
-          api.getUserLoans(id),
-        ]);
+        const userData = await api.getUser(id);
         setUser(userData);
-        setActiveLoans(activeLoansData);
+        setActiveLoansPage(1);
+        setPastLoansPage(1);
+        setActiveLoans([]);
+        setActiveLoansTotal(0);
         setPastLoans([]);
-        setHasLoadedPastLoans(false);
+        setPastLoansTotal(0);
       } catch (error) {
         console.error('Error fetching user:', error);
         navigate('/users');
@@ -128,37 +138,81 @@ export default function UserDetailPage() {
       }
     };
 
-    fetchData();
+    fetchUser();
   }, [id, navigate]);
 
-  const refreshLoans = async () => {
-    if (!user?.id) return;
-    const activeLoansData = await api.getUserLoans(user.id);
-    setActiveLoans(activeLoansData);
-    if (hasLoadedPastLoans) {
-      const pastLoansData = await api.getUserLoans(user.id, { archived: true });
-      setPastLoans(pastLoansData);
-    }
-  };
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await api.getUserLoans(id, {
+          page: activeLoansPage,
+          perPage: USER_LOANS_PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setActiveLoans(res.items);
+          setActiveLoansTotal(res.total);
+        }
+      } catch (error) {
+        console.error('Error fetching active loans:', error);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeLoansPage]);
 
   useEffect(() => {
+    if (!id || activeLoansTab !== 'past') return;
+    let cancelled = false;
     const loadPast = async () => {
-      if (!user?.id) return;
-      if (activeLoansTab !== 'past') return;
-      if (hasLoadedPastLoans) return;
       setIsLoadingPastLoans(true);
       try {
-        const pastLoansData = await api.getUserLoans(user.id, { archived: true });
-        setPastLoans(pastLoansData);
-        setHasLoadedPastLoans(true);
+        const res = await api.getUserLoans(id, {
+          archived: true,
+          page: pastLoansPage,
+          perPage: USER_LOANS_PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setPastLoans(res.items);
+          setPastLoansTotal(res.total);
+        }
       } catch (error) {
         console.error('Error fetching past loans:', error);
       } finally {
-        setIsLoadingPastLoans(false);
+        if (!cancelled) setIsLoadingPastLoans(false);
       }
     };
-    loadPast();
-  }, [activeLoansTab, user?.id, hasLoadedPastLoans]);
+    void loadPast();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeLoansTab, pastLoansPage]);
+
+  const refreshLoans = async () => {
+    if (!user?.id) return;
+    try {
+      const activeRes = await api.getUserLoans(user.id, {
+        page: activeLoansPage,
+        perPage: USER_LOANS_PAGE_SIZE,
+      });
+      setActiveLoans(activeRes.items);
+      setActiveLoansTotal(activeRes.total);
+      if (activeLoansTab === 'past') {
+        const pastRes = await api.getUserLoans(user.id, {
+          archived: true,
+          page: pastLoansPage,
+          perPage: USER_LOANS_PAGE_SIZE,
+        });
+        setPastLoans(pastRes.items);
+        setPastLoansTotal(pastRes.total);
+      }
+    } catch (error) {
+      console.error('Error refreshing loans:', error);
+    }
+  };
 
   // Init default filters when stats section is expanded
   useEffect(() => {
@@ -454,11 +508,11 @@ export default function UserDetailPage() {
         new Date(loan.startDate).toLocaleDateString('fr-FR'),
     },
     {
-      key: 'issueAt',
+      key: 'expiryAt',
       header: 'Échéance',
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.issueAt).toLocaleDateString('fr-FR')}</span>
+          <span>{new Date(loan.expiryAt).toLocaleDateString('fr-FR')}</span>
         </div>
       ),
     },
@@ -470,8 +524,9 @@ export default function UserDetailPage() {
     {
       key: 'actions',
       header: 'Actions',
+      align: 'right' as const,
       render: (loan: Loan) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 flex-wrap">
           <Button
             size="sm"
             variant="ghost"
@@ -596,6 +651,42 @@ export default function UserDetailPage() {
                 })}
               />
             )}
+            <div className="flex items-start gap-3">
+              <Calendar className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('users.subscriptionExpiry')}</p>
+                {!user.expiryAt ? (
+                  <p className="mt-0.5 text-gray-900 dark:text-white">{t('users.expiryUnlimited')}</p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                    <p
+                      className={
+                        isSubscriptionExpired(user.expiryAt)
+                          ? 'text-red-600 dark:text-red-400 font-semibold'
+                          : 'text-gray-900 dark:text-white'
+                      }
+                    >
+                      {new Date(user.expiryAt).toLocaleDateString(i18n.language, {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </p>
+                    {isSubscriptionExpired(user.expiryAt) && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setShowRenewSubscriptionModal(true)}
+                        leftIcon={<RefreshCw className="h-4 w-4" />}
+                      >
+                        {t('users.renewSubscription')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -648,6 +739,24 @@ export default function UserDetailPage() {
                 emptyMessage={activeLoansTab === 'past' && isLoadingPastLoans ? 'Chargement…' : t('loans.noLoans')}
               />
             </div>
+            {activeLoansTab === 'active' && activeLoansTotal > 0 && (
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+                <Pagination
+                  currentPage={activeLoansPage}
+                  totalPages={Math.max(1, Math.ceil(activeLoansTotal / USER_LOANS_PAGE_SIZE))}
+                  onPageChange={setActiveLoansPage}
+                />
+              </div>
+            )}
+            {activeLoansTab === 'past' && pastLoansTotal > 0 && !isLoadingPastLoans && (
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
+                <Pagination
+                  currentPage={pastLoansPage}
+                  totalPages={Math.max(1, Math.ceil(pastLoansTotal / USER_LOANS_PAGE_SIZE))}
+                  onPageChange={setPastLoansPage}
+                />
+              </div>
+            )}
           </Card>
         </div>
       </div>
@@ -676,7 +785,7 @@ export default function UserDetailPage() {
                   </p>
                   {loanDetails.biblio.isbn && (
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                      {t('items.isbn')}: <span className="font-mono">{loanDetails.biblio.isbn}</span>
+                      {t('items.isbn')}: <span className="font-mono">{formatIsbnDisplay(loanDetails.biblio.isbn)}</span>
                     </p>
                   )}
                 </div>
@@ -697,7 +806,7 @@ export default function UserDetailPage() {
                 <p className="text-gray-900 dark:text-white">
                   {loanDetails.returnedAt
                     ? new Date(loanDetails.returnedAt).toLocaleDateString('fr-FR')
-                    : new Date(loanDetails.issueAt).toLocaleDateString('fr-FR')}
+                    : new Date(loanDetails.expiryAt).toLocaleDateString('fr-FR')}
                 </p>
               </div>
             </div>
@@ -1113,20 +1222,29 @@ export default function UserDetailPage() {
           {deleteUserActiveLoansError
             ? t('users.activeLoansForceDelete')
             : t('users.deleteConfirm', { name: `${user.firstname} ${user.lastname}`.trim() })}
-          {!deleteUserActiveLoansError && activeLoans.length > 0 && (
+          {!deleteUserActiveLoansError && activeLoansTotal > 0 && (
             <span className="block mt-2 text-amber-600 dark:text-amber-400">
-              {t('users.hasLoansWarning', { count: activeLoans.length })}
+              {t('users.hasLoansWarning', { count: activeLoansTotal })}
             </span>
           )}
         </p>
       </Modal>
 
+      <RenewSubscriptionModal
+        user={showRenewSubscriptionModal && user ? user : null}
+        isOpen={showRenewSubscriptionModal}
+        onClose={() => setShowRenewSubscriptionModal(false)}
+        onSuccess={(updated) => {
+          setUser(updated);
+        }}
+      />
+
       {/* Edit modal */}
       <Modal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        title="Modifier l'usager"
-        size="lg"
+        title={t('users.editUserModal')}
+        size="2xl"
         footer={
           <div className="flex justify-end gap-2">
             <Button type="submit" form="edit-user-form" isLoading={isEditLoading}>
@@ -1135,13 +1253,15 @@ export default function UserDetailPage() {
           </div>
         }
       >
-        <EditUserForm
+        <UserEditorForm
+          key={user.id}
+          mode="edit"
           formId="edit-user-form"
           user={user}
           publicTypes={publicTypes}
           onLoadingChange={setIsEditLoading}
           onSuccess={(updatedUser) => {
-            setUser(updatedUser);
+            if (updatedUser) setUser(updatedUser);
             setShowEditModal(false);
           }}
         />
@@ -1189,234 +1309,6 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
         <p className="text-gray-900 dark:text-white">{value || 'Non renseigné'}</p>
       </div>
     </div>
-  );
-}
-
-interface EditUserFormProps {
-  formId: string;
-  user: UserType;
-  publicTypes: PublicType[];
-  onLoadingChange: (loading: boolean) => void;
-  onSuccess: (user: UserType) => void;
-}
-
-function EditUserForm({ formId, user, publicTypes, onLoadingChange, onSuccess }: EditUserFormProps) {
-  const { t } = useTranslation();
-  const [formData, setFormData] = useState({
-    login: user.login || '',
-    firstname: user.firstname || '',
-    lastname: user.lastname || '',
-    email: user.email || '',
-    phone: user.phone || '',
-    barcode: user.barcode || '',
-    birthdate: user.birthdate || '',
-    addrStreet: user.addrStreet || '',
-    addrZipCode: user.addrZipCode?.toString() || '',
-    addrCity: user.addrCity || '',
-    notes: user.notes || '',
-    fee: user.fee || '',
-    groupId: user.groupId?.toString() || '',
-    publicType: user.publicType?.toString() || '',
-    accountType: user.accountType || 'Reader',
-    password: '',
-  });
-
-  const ACCOUNT_TYPES = [
-    { value: 'reader', label: t('users.reader') },
-    { value: 'librarian', label: t('users.librarian') },
-    { value: 'admin', label: t('users.administrator') },
-    { value: 'guest', label: t('users.guest') },
-  ];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    onLoadingChange(true);
-    try {
-      const updateData: Record<string, unknown> = {
-        login: formData.login || undefined,
-        firstname: formData.firstname || undefined,
-        lastname: formData.lastname || undefined,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        barcode: formData.barcode || undefined,
-        birthdate: formData.birthdate || undefined,
-        addrStreet: formData.addrStreet || undefined,
-        addrZipCode: formData.addrZipCode ? parseInt(formData.addrZipCode) : undefined,
-        addrCity: formData.addrCity || undefined,
-        notes: formData.notes || undefined,
-        fee: formData.fee || undefined,
-        groupId: formData.groupId ? String(formData.groupId) : undefined,
-        publicType: formData.publicType ? String(formData.publicType) : undefined,
-        accountType: formData.accountType || undefined,
-      };
-      if (formData.password) {
-        updateData.password = formData.password;
-      }
-      const updated = await api.updateUser(user.id, updateData);
-      onSuccess(updated);
-    } catch (error) {
-      console.error('Error updating user:', error);
-    } finally {
-      onLoadingChange(false);
-    }
-  };
-
-  return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      {/* Identity */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-        {t('users.identity')}
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('users.identifier')}
-          value={formData.login}
-          onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-        />
-        <Input
-          label={t('auth.password')}
-          type="password"
-          value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          placeholder={t('profile.leaveBlankPassword')}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.firstName')}
-          value={formData.firstname}
-          onChange={(e) => setFormData({ ...formData, firstname: e.target.value })}
-        />
-        <Input
-          label={t('profile.lastName')}
-          value={formData.lastname}
-          onChange={(e) => setFormData({ ...formData, lastname: e.target.value })}
-        />
-      </div>
-
-      {/* Contact */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">
-        {t('users.contact')}
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.email')}
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          leftIcon={<Mail className="h-4 w-4" />}
-        />
-        <Input
-          label={t('profile.phone')}
-          value={formData.phone}
-          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          leftIcon={<Phone className="h-4 w-4" />}
-        />
-      </div>
-
-      {/* Address */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">
-        {t('profile.address')}
-      </h4>
-      <Input
-        label={t('profile.street')}
-        value={formData.addrStreet}
-        onChange={(e) => setFormData({ ...formData, addrStreet: e.target.value })}
-        leftIcon={<MapPin className="h-4 w-4" />}
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.zipCode')}
-          value={formData.addrZipCode}
-          onChange={(e) => setFormData({ ...formData, addrZipCode: e.target.value })}
-        />
-        <Input
-          label={t('profile.city')}
-          value={formData.addrCity}
-          onChange={(e) => setFormData({ ...formData, addrCity: e.target.value })}
-        />
-      </div>
-
-      {/* Additional info */}
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider pt-2">
-        {t('users.additionalInfo')}
-      </h4>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('profile.barcode')}
-          value={formData.barcode}
-          onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-        />
-        <Input
-          label={t('profile.birthdate')}
-          type="date"
-          value={formData.birthdate}
-          onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('profile.accountType')}
-          </label>
-          <select
-            value={formData.accountType}
-            onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            {ACCOUNT_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Input
-          label={t('users.fee')}
-          value={formData.fee}
-          onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Input
-          label={t('users.groupId')}
-          type="number"
-          value={formData.groupId}
-          onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-        />
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('users.publicType')}
-          </label>
-          <select
-            value={formData.publicType}
-            onChange={(e) => setFormData({ ...formData, publicType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">{t('common.select')}</option>
-            {publicTypes.map((pt) => (
-              <option key={pt.id} value={String(pt.id)}>
-                {pt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('users.notes')}
-        </label>
-        <textarea
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          rows={3}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none"
-        />
-      </div>
-
-    </form>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -13,7 +13,6 @@ import {
   FileText,
   Tag,
   Plus,
-  Minus,
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
@@ -27,10 +26,8 @@ import type { Biblio, Item, Author, Source } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
 import { getApiErrorCode } from '@/utils/apiError';
-import type { MediaTypeOption } from '@/types';
+import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { useQueryClient } from '@tanstack/react-query';
-import { EntityLinker, type LinkedEntry } from '@/components/items/EntityLinker';
-
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
   if (!mediaType) return 'unknown';
@@ -77,10 +74,14 @@ function volumeBadgeVisible(vol: number | null | undefined): vol is number {
   return vol != null && vol !== 0;
 }
 
+function hasNonEmptyText(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export default function BiblioDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -90,12 +91,10 @@ export default function BiblioDetailPage() {
 
   const [item, setItem] = useState<Biblio | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showAddSpecimenModal, setShowAddSpecimenModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditSpecimenModal, setShowEditSpecimenModal] = useState(false);
   const [showDeleteSpecimenModal, setShowDeleteSpecimenModal] = useState(false);
-  const [isEditItemLoading, setIsEditItemLoading] = useState(false);
   const [isAddSpecimenLoading, setIsAddSpecimenLoading] = useState(false);
   const [isEditSpecimenLoading, setIsEditSpecimenLoading] = useState(false);
   const [selectedSpecimen, setSelectedSpecimen] = useState<Item | null>(null);
@@ -220,6 +219,28 @@ export default function BiblioDetailPage() {
     );
   }
 
+  const hasGeneralInfoFields =
+    hasNonEmptyText(item.isbn) ||
+    (item.authors?.length ?? 0) > 0 ||
+    hasNonEmptyText(item.publicationDate) ||
+    hasNonEmptyText(item.edition?.publisherName) ||
+    hasNonEmptyText(item.edition?.placeOfPublication) ||
+    (item.lang != null && item.lang !== '') ||
+    item.audienceType != null;
+  const hasGeneralInfoMeta = Boolean(item.createdAt) || Boolean(item.updatedAt);
+  const showGeneralInfoCard = hasGeneralInfoFields || hasGeneralInfoMeta;
+  const createdAt = item.createdAt;
+  const updatedAt = item.updatedAt;
+  const metaDatesAreSameInstant =
+    createdAt != null &&
+    updatedAt != null &&
+    new Date(createdAt).getTime() === new Date(updatedAt).getTime();
+  const formatBiblioMetaDate = (iso: string) =>
+    new Date(iso).toLocaleString(i18n.language, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -273,7 +294,15 @@ export default function BiblioDetailPage() {
 
         {canManageItems(user?.accountType) && (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setShowEditModal(true)} leftIcon={<Edit className="h-4 w-4" />}>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                navigate(`/biblios/${item.id}/edit`, {
+                  state: savedSearch !== undefined ? { savedSearch } : undefined,
+                })
+              }
+              leftIcon={<Edit className="h-4 w-4" />}
+            >
               Modifier
             </Button>
             <Button variant="danger" onClick={() => setShowDeleteModal(true)} leftIcon={<Trash2 className="h-4 w-4" />}>
@@ -286,33 +315,59 @@ export default function BiblioDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main info */}
         <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader title={t('items.generalInfo')} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InfoRow icon={Hash} label={t('items.isbn')} value={item.isbn} />
-              <InfoRow icon={User} label={t('items.mainAuthor')} value={item.authors?.length ? formatAuthors([item.authors[0]]) : undefined} />
-              <InfoRow icon={User} label={t('items.secondaryAuthor')} value={item.authors && item.authors.length > 1 ? formatAuthors(item.authors.slice(1)) : undefined} />
-              <InfoRow icon={Calendar} label={t('items.publicationDate')} value={item.publicationDate} />
-              <InfoRow icon={Building} label={t('items.publisher')} value={item.edition?.publisherName} />
-              <InfoRow icon={MapPin} label={t('items.publicationPlace')} value={item.edition?.placeOfPublication} />
-              {item.lang !== undefined && item.lang !== null && (
-                <InfoRow icon={BookOpen} label={t('items.language')} value={getCodeLabel(t, LANG_OPTIONS, item.lang)} />
+          {showGeneralInfoCard && (
+            <Card>
+              <CardHeader title={t('items.generalInfo')} />
+              {hasGeneralInfoFields && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <InfoRow icon={Hash} label={t('items.isbn')} value={formatIsbnDisplay(item.isbn)} />
+                  <InfoRow icon={User} label={t('items.mainAuthor')} value={item.authors?.length ? formatAuthors([item.authors[0]]) : undefined} />
+                  <InfoRow icon={User} label={t('items.secondaryAuthor')} value={item.authors && item.authors.length > 1 ? formatAuthors(item.authors.slice(1)) : undefined} />
+                  <InfoRow icon={Calendar} label={t('items.publicationDate')} value={item.publicationDate} />
+                  <InfoRow icon={Building} label={t('items.publisher')} value={item.edition?.publisherName} />
+                  <InfoRow icon={MapPin} label={t('items.publicationPlace')} value={item.edition?.placeOfPublication} />
+                  <InfoRow
+                    icon={BookOpen}
+                    label={t('items.language')}
+                    value={item.lang != null && item.lang !== '' ? getCodeLabel(t, LANG_OPTIONS, item.lang) : undefined}
+                  />
+                  <InfoRow
+                    icon={Tag}
+                    label={t('items.publicType')}
+                    value={item.audienceType != null ? getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audienceType) : undefined}
+                  />
+                </div>
               )}
-              {item.audienceType != null && (
-                <InfoRow icon={Tag} label={t('items.publicType')} value={getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audienceType)} />
+              {hasGeneralInfoMeta && (
+                <div
+                  className={
+                    hasGeneralInfoFields
+                      ? 'mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-xs text-gray-500 dark:text-gray-400'
+                      : 'flex flex-wrap items-baseline gap-x-5 gap-y-1 text-xs text-gray-500 dark:text-gray-400'
+                  }
+                >
+                  {metaDatesAreSameInstant && createdAt ? (
+                    <span>
+                      {t('items.createdAt')}: {formatBiblioMetaDate(createdAt)}
+                    </span>
+                  ) : (
+                    <>
+                      {createdAt && (
+                        <span>
+                          {t('items.createdAt')}: {formatBiblioMetaDate(createdAt)}
+                        </span>
+                      )}
+                      {updatedAt && (
+                        <span>
+                          {t('items.updatedAt')}: {formatBiblioMetaDate(updatedAt)}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
-              {item.items != null && (
-                <InfoRow 
-                  icon={Plus} 
-                  label={t('items.specimens')} 
-                  value={item.items.length > 0
-                    ? `${item.items.filter((s) => !s.borrowed).length}/${item.items.length}`
-                    : '0'
-                  } 
-                />
-              )}
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {item.abstract && (
             <Card>
@@ -581,31 +636,6 @@ export default function BiblioDetailPage() {
         </p>
       </Modal>
 
-      {/* Edit modal */}
-      <Modal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        title="Modifier le document"
-        size="lg"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button type="submit" form="edit-item-form" isLoading={isEditItemLoading}>
-              {t('common.save')}
-            </Button>
-          </div>
-        }
-      >
-        <EditBiblioForm
-          formId="edit-item-form"
-          item={item}
-          onLoadingChange={setIsEditItemLoading}
-          onSuccess={(updatedItem) => {
-            setItem(updatedItem);
-            setShowEditModal(false);
-          }}
-        />
-      </Modal>
-
       {/* Add specimen modal */}
       <Modal
         isOpen={showAddSpecimenModal}
@@ -712,12 +742,14 @@ interface InfoRowProps {
 }
 
 function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
+  const text = value === undefined || value === null ? '' : String(value).trim();
+  if (!text) return null;
   return (
     <div className="flex items-start gap-3">
       <Icon className="h-5 w-5 text-gray-400 mt-0.5" />
       <div>
         <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="text-gray-900 dark:text-white">{value || 'Non renseigné'}</p>
+        <p className="text-gray-900 dark:text-white">{text}</p>
       </div>
     </div>
   );
@@ -780,371 +812,11 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
       {specimen.volumeDesignation && (
         <p className="text-sm text-gray-500 dark:text-gray-400">{t('items.volumeDesignation')}: {specimen.volumeDesignation}</p>
       )}
-     
+
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {t('items.source')}: {specimen.sourceName ?? '—'}
       </p>
     </div>
-  );
-}
-
-interface EditItemFormProps {
-  formId: string;
-  item: Biblio;
-  onLoadingChange: (loading: boolean) => void;
-  onSuccess: (item: Biblio) => void;
-}
-
-type AuthorForm = { id: string; lastname: string; firstname: string; function: string };
-
-function EditBiblioForm({ formId, item, onLoadingChange, onSuccess }: EditItemFormProps) {
-  const { t } = useTranslation();
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const toAuthorForm = (a: Author): AuthorForm => ({
-    id: a.id,
-    lastname: a.lastname ?? '',
-    firstname: a.firstname ?? '',
-    function: a.function ?? '',
-  });
-  const allAuthors = item.authors ?? [];
-
-  const initialCollections = (): LinkedEntry[] => {
-    const arr = item.collections ?? [];
-    if (arr.length > 0) {
-      return arr.map((c) => ({
-        id: c.id ?? undefined,
-        name: c.name ?? '',
-        volumeNumber: c.volumeNumber?.toString() ?? '',
-      }));
-    }
-    if (item.collection?.id || item.collection?.name) {
-      return [{
-        id: item.collection.id ?? undefined,
-        name: item.collection.name ?? '',
-        volumeNumber: '',
-      }];
-    }
-    return [];
-  };
-
-  const [formData, setFormData] = useState({
-    title: item.title || '',
-    isbn: item.isbn || '',
-    publicationDate: item.publicationDate || '',
-    abstract: item.abstract || '',
-    keywords: Array.isArray(item.keywords) ? item.keywords.join(', ') : (item.keywords || ''),
-    subject: item.subject || '',
-    mediaType: (item.mediaType || 'printedText') as MediaType,
-    audienceType: item.audienceType ?? '',
-    lang: item.lang ?? '',
-    edition_publisher: item.edition?.publisherName ?? '',
-    edition_place: item.edition?.placeOfPublication ?? '',
-    edition_date: item.edition?.date ?? '',
-    authors: allAuthors.map(toAuthorForm),
-  });
-  const [linkedCollections, setLinkedCollections] = useState<LinkedEntry[]>(initialCollections);
-  const [linkedSeries, setLinkedSeries] = useState<LinkedEntry[]>(
-    (item.series ?? []).map((s) => ({
-      id: s.id ?? undefined,
-      name: s.name ?? '',
-      volumeNumber: s.volumeNumber?.toString() ?? '',
-    }))
-  );
-
-  const searchCollections = useCallback(async (q: string) => {
-    const res = await api.getCollections({ name: q, perPage: 10 });
-    return res.items.map((c) => ({ id: c.id ?? '', name: c.name ?? '' }));
-  }, []);
-
-  const searchSeries = useCallback(async (q: string) => {
-    const res = await api.getSeries({ name: q, perPage: 10 });
-    return res.items.map((s) => ({ id: s.id ?? '', name: s.name ?? '' }));
-  }, []);
-
-  const MEDIA_TYPES: MediaTypeOption[] = [
-    { value: 'unknown', label: t('items.mediaType.unknown') },
-    { value: 'printedText', label: t('items.mediaType.printedText') },
-    { value: 'comics', label: t('items.mediaType.comics') },
-    { value: 'periodic', label: t('items.mediaType.periodic') },
-    { value: 'video', label: t('items.mediaType.video') },
-    { value: 'videoTape', label: t('items.mediaType.videoTape') },
-    { value: 'videoDvd', label: t('items.mediaType.videoDvd') },
-    { value: 'audio', label: t('items.mediaType.audio') },
-    { value: 'audioMusic', label: t('items.mediaType.audioMusic') },
-    { value: 'audioMusicTape', label: t('items.mediaType.audioMusicTape') },
-    { value: 'audioMusicCd', label: t('items.mediaType.audioMusicCd') },
-    { value: 'audioNonMusic', label: t('items.mediaType.audioNonMusic') },
-    { value: 'cdRom', label: t('items.mediaType.cdRom') },
-    { value: 'images', label: t('items.mediaType.images') },
-    { value: 'multimedia', label: t('items.mediaType.multimedia') },
-  ];
-
-  const updateAuthor = (index: number, field: keyof AuthorForm, value: string) => {
-    const arr = [...formData.authors];
-    arr[index] = { ...arr[index], [field]: value };
-    setFormData({ ...formData, authors: arr });
-  };
-  const addAuthor = () => {
-    setFormData({
-      ...formData,
-      authors: [...formData.authors, { id: '', lastname: '', firstname: '', function: '' }],
-    });
-  };
-  const removeAuthor = (index: number) => {
-    setFormData({ ...formData, authors: formData.authors.filter((_, i) => i !== index) });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (item.id == null) return;
-    onLoadingChange(true);
-    try {
-      const authorsPayload: Author[] = formData.authors.map((a) => ({
-        id: a.id,
-        lastname: a.lastname || undefined,
-        firstname: a.firstname || undefined,
-        function: a.function || undefined,
-      }));
-      const updateData: Partial<Biblio> = {
-        title: formData.title || undefined,
-        isbn: formData.isbn || undefined,
-        publicationDate: formData.publicationDate || undefined,
-        abstract: formData.abstract || undefined,
-        keywords: formData.keywords || undefined,
-        subject: formData.subject || undefined,
-        mediaType: formData.mediaType,
-        audienceType: formData.audienceType || undefined,
-        lang: formData.lang || undefined,
-        edition: {
-          id: item.edition?.id ?? null,
-          publisherName: formData.edition_publisher || undefined,
-          placeOfPublication: formData.edition_place || undefined,
-          date: formData.edition_date || undefined,
-        },
-        authors: authorsPayload,
-        series: linkedSeries
-          .filter((s) => s.name.trim())
-          .map((s) => ({
-            id: s.id || null,
-            name: s.name.trim() || undefined,
-            volumeNumber: s.volumeNumber ? parseInt(s.volumeNumber, 10) : undefined,
-          })),
-        collections: linkedCollections
-          .filter((c) => c.name.trim())
-          .map((c) => ({
-            id: c.id || null,
-            name: c.name.trim() || undefined,
-            volumeNumber: c.volumeNumber ? parseInt(c.volumeNumber, 10) : undefined,
-          })),
-      };
-      const updated = await api.updateBiblio(item.id, updateData);
-      onSuccess(updated);
-    } catch (error) {
-      console.error('Error updating item:', error);
-    } finally {
-      onLoadingChange(false);
-    }
-  };
-
-  const renderAuthorRows = () => (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('items.authors')}</span>
-        <Button type="button" size="sm" variant="ghost" onClick={addAuthor} leftIcon={<Plus className="h-3 w-3" />}>
-          {t('common.add')}
-        </Button>
-      </div>
-      {formData.authors.map((author, index) => (
-        <div key={index} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-          <Input
-            placeholder={t('items.authorLastname')}
-            value={author.lastname}
-            onChange={(e) => updateAuthor(index, 'lastname', e.target.value)}
-            className="flex-1 min-w-[100px]"
-          />
-          <Input
-            placeholder={t('items.authorFirstname')}
-            value={author.firstname}
-            onChange={(e) => updateAuthor(index, 'firstname', e.target.value)}
-            className="flex-1 min-w-[100px]"
-          />
-          <select
-            value={author.function}
-            onChange={(e) => updateAuthor(index, 'function', e.target.value)}
-            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm min-w-[120px]"
-          >
-            <option value="">{t('items.notSpecified')}</option>
-            {FUNCTION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={() => removeAuthor(index)}
-            className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-            title={t('common.delete')}
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        label={t('items.titleField')}
-        value={formData.title}
-        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-        required
-      />
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          label={t('items.isbn')}
-          value={formData.isbn}
-          onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
-        />
-        <Input
-          label={t('items.publicationDate')}
-          value={formData.publicationDate}
-          onChange={(e) => setFormData({ ...formData, publicationDate: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('items.mediaTypeLabel')}
-          </label>
-          <select
-            value={formData.mediaType}
-            onChange={(e) => setFormData({ ...formData, mediaType: e.target.value as MediaType })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            {MEDIA_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('items.publicType')}
-          </label>
-          <select
-            value={formData.audienceType}
-            onChange={(e) => setFormData({ ...formData, audienceType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">{t('items.notSpecified')}</option>
-            {PUBLIC_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('items.abstract')}
-        </label>
-        <textarea
-          value={formData.abstract}
-          onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
-          rows={4}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-        />
-      </div>
-      <Input
-        label={t('items.keywords')}
-        value={formData.keywords}
-        onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
-        placeholder={t('items.keywordsHint')}
-      />
-
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-        >
-          {showAdvanced ? t('common.hide') : t('items.advancedBibliographic')}
-        </button>
-      </div>
-
-      {showAdvanced && (
-        <div className="space-y-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4 bg-gray-50/50 dark:bg-gray-800/30">
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.editionInfo')}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Input
-                label={t('items.publisher')}
-                value={formData.edition_publisher}
-                onChange={(e) => setFormData({ ...formData, edition_publisher: e.target.value })}
-              />
-              <Input
-                label={t('items.publicationPlace')}
-                value={formData.edition_place}
-                onChange={(e) => setFormData({ ...formData, edition_place: e.target.value })}
-              />
-              <Input
-                label={t('items.editionDate')}
-                value={formData.edition_date}
-                onChange={(e) => setFormData({ ...formData, edition_date: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {renderAuthorRows()}
-
-          <EntityLinker
-            label={t('items.collection')}
-            addLabel={t('catalog.searchOrCreateCollection')}
-            entries={linkedCollections}
-            onChange={setLinkedCollections}
-            onSearch={searchCollections}
-            volumeLabel={t('catalog.volumeNumber')}
-          />
-
-          <EntityLinker
-            label={t('items.series')}
-            addLabel={t('catalog.searchOrCreateSerie')}
-            entries={linkedSeries}
-            onChange={setLinkedSeries}
-            onSearch={searchSeries}
-            volumeLabel={t('catalog.volumeNumber')}
-          />
-
-          <Input
-            label={t('items.subject')}
-            value={formData.subject}
-            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('items.language')}
-            </label>
-            <select
-              value={formData.lang}
-              onChange={(e) => setFormData({ ...formData, lang: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-            >
-              <option value="">{t('items.notSpecified')}</option>
-              {LANG_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {t(opt.labelKey)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-
-    </form>
   );
 }
 

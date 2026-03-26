@@ -11,6 +11,8 @@ import {
   HomePage,
   BibliosPage,
   BiblioDetailPage,
+  BiblioEditPage,
+  BiblioCreatePage,
   InventoryPage,
   UsersPage,
   UserDetailPage,
@@ -95,6 +97,28 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <BibliosPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/biblios/new"
+        element={
+          <ProtectedRoute>
+            <LibrarianRoute>
+              <BiblioCreatePage />
+            </LibrarianRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/biblios/:id/edit"
+        element={
+          <ProtectedRoute>
+            <LibrarianRoute>
+              <BiblioEditPage />
+            </LibrarianRoute>
           </ProtectedRoute>
         }
       />

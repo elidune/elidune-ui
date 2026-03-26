@@ -3,6 +3,8 @@ export { default as MustChangePasswordPage } from './MustChangePasswordPage';
 export { default as HomePage } from './HomePage';
 export { default as BibliosPage } from './BibliosPage';
 export { default as BiblioDetailPage } from './BiblioDetailPage';
+export { default as BiblioEditPage } from './BiblioEditPage';
+export { default as BiblioCreatePage } from './BiblioCreatePage';
 export { default as InventoryPage } from './InventoryPage';
 export { default as UsersPage } from './UsersPage';
 export { default as UserDetailPage } from './UserDetailPage';

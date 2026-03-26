@@ -18,6 +18,7 @@ import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
 import type { Biblio, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
+import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import type { AxiosError } from 'axios';
 
 // Helper function to get translation key for media type
@@ -326,7 +327,7 @@ export default function Z3950SearchPage() {
               {item.title || t('items.notSpecified')}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-              {item.isbn}
+              {formatIsbnDisplay(item.isbn)}
             </p>
           </div>
         </div>
@@ -363,7 +364,9 @@ export default function Z3950SearchPage() {
     {
       key: 'actions',
       header: t('common.actions'),
+      align: 'right' as const,
       render: (item: Z3950Result) => (
+        <div className="flex justify-end">
         <Button
           size="sm"
           onClick={(e) => {
@@ -374,6 +377,7 @@ export default function Z3950SearchPage() {
         >
           {t('z3950.import')}
         </Button>
+        </div>
       ),
     },
   ];
@@ -613,7 +617,7 @@ export default function Z3950SearchPage() {
                 </p>
                 {selectedItem.isbn && (
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    ISBN: {selectedItem.isbn}
+                    ISBN: {formatIsbnDisplay(selectedItem.isbn)}
                   </p>
                 )}
               </div>

@@ -230,10 +230,11 @@ export default function EventsPage() {
     {
       key: 'actions',
       header: '',
-      className: 'text-right',
+      align: 'right' as const,
       render: (event: Event) => {
         const state = announcementState[event.id];
         return (
+          <div className="flex justify-end">
           <button
             onClick={(e) => handleSendAnnouncement(event, e)}
             disabled={state === 'loading'}
@@ -263,6 +264,7 @@ export default function EventsPage() {
                   : t('events.sendAnnouncement')}
             </span>
           </button>
+          </div>
         );
       },
     },

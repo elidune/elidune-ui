@@ -9,6 +9,7 @@ import { useLibrary } from '@/contexts/LibraryContext';
 import { Card, Badge, Input, Button, LibraryInfoSection } from '@/components/common';
 import { useLibrarySchedule } from '@/hooks/common/useLibrarySchedule';
 import api from '@/services/api';
+import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import type { MediaType } from '@/types';
 
 const MEDIA_FILTERS: Array<{ key: MediaType | ''; labelKey: string }> = [
@@ -18,20 +19,6 @@ const MEDIA_FILTERS: Array<{ key: MediaType | ''; labelKey: string }> = [
   { key: 'periodic', labelKey: 'opac.filterMagazines' },
   { key: 'comics', labelKey: 'opac.filterComics' },
 ];
-
-const MEDIA_SPINE_COLORS: Record<string, string> = {
-  printedText: '#5DCAA5',
-  videoDvd: '#7F77DD',
-  periodic: '#EF9F27',
-  comics: '#D85A30',
-  audio: '#3B82F6',
-  audioMusicCd: '#3B82F6',
-  multimedia: '#EC4899',
-};
-
-function getSpineColor(mediaType?: string | null): string {
-  return MEDIA_SPINE_COLORS[mediaType ?? ''] ?? '#9CA3AF';
-}
 
 function getMediaTypeIcon(mediaType?: string | null): React.ReactNode {
   const cls = 'h-4 w-4';
@@ -261,7 +248,7 @@ function BiblioDetailPane({
   const metaRows: Array<{ label: string; value: string | null | undefined }> = detail
     ? [
         { label: t('items.mediaTypeLabel'), value: detail.mediaType ? t(`items.mediaType.${detail.mediaType}`, { defaultValue: detail.mediaType as string }) : null },
-        { label: t('items.isbn'), value: detail.isbn },
+        { label: t('items.isbn'), value: detail.isbn ? formatIsbnDisplay(detail.isbn) : null },
         { label: t('items.publisher'), value: detail.edition?.publisherName },
         { label: t('items.publicationDate'), value: detail.publicationDate ?? detail.edition?.date },
         { label: t('items.publicationPlace'), value: detail.edition?.placeOfPublication },
@@ -427,8 +414,8 @@ export default function LoginPage() {
     queryFn: () =>
       api.getOPACBiblios({
         freesearch: activeSearch || undefined,
-        media_type: (activeMediaType as MediaType) || undefined,
-        per_page: 8,
+        mediaType: (activeMediaType as MediaType) || undefined,
+        perPage: 8,
       }),
     enabled: hasQuery,
     staleTime: 2 * 60 * 1000,
