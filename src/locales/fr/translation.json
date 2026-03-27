@@ -48,7 +48,8 @@
     "clear": "Effacer",
     "copy": "Copier",
     "copied": "Copié",
-    "perPage": "Par page"
+    "perPage": "Par page",
+    "refresh": "Rafraîchir"
   },
   "nav": {
     "home": "Accueil",
@@ -264,6 +265,7 @@
     "subscriptionExpiry": "Fin d'abonnement",
     "expiryUnlimited": "Illimité",
     "subscriptionUnlimited": "Abonnement illimité (sans date de fin)",
+    "subscriptionValidUntil": "Jusqu'au {{date}}",
     "subscriptionExpired": "Abonnement expiré",
     "renewSubscription": "Renouveler",
     "renewSubscriptionModalTitle": "Renouveler l'abonnement ?",

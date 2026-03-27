@@ -93,15 +93,24 @@ export default function Layout({ children }: LayoutProps) {
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
+          {/* Logo / title */}
           <div className="relative flex flex-col items-center justify-center py-4 px-4 border-b border-gray-200 dark:border-gray-800">
-            <Link to="/" className="flex flex-col items-center gap-1.5">
-              <img src="/elidune_logo.png" alt="Elidune" className="h-12 w-12" />
-              <span className="text-sm font-semibold text-center text-gray-900 dark:text-white leading-tight">
+            <Link
+              to="/"
+              className="flex flex-col items-center gap-1.5 text-center w-full"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <img
+                src="/elidune_logo.png"
+                alt="Elidune"
+                className="h-25 w-25 object-contain shrink-0"
+              />
+              <span className="text-sm font-semibold text-gray-900 dark:text-white leading-tight">
                 {libraryName ?? 'Elidune'}
               </span>
             </Link>
             <button
+              type="button"
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden absolute right-3 top-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
@@ -206,7 +215,7 @@ export default function Layout({ children }: LayoutProps) {
         <main className="p-4 lg:p-6 flex-1">{children}</main>
 
         {/* Footer */}
-        <footer className="border-t border-gray-200 dark:border-gray-800 py-3 px-4 lg:px-6 text-xs text-gray-400 dark:text-gray-500">
+        <footer className="border-t border-gray-200 dark:border-gray-800 py-3 px-4 lg:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-xs text-gray-400 dark:text-gray-500">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="font-mono">UI v{uiVersion}</span>
             <span className="font-mono">Server v{serverVersion ?? '—'}</span>

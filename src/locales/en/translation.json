@@ -44,7 +44,8 @@
     "clear": "Clear",
     "copy": "Copy",
     "copied": "Copied",
-    "perPage": "Per page"
+    "perPage": "Per page",
+    "refresh": "Refresh"
   },
   "nav": {
     "home": "Home",

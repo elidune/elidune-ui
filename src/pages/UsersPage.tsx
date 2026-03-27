@@ -1,59 +1,85 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, BookMarked, RefreshCw } from 'lucide-react';
-import { Card, Button, Table, Badge, Pagination, SearchInput, Modal } from '@/components/common';
-import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
+import { Plus, BookMarked, RefreshCw, Loader2 } from 'lucide-react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
+import {
+  Card,
+  Button,
+  Table,
+  Badge,
+  SearchInput,
+  Modal,
+  ScrollableListRegion,
+  ResponsiveRecordList,
+  ListSkeleton,
+} from '@/components/common';
+import { RenewSubscriptionModal, UserEditorForm, UserListCard } from '@/components/users';
 import api from '@/services/api';
-import type { UserShort, PublicType } from '@/types';
+import type { UserShort } from '@/types';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
+import { formatSubscriptionExpiryLine } from '@/utils/subscriptionDisplay';
 
 const USERS_PER_PAGE = 20;
 
 export default function UsersPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: publicTypes = [] } = usePublicTypesQuery();
 
-  const [users, setUsers] = useState<UserShort[]>([]);
-  const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreateLoading, setIsCreateLoading] = useState(false);
   const [renewModalUser, setRenewModalUser] = useState<UserShort | null>(null);
 
-  useEffect(() => {
-    api.getPublicTypes().then(setPublicTypes).catch(() => {});
-  }, []);
-
-  const fetchUsers = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await api.getUsers({
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['users', searchQuery],
+    queryFn: async ({ pageParam }) =>
+      api.getUsers({
         name: searchQuery || undefined,
-        page: currentPage,
+        page: pageParam,
         perPage: USERS_PER_PAGE,
-      });
-      setUsers(response.items);
-      setTotalUsers(response.total);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchQuery, currentPage]);
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage?.items?.length) return undefined;
+      const loaded = lastPage.page * lastPage.perPage;
+      return loaded < lastPage.total ? lastPage.page + 1 : undefined;
+    },
+  });
+
+  const users = data?.pages.flatMap((p) => p.items) ?? [];
+  const totalUsers = data?.pages[0]?.total ?? 0;
+
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    const el = loadMoreRef.current;
+    const scrollRoot = el?.closest('.app-list-scroll') ?? null;
+    if (!el || !scrollRoot || !hasNextPage || isFetchingNextPage || !data?.pages?.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextPage();
+      },
+      { root: scrollRoot, rootMargin: '200px', threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, data?.pages?.length]);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setSearchDraft(value);
-    setCurrentPage(1);
   };
 
   const handleRowClick = (user: UserShort) => {
@@ -61,6 +87,10 @@ export default function UsersPage() {
   };
 
   const openRenewModal = (user: UserShort) => setRenewModalUser(user);
+
+  const handleRefreshList = () => {
+    void queryClient.invalidateQueries({ queryKey: ['users'] });
+  };
 
   const columns = [
     {
@@ -89,6 +119,19 @@ export default function UsersPage() {
       ),
     },
     {
+      key: 'createdAt',
+      header: t('users.createdAt'),
+      className: 'whitespace-nowrap',
+      render: (user: UserShort) =>
+        user.createdAt
+          ? new Date(user.createdAt).toLocaleDateString(i18n.language, {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })
+          : '—',
+    },
+    {
       key: 'loans',
       header: t('users.loans'),
       render: (user: UserShort) => {
@@ -112,46 +155,43 @@ export default function UsersPage() {
       align: 'right' as const,
       render: (user: UserShort) => {
         const expired = isSubscriptionExpired(user.expiryAt);
-        return (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {expired && (
+        if (expired) {
+          return (
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   openRenewModal(user);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-2.5 py-1.5 text-sm font-medium text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-2.5 py-1.5 text-sm font-medium text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors min-h-[44px]"
               >
                 <span>{t('users.subscriptionExpired')}</span>
                 <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
               </button>
-            )}
-            {!expired && <Badge variant="success">OK</Badge>}
+            </div>
+          );
+        }
+        return (
+          <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-gray-700 dark:text-gray-200">
+            {formatSubscriptionExpiryLine(user.expiryAt, t, i18n)}
           </div>
         );
       },
     },
   ];
 
-  const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE);
-
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('users.title')}</h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            {t('users.count', { count: totalUsers })}
-          </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)} leftIcon={<Plus className="h-4 w-4" />}>
           {t('users.newUser')}
         </Button>
       </div>
 
-      {/* Search */}
       <Card>
         <SearchInput
           value={searchDraft}
@@ -164,25 +204,68 @@ export default function UsersPage() {
         />
       </Card>
 
-      {/* Users table */}
-      <Card padding="none">
-        <Table
-          columns={columns}
-          data={users}
-          keyExtractor={(user) => user.id}
-          onRowClick={handleRowClick}
-          isLoading={isLoading}
-          emptyMessage={t('users.noUsers')}
-        />
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        )}
+      <Card padding="none" className="flex flex-col min-h-0">
+        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <span>{t('users.count', { count: totalUsers })}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleRefreshList}
+            disabled={isFetching && !isFetchingNextPage}
+            leftIcon={
+              <RefreshCw className={`h-4 w-4 ${isFetching && !isFetchingNextPage ? 'animate-spin' : ''}`} />
+            }
+          >
+            {t('common.refresh')}
+          </Button>
+        </div>
+        <ScrollableListRegion aria-label={t('users.title')}>
+          {isLoading && !users.length ? (
+            <ListSkeleton rows={10} />
+          ) : (
+            <>
+              <ResponsiveRecordList
+                desktop={
+                  <Table
+                    columns={columns}
+                    data={users}
+                    keyExtractor={(user) => user.id}
+                    onRowClick={handleRowClick}
+                    isLoading={false}
+                    emptyMessage={t('users.noUsers')}
+                  />
+                }
+                mobile={
+                  users.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                      {t('users.noUsers')}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2">
+                      {users.map((user) => (
+                        <UserListCard
+                          key={user.id}
+                          user={user}
+                          publicTypes={publicTypes}
+                          onOpen={() => handleRowClick(user)}
+                          onRenew={() => openRenewModal(user)}
+                        />
+                      ))}
+                    </div>
+                  )
+                }
+              />
+              <div ref={loadMoreRef} className="h-4 flex-shrink-0" aria-hidden />
+              {isFetchingNextPage && (
+                <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{t('common.loading')}</span>
+                </div>
+              )}
+            </>
+          )}
+        </ScrollableListRegion>
       </Card>
 
       <RenewSubscriptionModal
@@ -190,7 +273,7 @@ export default function UsersPage() {
         isOpen={renewModalUser !== null}
         onClose={() => setRenewModalUser(null)}
         onSuccess={async () => {
-          await fetchUsers();
+          await queryClient.invalidateQueries({ queryKey: ['users'] });
         }}
       />
 
@@ -214,7 +297,7 @@ export default function UsersPage() {
           onLoadingChange={setIsCreateLoading}
           onSuccess={() => {
             setShowCreateModal(false);
-            fetchUsers();
+            void queryClient.invalidateQueries({ queryKey: ['users'] });
           }}
         />
       </Modal>

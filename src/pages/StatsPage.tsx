@@ -23,7 +23,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { Card, CardHeader, Badge, Table, Input } from '@/components/common';
+import { Card, CardHeader, Badge, Table, Input, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
 import type { Stats, AdvancedStatsParams, MediaType, MediaTypeOption, StatsInterval, UserLoanStats, UserAggregateStats, CatalogStats, CatalogStatsBreakdown } from '@/types';
 import { translateStatLabel } from '@/utils/codeLabels';
@@ -622,8 +622,8 @@ export default function StatsPage() {
       )}
 
       {statsDetailTab === 'users' && (
-      <Card padding="none">
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+      <Card padding="none" className="flex flex-col min-h-0">
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -711,10 +711,11 @@ export default function StatsPage() {
         </div>
 
         {isLoadingUsers ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 flex-shrink-0">
             <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : userStatsMode === 'aggregate' ? (
+          <ScrollableListRegion aria-label={t('stats.usersSection.title')}>
           <div className="p-4 sm:p-6">
             {userStatsAggregate ? (
               <div className="space-y-6">
@@ -791,7 +792,9 @@ export default function StatsPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.noResults')}</p>
             )}
           </div>
+          </ScrollableListRegion>
         ) : (
+          <ScrollableListRegion aria-label={t('stats.usersSection.title')}>
           <Table
             columns={userColumns}
             data={userStats}
@@ -799,6 +802,7 @@ export default function StatsPage() {
             onRowClick={(user) => navigate(`/users/${user.userId}`)}
             emptyMessage={t('common.noResults')}
           />
+          </ScrollableListRegion>
         )}
       </Card>
       )}

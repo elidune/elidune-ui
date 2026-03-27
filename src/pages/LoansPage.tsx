@@ -16,7 +16,8 @@ import {
   Send,
   FlaskConical,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Input, Modal, MessageModal, ConfirmDialog } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Table, Input, Modal, MessageModal, ConfirmDialog, ScrollableListRegion, ResponsiveRecordList, ListSkeleton } from '@/components/common';
+import ActiveLoanCard from '@/components/loans/ActiveLoanCard';
 import Pagination from '@/components/common/Pagination';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -634,8 +635,8 @@ export default function LoansPage() {
 
           {/* Loans list */}
           {selectedUser && (
-            <Card padding="none">
-              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+            <Card padding="none" className="flex flex-col min-h-0">
+              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardHeader
                     title={t('loans.activeLoans')}
@@ -655,15 +656,43 @@ export default function LoansPage() {
                   </div>
                 )}
               </div>
-              <Table
-                columns={loanColumns}
-                data={loans}
-                keyExtractor={(loan) => loan.id}
-                isLoading={isLoadingLoans}
-                emptyMessage={t('loans.noLoans')}
-              />
+              <ScrollableListRegion aria-label={t('loans.activeLoans')}>
+                {isLoadingLoans && !loans.length ? (
+                  <ListSkeleton rows={6} />
+                ) : (
+                  <ResponsiveRecordList
+                    desktop={
+                      <Table
+                        columns={loanColumns}
+                        data={loans}
+                        keyExtractor={(loan) => loan.id}
+                        isLoading={false}
+                        emptyMessage={t('loans.noLoans')}
+                      />
+                    }
+                    mobile={
+                      loans.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                          {t('loans.noLoans')}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2">
+                          {loans.map((loan) => (
+                            <ActiveLoanCard
+                              key={loan.id}
+                              loan={loan}
+                              onRenew={() => void handleRenewLoan(loan.id)}
+                              onReturn={() => void handleReturn(loan.id)}
+                            />
+                          ))}
+                        </div>
+                      )
+                    }
+                  />
+                )}
+              </ScrollableListRegion>
               {loansTotal > 0 && (
-                <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+                <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
                   <Pagination
                     currentPage={loansPage}
                     totalPages={Math.max(1, Math.ceil(loansTotal / BORROW_LOANS_PAGE_SIZE))}

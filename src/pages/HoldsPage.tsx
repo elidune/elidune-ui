@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ban, Bookmark, Plus, Search } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Input, Pagination, Modal, ConfirmDialog } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Table, Input, Pagination, Modal, ConfirmDialog, ScrollableListRegion, ResponsiveRecordList, ListSkeleton } from '@/components/common';
+import HoldMobileCard from '@/components/holds/HoldMobileCard';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import type { Biblio, BiblioShort, Hold, UserShort } from '@/types';
@@ -233,46 +234,77 @@ export default function HoldsPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader
-          title={t('holds.activeHoldsTitle')}
-          subtitle={
-            listData != null ? t('holds.activeHoldsCount', { total: listData.total }) : undefined
-          }
-        />
-        <div className="px-4 pb-4 space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t('common.perPage')}
-              </label>
-              <select
-                value={listPerPage}
-                onChange={(e) => {
-                  setListPerPage(Number(e.target.value));
-                  setListPage(1);
-                }}
-                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm min-w-[5rem]"
-              >
-                {[25, 50, 100, 200].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <Table
-            columns={columns}
-            data={listData?.items ?? []}
-            keyExtractor={(r) => r.id}
-            isLoading={activeHoldsQuery.isLoading}
-            emptyMessage={t('holds.noActiveHolds')}
+      <Card padding="none" className="flex flex-col min-h-0">
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+          <CardHeader
+            title={t('holds.activeHoldsTitle')}
+            subtitle={
+              listData != null ? t('holds.activeHoldsCount', { total: listData.total }) : undefined
+            }
           />
-          {listData != null && listData.total > 0 && (
-            <Pagination currentPage={listPage} totalPages={totalPages} onPageChange={setListPage} />
-          )}
         </div>
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-end gap-3 flex-shrink-0">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              {t('common.perPage')}
+            </label>
+            <select
+              value={listPerPage}
+              onChange={(e) => {
+                setListPerPage(Number(e.target.value));
+                setListPage(1);
+              }}
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm min-w-[5rem]"
+            >
+              {[25, 50, 100, 200].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <ScrollableListRegion aria-label={t('holds.activeHoldsTitle')}>
+          {activeHoldsQuery.isLoading && !(listData?.items?.length) ? (
+            <ListSkeleton rows={8} />
+          ) : (
+            <ResponsiveRecordList
+              desktop={
+                <Table
+                  columns={columns}
+                  data={listData?.items ?? []}
+                  keyExtractor={(r) => r.id}
+                  isLoading={false}
+                  emptyMessage={t('holds.noActiveHolds')}
+                />
+              }
+              mobile={
+                (listData?.items ?? []).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                    {t('holds.noActiveHolds')}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2">
+                    {(listData?.items ?? []).map((r) => (
+                      <HoldMobileCard
+                        key={r.id}
+                        hold={r}
+                        statusBadge={(s) => statusBadge(t, s)}
+                        onCancel={() => setCancelHoldId(r.id)}
+                        cancelPending={cancelMutation.isPending && cancelMutation.variables === r.id}
+                      />
+                    ))}
+                  </div>
+                )
+              }
+            />
+          )}
+        </ScrollableListRegion>
+        {listData != null && listData.total > 0 && (
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
+            <Pagination currentPage={listPage} totalPages={totalPages} onPageChange={setListPage} />
+          </div>
+        )}
       </Card>
 
       <Modal

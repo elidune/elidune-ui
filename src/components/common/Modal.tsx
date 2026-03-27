@@ -49,7 +49,7 @@ export default function Modal({
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center p-4 ${stackOnTop ? 'z-[100]' : 'z-50'}`}
+      className={`fixed inset-0 flex items-stretch sm:items-center justify-center p-0 sm:p-4 ${stackOnTop ? 'z-[100]' : 'z-50'}`}
     >
       {/* Backdrop */}
       <div
@@ -57,9 +57,9 @@ export default function Modal({
         onClick={onClose}
       />
 
-      {/* Modal */}
+      {/* Modal — full viewport on narrow screens for usability */}
       <div
-        className={`relative w-full ${sizes[size]} bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col`}
+        className={`relative w-full ${sizes[size]} max-sm:max-w-none max-sm:min-h-[100dvh] sm:max-h-[90vh] max-h-[100dvh] bg-white dark:bg-gray-900 rounded-none sm:rounded-xl shadow-2xl overflow-hidden flex flex-col pb-[env(safe-area-inset-bottom)]`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">

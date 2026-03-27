@@ -489,9 +489,29 @@ class ApiService {
     return response.data;
   }
 
-  async getUserHolds(userId: string): Promise<Hold[]> {
-    const response = await this.client.get<Hold[]>(`/users/${userId}/holds`);
-    return response.data;
+  async getUserHolds(
+    userId: string,
+    options?: { page?: number; perPage?: number }
+  ): Promise<PaginatedResponse<Hold>> {
+    const response = await this.client.get(`/users/${userId}/holds`, {
+      params: {
+        page: options?.page,
+        perPage: options?.perPage,
+      },
+    });
+    const data = response.data;
+    if (Array.isArray(data)) {
+      const items = data as Hold[];
+      const n = items.length;
+      return {
+        items,
+        total: n,
+        page: 1,
+        perPage: Math.max(n, 1),
+        pageCount: 1,
+      };
+    }
+    return normalizePaginatedResponse<Hold>(data);
   }
 
   async getHolds(params?: {

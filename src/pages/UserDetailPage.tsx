@@ -1,25 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
-  Edit,
   Trash2,
-  User,
-  Users,
-  Mail,
-  Phone,
   Calendar,
   BookMarked,
   Ban,
-  Bookmark,
   RotateCcw,
   RefreshCw,
   Check,
-  BarChart3,
-  ChevronDown,
-  ChevronUp,
-  Hash,
   Filter,
   X,
   BookOpen,
@@ -30,7 +20,10 @@ import {
   Image,
   FileText,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
 import {
   XAxis,
   YAxis,
@@ -41,33 +34,30 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { Card, CardHeader, Button, Badge, Modal, Input, Table, Pagination, ConfirmDialog, MessageModal } from '@/components/common';
+import { Card, Button, Badge, Modal, Input, Table, ConfirmDialog, MessageModal, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
 import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
-import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType, type FinesResponse, type Hold, type HistoryPreference } from '@/types';
+import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type Hold } from '@/types';
 
 const USER_LOANS_PAGE_SIZE = 20;
+const USER_HOLDS_PAGE_SIZE = 20;
+
+type UserDetailTab = 'info' | 'activeLoans' | 'pastLoans' | 'holds' | 'stats';
 
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
+  const holdsLoadMoreRef = useRef<HTMLDivElement>(null);
+  const activeLoansLoadMoreRef = useRef<HTMLDivElement>(null);
+  const pastLoansLoadMoreRef = useRef<HTMLDivElement>(null);
 
-  const [user, setUser] = useState<UserType | null>(null);
-  const [activeLoans, setActiveLoans] = useState<Loan[]>([]);
-  const [pastLoans, setPastLoans] = useState<Loan[]>([]);
-  const [activeLoansTab, setActiveLoansTab] = useState<'active' | 'past' | 'holds'>('active');
-  const [activeLoansPage, setActiveLoansPage] = useState(1);
-  const [activeLoansTotal, setActiveLoansTotal] = useState(0);
-  const [pastLoansPage, setPastLoansPage] = useState(1);
-  const [pastLoansTotal, setPastLoansTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingPastLoans, setIsLoadingPastLoans] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [detailTab, setDetailTab] = useState<UserDetailTab>('info');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
   const [deleteUserActiveLoansError, setDeleteUserActiveLoansError] = useState(false);
@@ -82,24 +72,11 @@ export default function UserDetailPage() {
   const [renewError, setRenewError] = useState('');
   const [showRenewSubscriptionModal, setShowRenewSubscriptionModal] = useState(false);
 
-  // Fines state
-  const [finesData, setFinesData] = useState<FinesResponse | null>(null);
-  const [isLoadingFines, setIsLoadingFines] = useState(false);
-  const [showFines, setShowFines] = useState(false);
-
-  const [holds, setHolds] = useState<Hold[]>([]);
-  const [isLoadingHolds, setIsLoadingHolds] = useState(false);
   const [cancellingHoldId, setCancellingHoldId] = useState<string | null>(null);
 
-  // Reading history state
-  const [historyPref, setHistoryPref] = useState<HistoryPreference | null>(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [isUpdatingHistoryPref, setIsUpdatingHistoryPref] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  const { data: publicTypes = [] } = usePublicTypesQuery();
 
   // Stats state
-  const [publicTypes, setPublicTypes] = useState<PublicType[]>([]);
-  const [showStats, setShowStats] = useState(false);
   const [loanStats, setLoanStats] = useState<LoanStatsResponse | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [totalLoansAllTime, setTotalLoansAllTime] = useState<number | null>(null);
@@ -120,116 +97,109 @@ export default function UserDetailPage() {
     };
   };
 
-  useEffect(() => {
-    api.getPublicTypes().then(setPublicTypes).catch(() => {});
-  }, []);
+  const {
+    data: user,
+    isPending: isUserLoading,
+    isError: isUserError,
+  } = useQuery({
+    queryKey: ['user', id],
+    queryFn: () => api.getUser(id!),
+    enabled: !!id,
+  });
 
   useEffect(() => {
-    const fetchUser = async () => {
-      if (!id) return;
-      try {
-        const userData = await api.getUser(id);
-        setUser(userData);
-        setActiveLoansPage(1);
-        setPastLoansPage(1);
-        setActiveLoans([]);
-        setActiveLoansTotal(0);
-        setPastLoans([]);
-        setPastLoansTotal(0);
-      } catch (error) {
-        console.error('Error fetching user:', error);
-        navigate('/users');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (isUserError) navigate('/users');
+  }, [isUserError, navigate]);
 
-    fetchUser();
-  }, [id, navigate]);
+  const {
+    data: activeLoansPages,
+    isLoading: isLoadingActiveLoans,
+    isFetchingNextPage: isFetchingNextActiveLoans,
+    hasNextPage: hasNextActivePage,
+    fetchNextPage: fetchNextActivePage,
+  } = useInfiniteQuery({
+    queryKey: ['user-active-loans', id],
+    queryFn: ({ pageParam }) =>
+      api.getUserLoans(id!, { page: pageParam, perPage: USER_LOANS_PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalLoaded = allPages.reduce((sum, p) => sum + p.items.length, 0);
+      return totalLoaded < lastPage.total ? lastPage.page + 1 : undefined;
+    },
+    enabled: !!id && detailTab === 'activeLoans',
+  });
+  const activeLoans = activeLoansPages?.pages.flatMap((p) => p.items) ?? [];
+  const activeLoansTotal = activeLoansPages?.pages[0]?.total ?? 0;
 
-  useEffect(() => {
-    if (!id || activeLoansTab !== 'active') return;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await api.getUserLoans(id, {
-          page: activeLoansPage,
-          perPage: USER_LOANS_PAGE_SIZE,
-        });
-        if (!cancelled) {
-          setActiveLoans(res.items);
-          setActiveLoansTotal(res.total);
-        }
-      } catch (error) {
-        console.error('Error fetching active loans:', error);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, activeLoansPage, activeLoansTab]);
-
-  useEffect(() => {
-    if (!id || activeLoansTab !== 'past') return;
-    let cancelled = false;
-    const loadPast = async () => {
-      setIsLoadingPastLoans(true);
-      try {
-        const res = await api.getUserLoans(id, {
-          archived: true,
-          page: pastLoansPage,
-          perPage: USER_LOANS_PAGE_SIZE,
-        });
-        if (!cancelled) {
-          setPastLoans(res.items);
-          setPastLoansTotal(res.total);
-        }
-      } catch (error) {
-        console.error('Error fetching past loans:', error);
-      } finally {
-        if (!cancelled) setIsLoadingPastLoans(false);
-      }
-    };
-    void loadPast();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, activeLoansTab, pastLoansPage]);
-
-  const refreshLoans = async () => {
-    if (!user?.id) return;
-    try {
-      const activeRes = await api.getUserLoans(user.id, {
-        page: activeLoansPage,
+  const {
+    data: pastLoansPages,
+    isLoading: isLoadingPastLoans,
+    isFetchingNextPage: isFetchingNextPastLoans,
+    hasNextPage: hasNextPastPage,
+    fetchNextPage: fetchNextPastPage,
+  } = useInfiniteQuery({
+    queryKey: ['user-past-loans', id],
+    queryFn: ({ pageParam }) =>
+      api.getUserLoans(id!, {
+        archived: true,
+        page: pageParam,
         perPage: USER_LOANS_PAGE_SIZE,
-      });
-      setActiveLoans(activeRes.items);
-      setActiveLoansTotal(activeRes.total);
-      if (activeLoansTab === 'past') {
-        const pastRes = await api.getUserLoans(user.id, {
-          archived: true,
-          page: pastLoansPage,
-          perPage: USER_LOANS_PAGE_SIZE,
-        });
-        setPastLoans(pastRes.items);
-        setPastLoansTotal(pastRes.total);
-      }
-    } catch (error) {
-      console.error('Error refreshing loans:', error);
-    }
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalLoaded = allPages.reduce((sum, p) => sum + p.items.length, 0);
+      return totalLoaded < lastPage.total ? lastPage.page + 1 : undefined;
+    },
+    enabled: !!id && detailTab === 'pastLoans',
+  });
+  const pastLoans = pastLoansPages?.pages.flatMap((p) => p.items) ?? [];
+
+  useEffect(() => {
+    const el = activeLoansLoadMoreRef.current;
+    const scrollRoot = el?.closest('.app-list-scroll') ?? null;
+    if (!el || !scrollRoot || !hasNextActivePage || isFetchingNextActiveLoans || detailTab !== 'activeLoans')
+      return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextActivePage();
+      },
+      { root: scrollRoot, rootMargin: '200px', threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextActivePage, isFetchingNextActiveLoans, fetchNextActivePage, detailTab]);
+
+  useEffect(() => {
+    const el = pastLoansLoadMoreRef.current;
+    const scrollRoot = el?.closest('.app-list-scroll') ?? null;
+    if (!el || !scrollRoot || !hasNextPastPage || isFetchingNextPastLoans || detailTab !== 'pastLoans') return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextPastPage();
+      },
+      { root: scrollRoot, rootMargin: '200px', threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextPastPage, isFetchingNextPastLoans, fetchNextPastPage, detailTab]);
+
+  const refreshLoans = () => {
+    if (!user?.id) return;
+    void queryClient.invalidateQueries({ queryKey: ['user-active-loans', user.id] });
+    void queryClient.invalidateQueries({ queryKey: ['user-past-loans', user.id] });
+    void queryClient.invalidateQueries({ queryKey: ['user-holds', user.id] });
   };
 
-  // Init default filters when stats section is expanded
+  // Init default filters when stats tab is active
   useEffect(() => {
-    if (showStats && user && !userStatsFilters) {
+    if (detailTab === 'stats' && user && !userStatsFilters) {
       setUserStatsFilters(getDefaultStatsFilters());
     }
-  }, [showStats, user, userStatsFilters]);
+  }, [detailTab, user, userStatsFilters]);
 
   // Fetch stats when filters or user change
   useEffect(() => {
-    if (!showStats || !user || !userStatsFilters) return;
+    if (detailTab !== 'stats' || !user || !userStatsFilters) return;
 
     const fetchStats = async () => {
       setIsLoadingStats(true);
@@ -272,7 +242,7 @@ export default function UserDetailPage() {
     };
 
     fetchStats();
-  }, [showStats, user, userStatsFilters]);
+  }, [detailTab, user, userStatsFilters]);
 
   const formatStatsDate = (dateStr: string) => {
     const interval = userStatsFilters?.interval || 'month';
@@ -299,80 +269,48 @@ export default function UserDetailPage() {
     setUserStatsFilters(getDefaultStatsFilters());
   };
 
-  // Load fines when section is opened
-  useEffect(() => {
-    if (!showFines || !user?.id) return;
-    setIsLoadingFines(true);
-    api.getUserFines(user.id)
-      .then(setFinesData)
-      .catch(() => {})
-      .finally(() => setIsLoadingFines(false));
-  }, [showFines, user?.id]);
+  const {
+    data: holdsPages,
+    isLoading: isLoadingHolds,
+    isFetchingNextPage: isFetchingNextHolds,
+    hasNextPage: hasNextHoldsPage,
+    fetchNextPage: fetchNextHoldsPage,
+  } = useInfiniteQuery({
+    queryKey: ['user-holds', id],
+    queryFn: ({ pageParam }) =>
+      api.getUserHolds(id!, { page: pageParam, perPage: USER_HOLDS_PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      const totalLoaded = allPages.reduce((sum, p) => sum + p.items.length, 0);
+      return totalLoaded < lastPage.total ? lastPage.page + 1 : undefined;
+    },
+    enabled: !!id && detailTab === 'holds',
+  });
+  const holds = holdsPages?.pages.flatMap((p) => p.items) ?? [];
 
   useEffect(() => {
-    if (!id || activeLoansTab !== 'holds') return;
-    setIsLoadingHolds(true);
-    api.getUserHolds(id)
-      .then(setHolds)
-      .catch(() => {})
-      .finally(() => setIsLoadingHolds(false));
-  }, [id, activeLoansTab]);
-
-  // Load history preference when section is opened
-  useEffect(() => {
-    if (!showHistory || !user?.id) return;
-    setIsLoadingHistory(true);
-    api.getHistoryPreference(user.id)
-      .then(setHistoryPref)
-      .catch(() => {})
-      .finally(() => setIsLoadingHistory(false));
-  }, [showHistory, user?.id]);
-
-  const handleToggleHistoryPref = async () => {
-    if (!user?.id || !historyPref) return;
-    setIsUpdatingHistoryPref(true);
-    try {
-      const enabled = historyPref.historyEnabled ?? historyPref.historyEnabled ?? false;
-      const updated = await api.updateHistoryPreference(user.id, !enabled);
-      setHistoryPref(updated);
-    } catch {
-      // ignore
-    } finally {
-      setIsUpdatingHistoryPref(false);
-    }
-  };
+    const el = holdsLoadMoreRef.current;
+    const scrollRoot = el?.closest('.app-list-scroll') ?? null;
+    if (!el || !scrollRoot || !hasNextHoldsPage || isFetchingNextHolds || detailTab !== 'holds') return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextHoldsPage();
+      },
+      { root: scrollRoot, rootMargin: '200px', threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasNextHoldsPage, isFetchingNextHolds, fetchNextHoldsPage, detailTab]);
 
   const handleCancelHold = async (holdId: string) => {
     setCancellingHoldId(holdId);
     try {
       await api.cancelHold(holdId);
-      setHolds((prev) => prev.filter((r) => r.id !== holdId));
+      await queryClient.invalidateQueries({ queryKey: ['user-holds', id] });
     } catch {
       // ignore
     } finally {
       setCancellingHoldId(null);
-    }
-  };
-
-  const handlePayFine = async (fineId: string) => {
-    if (!user?.id) return;
-    try {
-      await api.payFine(fineId);
-      const updated = await api.getUserFines(user.id);
-      setFinesData(updated);
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleWaiveFine = async (fineId: string) => {
-    if (!user?.id) return;
-    try {
-      await api.waiveFine(fineId);
-      const updated = await api.getUserFines(user.id);
-      setFinesData(updated);
-    } catch {
-      // ignore
     }
   };
 
@@ -429,12 +367,16 @@ export default function UserDetailPage() {
     }
   };
 
-  if (isLoading) {
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  if (isUserError) {
+    return null;
   }
 
   if (!user) {
@@ -633,8 +575,174 @@ export default function UserDetailPage() {
     },
   ];
 
-  return (
+  const statsTabContent = (
     <div className="space-y-6">
+      {userStatsFilters && (
+        <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-4 mb-6">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('stats.advancedFilters')}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('stats.startDate')}
+              </label>
+              <Input
+                type="date"
+                value={userStatsFilters.startDate}
+                onChange={(e) => setUserStatsFilters({ ...userStatsFilters, startDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('stats.endDate')}
+              </label>
+              <Input
+                type="date"
+                value={userStatsFilters.endDate}
+                onChange={(e) => setUserStatsFilters({ ...userStatsFilters, endDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('stats.intervalLabel')}
+              </label>
+              <select
+                value={userStatsFilters.interval}
+                onChange={(e) =>
+                  setUserStatsFilters({
+                    ...userStatsFilters,
+                    interval: e.target.value as StatsInterval,
+                  })
+                }
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              >
+                {STATS_INTERVALS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleUserStatsResetFilters}
+                leftIcon={<X className="h-4 w-4" />}
+              >
+                {t('common.reset')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoadingStats ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : loanStats ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            {totalLoansAllTime !== null && (
+              <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
+                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{totalLoansAllTime}</p>
+                <p className="text-xs text-indigo-700 dark:text-indigo-300">{t('users.totalLoansLabel')}</p>
+              </div>
+            )}
+            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{loanStats.totalReturns}</p>
+              <p className="text-xs text-green-700 dark:text-green-300">{t('users.returnsInPeriod')}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{loanStats.totalLoans}</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">{t('users.loansInPeriod')}</p>
+            </div>
+          </div>
+
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={loanStats.timeSeries.map((item) => ({
+                  date: item.period,
+                  loans: item.loans,
+                  returns: item.returns,
+                }))}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorUserLoans" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorUserReturns" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatStatsDate}
+                  tick={{ fill: 'currentColor', fontSize: 12 }}
+                  className="text-gray-500"
+                />
+                <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-500" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--tooltip-bg, #fff)',
+                    borderColor: 'var(--tooltip-border, #e5e7eb)',
+                    borderRadius: '0.5rem',
+                  }}
+                  labelFormatter={(label) => {
+                    const interval = userStatsFilters?.interval || 'month';
+                    if (interval === 'week' && /^\d{4}-W\d{2}$/.test(label)) {
+                      const [year, week] = label.split('-W');
+                      return t('stats.weekFormat', { year, week });
+                    }
+                    const date = new Date(label);
+                    if (isNaN(date.getTime())) return label;
+                    return date.toLocaleDateString(i18n.language, {
+                      weekday: interval === 'day' ? 'long' : undefined,
+                      day: 'numeric',
+                      month: 'long',
+                      year: interval === 'year' ? 'numeric' : undefined,
+                    });
+                  }}
+                />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="loans"
+                  name={t('stats.chart.loans')}
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  fill="url(#colorUserLoans)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="returns"
+                  name={t('stats.chart.returns')}
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#colorUserReturns)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : (
+        <p className="text-center text-gray-500 dark:text-gray-400 py-8">{t('users.noStatsAvailable')}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col min-h-0 gap-4 h-[calc(100dvh-9rem)] lg:h-[calc(100dvh-5.5rem)]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="flex items-start gap-4">
@@ -666,176 +774,189 @@ export default function UserDetailPage() {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end">
           <Button variant="secondary" onClick={() => setShowBorrowModal(true)} leftIcon={<BookMarked className="h-4 w-4" />}>
-            Emprunter
+            {t('loans.borrow')}
           </Button>
-          <Button variant="secondary" onClick={() => setShowEditModal(true)} leftIcon={<Edit className="h-4 w-4" />}>
-            Modifier
-          </Button>
+          {user.expiryAt != null && isSubscriptionExpired(user.expiryAt) && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowRenewSubscriptionModal(true)}
+              leftIcon={<RefreshCw className="h-4 w-4" />}
+            >
+              {t('users.renewSubscription')}
+            </Button>
+          )}
           <Button variant="danger" onClick={() => setShowDeleteModal(true)} leftIcon={<Trash2 className="h-4 w-4" />}>
-            Supprimer
+            {t('common.delete')}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* User info */}
-        <Card>
-          <CardHeader title={t('users.information')} />
-          <div className="space-y-4">
-            <InfoRow icon={User} label={t('users.identifier')} value={user.username || user.login} />
-            <InfoRow icon={Mail} label={t('profile.email')} value={user.email} />
-            <InfoRow icon={Phone} label={t('profile.phone')} value={user.phone} />
-            <InfoRow icon={Hash} label={t('profile.barcode')} value={user.barcode} />
-            {user.publicType != null && user.publicType !== '' && (
-              <InfoRow
-                icon={Users}
-                label={t('users.publicType')}
-                value={publicTypes.find((p) => p.id === String(user.publicType))?.label ?? String(user.publicType)}
-              />
-            )}
-            {user.createdAt && (
-              <InfoRow
-                icon={Calendar}
-                label={t('users.createdAt')}
-                value={new Date(user.createdAt).toLocaleDateString(i18n.language, {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              />
-            )}
-            <div className="flex items-start gap-3">
-              <Calendar className="h-5 w-5 text-gray-400 shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{t('users.subscriptionExpiry')}</p>
-                {!user.expiryAt ? (
-                  <p className="mt-0.5 text-gray-900 dark:text-white">{t('users.expiryUnlimited')}</p>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                    <p
-                      className={
-                        isSubscriptionExpired(user.expiryAt)
-                          ? 'text-red-600 dark:text-red-400 font-semibold'
-                          : 'text-gray-900 dark:text-white'
-                      }
+      <div className="flex flex-col flex-1 min-h-0 min-w-0">
+        <Card padding="none" className="flex flex-col flex-1 min-h-0 min-w-0">
+          <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+            <div className="flex flex-nowrap items-center justify-between gap-3 min-w-0">
+              <div className="overflow-x-auto min-w-0 flex-1 min-h-0 -mx-0.5 px-0.5">
+                <div
+                  className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-900"
+                  role="tablist"
+                  aria-label={t('users.title')}
+                >
+                  {(
+                    [
+                      { id: 'info' as const, label: t('users.information') },
+                      { id: 'activeLoans' as const, label: t('loans.activeLoans') },
+                      { id: 'pastLoans' as const, label: t('users.pastLoansTab') },
+                      { id: 'holds' as const, label: t('users.holdsTab') },
+                      { id: 'stats' as const, label: t('users.loanStatistics') },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={detailTab === tab.id}
+                      onClick={() => setDetailTab(tab.id)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap ${
+                        detailTab === tab.id
+                          ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                      }`}
                     >
-                      {new Date(user.expiryAt).toLocaleDateString(i18n.language, {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </p>
-                    {isSubscriptionExpired(user.expiryAt) && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setShowRenewSubscriptionModal(true)}
-                        leftIcon={<RefreshCw className="h-4 w-4" />}
-                      >
-                        {t('users.renewSubscription')}
-                      </Button>
-                    )}
-                  </div>
-                )}
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {user.createdAt && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 shrink-0 whitespace-nowrap sm:ml-2">
+                  <Calendar className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>
+                    {t('users.createdAt')}:{' '}
+                    {new Date(user.createdAt).toLocaleDateString(i18n.language, {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
-        </Card>
 
-        {/* Loans */}
-        <div className="lg:col-span-2">
-          <Card padding="none">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
-              <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-900">
-                <button
-                  type="button"
-                  onClick={() => setActiveLoansTab('active')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${
-                    activeLoansTab === 'active'
-                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  {t('loans.activeLoans')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLoansTab('past')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${
-                    activeLoansTab === 'past'
-                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  {t('users.pastLoansTab')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLoansTab('holds')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md inline-flex items-center gap-1.5 ${
-                    activeLoansTab === 'holds'
-                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Bookmark className="h-3.5 w-3.5" />
-                  {t('users.holdsTab')}
-                </button>
+          {renewError && detailTab === 'activeLoans' && (
+            <div className="px-4 sm:px-6 pt-3 flex-shrink-0">
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">{renewError}</p>
               </div>
-              {renewError && (
-                <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm font-medium text-red-800 dark:text-red-200">{renewError}</p>
+            </div>
+          )}
+
+          {detailTab === 'info' && (
+            <>
+              <ScrollableListRegion
+                aria-label={t('users.information')}
+                className="flex-1 min-h-0 !max-h-none overflow-auto px-3 sm:px-4 py-3"
+              >
+                <UserEditorForm
+                  key={`${user.id}-${user.updateAt ?? ''}`}
+                  mode="edit"
+                  formId="user-detail-edit-form"
+                  user={user}
+                  publicTypes={publicTypes}
+                  onLoadingChange={setIsEditLoading}
+                  onSuccess={(updatedUser) => {
+                    if (updatedUser) queryClient.setQueryData<UserType>(['user', id], updatedUser);
+                  }}
+                />
+              </ScrollableListRegion>
+              <div className="flex-shrink-0 px-3 sm:px-4 py-2 border-t border-gray-200 dark:border-gray-800 flex justify-end">
+                <Button type="submit" form="user-detail-edit-form" isLoading={isEditLoading}>
+                  {t('common.save')}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {detailTab === 'activeLoans' && (
+            <ScrollableListRegion
+              aria-label={t('loans.activeLoans')}
+              className="flex-1 min-h-0 !max-h-none overflow-auto"
+            >
+              <Table
+                columns={loanColumnsActive}
+                data={activeLoans}
+                keyExtractor={(loan) => loan.id}
+                isLoading={isLoadingActiveLoans && activeLoans.length === 0}
+                emptyMessage={t('loans.noLoans')}
+              />
+              <div ref={activeLoansLoadMoreRef} className="h-4 flex-shrink-0" aria-hidden />
+              {isFetchingNextActiveLoans && (
+                <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{t('common.loading')}</span>
                 </div>
               )}
-            </div>
-            <div className="h-[60vh] overflow-y-auto">
-              {activeLoansTab === 'holds' ? (
-                <Table
-                  columns={userHoldColumns}
-                  data={holds}
-                  keyExtractor={(h) => h.id}
-                  isLoading={isLoadingHolds}
-                  emptyMessage={t('holds.noHolds')}
-                />
-              ) : (
-                <Table
-                  columns={activeLoansTab === 'active' ? loanColumnsActive : loanColumnsPast}
-                  data={
-                    activeLoansTab === 'active'
-                      ? activeLoans
-                      : isLoadingPastLoans
-                        ? []
-                        : pastLoans
-                  }
-                  keyExtractor={(loan) => loan.id}
-                  emptyMessage={activeLoansTab === 'past' && isLoadingPastLoans ? 'Chargement…' : t('loans.noLoans')}
-                />
+            </ScrollableListRegion>
+          )}
+
+          {detailTab === 'pastLoans' && (
+            <ScrollableListRegion
+              aria-label={t('users.pastLoansTab')}
+              className="flex-1 min-h-0 !max-h-none overflow-auto"
+            >
+              <Table
+                columns={loanColumnsPast}
+                data={pastLoans}
+                keyExtractor={(loan) => loan.id}
+                isLoading={isLoadingPastLoans && pastLoans.length === 0}
+                emptyMessage={t('loans.noLoans')}
+              />
+              <div ref={pastLoansLoadMoreRef} className="h-4 flex-shrink-0" aria-hidden />
+              {isFetchingNextPastLoans && (
+                <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{t('common.loading')}</span>
+                </div>
               )}
-            </div>
-            {activeLoansTab === 'active' && activeLoansTotal > 0 && (
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
-                <Pagination
-                  currentPage={activeLoansPage}
-                  totalPages={Math.max(1, Math.ceil(activeLoansTotal / USER_LOANS_PAGE_SIZE))}
-                  onPageChange={setActiveLoansPage}
-                />
-              </div>
-            )}
-            {activeLoansTab === 'past' && pastLoansTotal > 0 && !isLoadingPastLoans && (
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
-                <Pagination
-                  currentPage={pastLoansPage}
-                  totalPages={Math.max(1, Math.ceil(pastLoansTotal / USER_LOANS_PAGE_SIZE))}
-                  onPageChange={setPastLoansPage}
-                />
-              </div>
-            )}
-          </Card>
-        </div>
+            </ScrollableListRegion>
+          )}
+
+          {detailTab === 'holds' && (
+            <>
+              <ScrollableListRegion aria-label={t('users.holdsTab')} className="flex-1 min-h-0 !max-h-none overflow-auto">
+                <>
+                  <Table
+                    columns={userHoldColumns}
+                    data={holds}
+                    keyExtractor={(h) => h.id}
+                    isLoading={isLoadingHolds && holds.length === 0}
+                    emptyMessage={t('holds.noHolds')}
+                  />
+                  <div ref={holdsLoadMoreRef} className="h-4 flex-shrink-0" aria-hidden />
+                  {isFetchingNextHolds && (
+                    <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>{t('common.loading')}</span>
+                    </div>
+                  )}
+                </>
+              </ScrollableListRegion>
+            </>
+          )}
+
+          {detailTab === 'stats' && (
+            <ScrollableListRegion
+              aria-label={t('users.loanStatistics')}
+              className="flex-1 min-h-0 !max-h-none overflow-auto px-4 sm:px-6 py-4"
+            >
+              {statsTabContent}
+            </ScrollableListRegion>
+          )}
+        </Card>
       </div>
 
       {/* Loan details modal */}
@@ -918,304 +1039,6 @@ export default function UserDetailPage() {
         )}
       </Modal>
 
-      {/* Loan statistics section */}
-      <Card>
-        <div
-          className="flex items-center justify-between cursor-pointer"
-          onClick={() => setShowStats(!showStats)}
-        >
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t('users.loanStatistics')}
-              </h3>
-              {totalLoansAllTime !== null && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {t('users.totalLoansAllTime', { count: totalLoansAllTime })}
-                </p>
-              )}
-            </div>
-          </div>
-          <Button variant="ghost" size="sm">
-            {showStats ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-          </Button>
-        </div>
-
-        {showStats && (
-          <div className="mt-6">
-            {userStatsFilters && (
-              <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-5 w-5 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('stats.advancedFilters')}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('stats.startDate')}
-                    </label>
-                    <Input
-                      type="date"
-                      value={userStatsFilters.startDate}
-                      onChange={(e) =>
-                        setUserStatsFilters({ ...userStatsFilters, startDate: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('stats.endDate')}
-                    </label>
-                    <Input
-                      type="date"
-                      value={userStatsFilters.endDate}
-                      onChange={(e) =>
-                        setUserStatsFilters({ ...userStatsFilters, endDate: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('stats.intervalLabel')}
-                    </label>
-                    <select
-                      value={userStatsFilters.interval}
-                      onChange={(e) =>
-                        setUserStatsFilters({
-                          ...userStatsFilters,
-                          interval: e.target.value as StatsInterval,
-                        })
-                      }
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                    >
-                      {STATS_INTERVALS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleUserStatsResetFilters}
-                      leftIcon={<X className="h-4 w-4" />}
-                    >
-                      {t('common.reset')}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isLoadingStats ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : loanStats ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 flex-wrap">
-                  {totalLoansAllTime !== null && (
-                    <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20">
-                      <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                        {totalLoansAllTime}
-                      </p>
-                      <p className="text-xs text-indigo-700 dark:text-indigo-300">
-                        {t('users.totalLoansLabel')}
-                      </p>
-                    </div>
-                  )}
-                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {loanStats.totalReturns}
-                    </p>
-                    <p className="text-xs text-green-700 dark:text-green-300">
-                      {t('users.returnsInPeriod')}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {loanStats.totalLoans}
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      {t('users.loansInPeriod')}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={loanStats.timeSeries.map((item) => ({
-                        date: item.period,
-                        loans: item.loans,
-                        returns: item.returns,
-                      }))}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <defs>
-                        <linearGradient id="colorUserLoans" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="colorUserReturns" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                      <XAxis
-                        dataKey="date"
-                        tickFormatter={formatStatsDate}
-                        tick={{ fill: 'currentColor', fontSize: 12 }}
-                        className="text-gray-500"
-                      />
-                      <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} className="text-gray-500" />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'var(--tooltip-bg, #fff)',
-                          borderColor: 'var(--tooltip-border, #e5e7eb)',
-                          borderRadius: '0.5rem',
-                        }}
-                        labelFormatter={(label) => {
-                          const interval = userStatsFilters?.interval || 'month';
-                          if (interval === 'week' && /^\d{4}-W\d{2}$/.test(label)) {
-                            const [year, week] = label.split('-W');
-                            return t('stats.weekFormat', { year, week });
-                          }
-                          const date = new Date(label);
-                          if (isNaN(date.getTime())) return label;
-                          return date.toLocaleDateString(i18n.language, {
-                            weekday: interval === 'day' ? 'long' : undefined,
-                            day: 'numeric',
-                            month: 'long',
-                            year: interval === 'year' ? 'numeric' : undefined,
-                          });
-                        }}
-                      />
-                      <Legend />
-                      <Area
-                        type="monotone"
-                        dataKey="loans"
-                        name={t('stats.chart.loans')}
-                        stroke="#6366f1"
-                        strokeWidth={2}
-                        fill="url(#colorUserLoans)"
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="returns"
-                        name={t('stats.chart.returns')}
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        fill="url(#colorUserReturns)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                {t('users.noStatsAvailable')}
-              </p>
-            )}
-          </div>
-        )}
-      </Card>
-
-      {/* Fines section */}
-      <Card>
-        <button
-          type="button"
-          className="w-full flex items-center justify-between p-1"
-          onClick={() => setShowFines(!showFines)}
-        >
-          <span className="font-semibold text-gray-900 dark:text-white">{t('fines.title')}</span>
-          {finesData && parseFloat(finesData.totalUnpaid ?? finesData.totalUnpaid ?? '0') > 0 && (
-            <span className="text-sm font-medium text-red-600 dark:text-red-400">
-              {finesData.totalUnpaid ?? finesData.totalUnpaid} €
-            </span>
-          )}
-        </button>
-        {showFines && (
-          <div className="mt-4 space-y-3">
-            {isLoadingFines ? (
-              <p className="text-center text-gray-500 py-4">{t('common.loading')}</p>
-            ) : !finesData || finesData.fines.length === 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-4">{t('fines.noFines')}</p>
-            ) : (
-              <>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{t('fines.totalUnpaid')}</span>
-                  <span className="font-semibold text-red-600 dark:text-red-400">
-                    {finesData.totalUnpaid ?? finesData.totalUnpaid} €
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {finesData.fines.map((fine) => (
-                    <div key={fine.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{fine.amount} €</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('fines.status')}: {t(`fines.statuses.${fine.status}`)}</p>
-                      </div>
-                      {(fine.status === 'pending' || fine.status === 'partial') && (
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="secondary" onClick={() => handlePayFine(fine.id)}>{t('fines.pay')}</Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleWaiveFine(fine.id)}>{t('fines.waive')}</Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </Card>
-
-      {/* Reading history section */}
-      <Card>
-        <button
-          type="button"
-          className="w-full flex items-center justify-between p-1"
-          onClick={() => setShowHistory(!showHistory)}
-        >
-          <span className="font-semibold text-gray-900 dark:text-white">{t('history.title')}</span>
-        </button>
-        {showHistory && (
-          <div className="mt-4 space-y-4">
-            {isLoadingHistory ? (
-              <p className="text-center text-gray-500 py-4">{t('common.loading')}</p>
-            ) : (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{t('history.rgpdToggle')}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('history.rgpdHint')}</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant={
-                    historyPref?.historyEnabled ?? historyPref?.historyEnabled ? 'danger' : 'secondary'
-                  }
-                  isLoading={isUpdatingHistoryPref}
-                  onClick={handleToggleHistoryPref}
-                >
-                  {historyPref?.historyEnabled ?? historyPref?.historyEnabled
-                    ? t('history.disable')
-                    : t('history.enable')}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
-
       {/* Delete confirmation modal */}
       <Modal
         isOpen={showDeleteModal}
@@ -1277,37 +1100,9 @@ export default function UserDetailPage() {
         isOpen={showRenewSubscriptionModal}
         onClose={() => setShowRenewSubscriptionModal(false)}
         onSuccess={(updated) => {
-          setUser(updated);
+          queryClient.setQueryData<UserType>(['user', id], updated);
         }}
       />
-
-      {/* Edit modal */}
-      <Modal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        title={t('users.editUserModal')}
-        size="2xl"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button type="submit" form="edit-user-form" isLoading={isEditLoading}>
-              {t('common.save')}
-            </Button>
-          </div>
-        }
-      >
-        <UserEditorForm
-          key={user.id}
-          mode="edit"
-          formId="edit-user-form"
-          user={user}
-          publicTypes={publicTypes}
-          onLoadingChange={setIsEditLoading}
-          onSuccess={(updatedUser) => {
-            if (updatedUser) setUser(updatedUser);
-            setShowEditModal(false);
-          }}
-        />
-      </Modal>
 
       {/* Borrow modal */}
       <Modal
@@ -1370,24 +1165,6 @@ export default function UserDetailPage() {
         message={borrowForceError ?? ''}
         stackOnTop
       />
-    </div>
-  );
-}
-
-interface InfoRowProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value?: string | null;
-}
-
-function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon className="h-5 w-5 text-gray-400" />
-      <div>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="text-gray-900 dark:text-white">{value || 'Non renseigné'}</p>
-      </div>
     </div>
   );
 }

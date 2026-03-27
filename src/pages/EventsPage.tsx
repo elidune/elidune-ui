@@ -13,7 +13,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
-import { Card, Button, Table, Pagination, Modal, Input, ConfirmDialog } from '@/components/common';
+import { Card, Button, Table, Pagination, Modal, Input, ConfirmDialog, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
 import type { Event, CreateEvent, UpdateEvent } from '@/types';
 
@@ -298,17 +298,19 @@ export default function EventsPage() {
       </div>
 
       {/* Events table */}
-      <Card padding="none">
-        <Table
-          columns={columns}
-          data={events}
-          keyExtractor={(event) => event.id}
-          onRowClick={handleRowClick}
-          isLoading={isLoading}
-          emptyMessage={showPast ? t('events.noPastEvents') : t('events.noCurrentEvents')}
-        />
+      <Card padding="none" className="flex flex-col min-h-0">
+        <ScrollableListRegion aria-label={t('events.title')}>
+          <Table
+            columns={columns}
+            data={events}
+            keyExtractor={(event) => event.id}
+            onRowClick={handleRowClick}
+            isLoading={isLoading}
+            emptyMessage={showPast ? t('events.noPastEvents') : t('events.noCurrentEvents')}
+          />
+        </ScrollableListRegion>
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex-shrink-0">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}

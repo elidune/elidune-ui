@@ -13,7 +13,7 @@ import {
   Loader2,
   Server,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Modal, Input } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Table, Modal, Input, ScrollableListRegion, ResponsiveRecordList } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
 import type { Biblio, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
@@ -503,8 +503,8 @@ export default function Z3950SearchPage() {
 
       {/* Results */}
       {hasSearched && (
-        <Card padding="none">
-          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+        <Card padding="none" className="flex flex-col min-h-0">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -518,23 +518,71 @@ export default function Z3950SearchPage() {
             </div>
           </div>
 
-          {isSearching ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
-                <p className="text-gray-500 dark:text-gray-400">
-                  {t('z3950.searching')}
-                </p>
+          <ScrollableListRegion aria-label={t('z3950.results')}>
+            {isSearching ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {t('z3950.searching')}
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <Table
-              columns={columns}
-              data={results}
-              keyExtractor={(item) => item.id || `${item.isbn ?? ''}-${item.title ?? ''}`}
-              emptyMessage={t('z3950.noResults')}
-            />
-          )}
+            ) : (
+              <ResponsiveRecordList
+                desktop={
+                  <Table
+                    columns={columns}
+                    data={results}
+                    keyExtractor={(item) => item.id || `${item.isbn ?? ''}-${item.title ?? ''}`}
+                    emptyMessage={t('z3950.noResults')}
+                  />
+                }
+                mobile={
+                  results.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                      {t('z3950.noResults')}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2">
+                      {results.map((item) => (
+                        <div key={item.id || `${item.isbn ?? ''}-${item.title ?? ''}`} className="p-4 space-y-3">
+                          <div className="flex gap-3">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
+                              <BookOpen className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 dark:text-white">{item.title || t('items.notSpecified')}</p>
+                              <p className="text-xs text-gray-500 font-mono">{formatIsbnDisplay(item.isbn)}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                {formatAuthors(item.authors && item.authors.length > 0 ? item.authors : [])}
+                              </p>
+                              <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
+                                <span>{item.publicationDate || '—'}</span>
+                                <Badge>
+                                  {item.mediaType
+                                    ? t(`items.mediaType.${getMediaTypeTranslationKey(item.mediaType as MediaType)}`)
+                                    : t('items.document')}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            onClick={() => handleOpenImport(item)}
+                            leftIcon={<Download className="h-4 w-4" />}
+                          >
+                            {t('z3950.import')}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }
+              />
+            )}
+          </ScrollableListRegion>
         </Card>
       )}
 

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, BookOpen, Filter, Search, Loader2, AlertCircle, Video, Music, Image, FileText, Disc, Newspaper, Trash2, Layers, BookMarked, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card, Button, Table, Badge, SearchInput, Modal, Input } from '@/components/common';
+import { Card, Button, Table, Badge, SearchInput, Modal, Input, ScrollableListRegion, ResponsiveRecordList, ListSkeleton } from '@/components/common';
+import BiblioCatalogItemCard from '@/components/items/BiblioCatalogItemCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType, type MediaTypeOption, type Serie, type Collection } from '@/types';
 import api from '@/services/api';
@@ -209,7 +210,7 @@ export default function BibliosPage() {
 
   useEffect(() => {
     const el = loadMoreRef.current;
-    const scrollRoot = el?.closest('.items-list-scroll') ?? null;
+    const scrollRoot = el?.closest('.app-list-scroll') ?? null;
     if (!el || !scrollRoot || !hasNextPage || isFetchingNextPage || !data?.pages?.length) return;
     const obs = new IntersectionObserver(
       (entries) => {
@@ -617,26 +618,55 @@ export default function BibliosPage() {
         <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 text-sm text-gray-600 dark:text-gray-300 flex justify-end">
           <span>{t('items.count', { count: totalItems })}</span>
         </div>
-        <div
-          className="items-list-scroll overflow-auto max-h-[calc(100vh-18rem)]"
-          aria-label={t('items.title')}
-        >
-          <Table
-            columns={columns}
-            data={items}
-            keyExtractor={(item) => item.id}
-            onRowClick={handleRowClick}
-            isLoading={isItemsLoading}
-            emptyMessage={t('items.noItems')}
-          />
-          <div ref={loadMoreRef} className="h-4 flex-shrink-0" aria-hidden />
-          {isFetchingNextPage && (
-            <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span>{t('common.loading')}</span>
-            </div>
+        <ScrollableListRegion aria-label={t('items.title')}>
+          {isItemsLoading && !items.length ? (
+            <ListSkeleton rows={10} />
+          ) : (
+            <>
+              <ResponsiveRecordList
+                desktop={
+                  <Table
+                    columns={columns}
+                    data={items}
+                    keyExtractor={(item) => item.id}
+                    onRowClick={handleRowClick}
+                    isLoading={false}
+                    emptyMessage={t('items.noItems')}
+                  />
+                }
+                mobile={
+                  items.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                      {t('items.noItems')}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2">
+                      {items.map((item) => (
+                        <BiblioCatalogItemCard
+                          key={item.id}
+                          item={item}
+                          mediaIcon={getMediaTypeIcon(item.mediaType as MediaType)}
+                          mediaBgClassName={getMediaTypeBgColor(item.mediaType as MediaType)}
+                          formatAuthor={formatAuthor}
+                          notSpecified={t('items.notSpecified')}
+                          statusBadge={getCatalogRowStatusBadge(item)}
+                          onOpen={() => handleRowClick(item)}
+                        />
+                      ))}
+                    </div>
+                  )
+                }
+              />
+              <div ref={loadMoreRef} className="h-4 flex-shrink-0" aria-hidden />
+              {isFetchingNextPage && (
+                <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>{t('common.loading')}</span>
+                </div>
+              )}
+            </>
           )}
-        </div>
+        </ScrollableListRegion>
       </Card>
 
       </>)}
@@ -794,17 +824,86 @@ function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
         </div>
       </Card>
 
-      <Card padding="none">
-        <Table
-          columns={columns}
-          data={data?.items ?? []}
-          keyExtractor={(c) => c.id ?? String(Math.random())}
-          isLoading={isLoading}
-          emptyMessage={t('catalog.noCollections')}
-          onRowClick={onSelect ? (c) => c.id && onSelect(c.id, collName(c)) : undefined}
-        />
+      <Card padding="none" className="flex flex-col min-h-0">
+        <ScrollableListRegion aria-label={t('catalog.tabCollections')}>
+          {isLoading && !(data?.items?.length) ? (
+            <ListSkeleton rows={8} />
+          ) : (
+            <ResponsiveRecordList
+              desktop={
+                <Table
+                  columns={columns}
+                  data={data?.items ?? []}
+                  keyExtractor={(c) => c.id ?? String(Math.random())}
+                  isLoading={false}
+                  emptyMessage={t('catalog.noCollections')}
+                  onRowClick={onSelect ? (c) => c.id && onSelect(c.id, collName(c)) : undefined}
+                />
+              }
+              mobile={
+                (data?.items ?? []).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                    {t('catalog.noCollections')}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2 divide-y divide-gray-100 dark:divide-gray-800">
+                    {(data?.items ?? []).map((c) => (
+                      <div
+                        key={c.id ?? String(Math.random())}
+                        className="flex items-stretch gap-2 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 text-left flex items-center gap-2"
+                          onClick={() => c.id && onSelect?.(c.id, collName(c))}
+                        >
+                          <Layers className="h-5 w-5 text-amber-600 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">{collName(c)}</p>
+                            {c.secondaryTitle && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.secondaryTitle}</p>
+                            )}
+                            <p className="text-xs text-gray-500 font-mono mt-0.5">{c.issn ?? '—'}</p>
+                          </div>
+                        </button>
+                        {canManage && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              onClick={() => setEditItem(c)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setDeleteItem(c);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="self-center p-2 text-gray-400"
+                          onClick={() => c.id && onSelect?.(c.id, collName(c))}
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+            />
+          )}
+        </ScrollableListRegion>
         {data && data.pageCount > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t('common.page')} {page} / {data.pageCount}
             </span>
@@ -1083,17 +1182,84 @@ function SeriesTab({ canManage, onSelect }: SeriesTabProps) {
         </div>
       </Card>
 
-      <Card padding="none">
-        <Table
-          columns={columns}
-          data={data?.items ?? []}
-          keyExtractor={(s) => s.id ?? String(Math.random())}
-          isLoading={isLoading}
-          emptyMessage={t('catalog.noSeries')}
-          onRowClick={onSelect ? (s) => s.id && onSelect(s.id, s.name ?? '') : undefined}
-        />
+      <Card padding="none" className="flex flex-col min-h-0">
+        <ScrollableListRegion aria-label={t('catalog.tabSeries')}>
+          {isLoading && !(data?.items?.length) ? (
+            <ListSkeleton rows={8} />
+          ) : (
+            <ResponsiveRecordList
+              desktop={
+                <Table
+                  columns={columns}
+                  data={data?.items ?? []}
+                  keyExtractor={(s) => s.id ?? String(Math.random())}
+                  isLoading={false}
+                  emptyMessage={t('catalog.noSeries')}
+                  onRowClick={onSelect ? (s) => s.id && onSelect(s.id, s.name ?? '') : undefined}
+                />
+              }
+              mobile={
+                (data?.items ?? []).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400 px-4">
+                    {t('catalog.noSeries')}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900 mx-2 sm:mx-4 mb-2 divide-y divide-gray-100 dark:divide-gray-800">
+                    {(data?.items ?? []).map((s) => (
+                      <div
+                        key={s.id ?? String(Math.random())}
+                        className="flex items-stretch gap-2 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      >
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 text-left flex items-center gap-2"
+                          onClick={() => s.id && onSelect?.(s.id, s.name ?? '')}
+                        >
+                          <BookMarked className="h-5 w-5 text-amber-600 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">{s.name ?? '—'}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-300">{s.issn ?? '—'}</p>
+                            <p className="text-xs text-gray-500 font-mono mt-0.5">{s.key ?? '—'}</p>
+                          </div>
+                        </button>
+                        {canManage && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              onClick={() => setEditItem(s)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setDeleteItem(s);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="self-center p-2 text-gray-400"
+                          onClick={() => s.id && onSelect?.(s.id, s.name ?? '')}
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+            />
+          )}
+        </ScrollableListRegion>
         {data && data.pageCount > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t('common.page')} {page} / {data.pageCount}
             </span>

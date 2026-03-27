@@ -29,7 +29,7 @@ import type {
 import { isAdmin } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiErrorMessage } from '@/utils/apiError';
-import { Card, Button, Table, Modal, Input, Badge, MessageModal, ConfirmDialog } from '@/components/common';
+import { Card, Button, Table, Modal, Input, Badge, MessageModal, ConfirmDialog, ScrollableListRegion } from '@/components/common';
 
 /** Stats builder: keep each added row on one line; scroll horizontally if needed. */
 const STATS_EDITOR_ROW =
@@ -640,8 +640,8 @@ export default function StatsAdvancedTab() {
 
   return (
     <div className="space-y-4">
-      <Card padding="none">
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-3">
+      <Card padding="none" className="flex flex-col min-h-0">
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
               <Database className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -659,15 +659,17 @@ export default function StatsAdvancedTab() {
           </Button>
         </div>
 
-        <div className="p-4 sm:p-6">
-          <Table
-            columns={listColumns}
-            data={savedList}
-            keyExtractor={(row) => String(row.id)}
-            isLoading={listLoading}
-            emptyMessage={t('stats.advanced.emptySaved')}
-          />
-        </div>
+        <ScrollableListRegion aria-label={t('stats.advanced.title')}>
+          <div className="p-4 sm:p-6">
+            <Table
+              columns={listColumns}
+              data={savedList}
+              keyExtractor={(row) => String(row.id)}
+              isLoading={listLoading}
+              emptyMessage={t('stats.advanced.emptySaved')}
+            />
+          </div>
+        </ScrollableListRegion>
       </Card>
 
       <Modal

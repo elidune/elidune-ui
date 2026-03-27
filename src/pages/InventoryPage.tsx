@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, ClipboardList, Scan, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
-import { Card, CardHeader, Button, Modal, Input, Badge } from '@/components/common';
+import { Card, CardHeader, Button, Modal, Input, Badge, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
 import type { InventorySession, CreateInventorySession, InventoryScanResult, InventoryReport } from '@/types';
 
@@ -234,28 +234,32 @@ export default function InventoryPage() {
         )}
 
         {/* Scans list */}
-        <Card>
-          <CardHeader
-            title={t('inventory.scansTitle')}
-            subtitle={t('inventory.scansCount', { count: scans.length })}
-          />
-          {scans.length === 0 ? (
-            <p className="text-center text-gray-500 dark:text-gray-400 py-6">{t('inventory.noScans')}</p>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {scans.map((scan, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700"
-                >
-                  <span className="font-mono text-sm text-gray-700 dark:text-gray-300">{scan.barcode}</span>
-                  <Badge variant={scan.found ? 'success' : 'warning'}>
-                    {scan.found ? t('inventory.found') : t('inventory.unknown')}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
+        <Card padding="none" className="flex flex-col min-h-0">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+            <CardHeader
+              title={t('inventory.scansTitle')}
+              subtitle={t('inventory.scansCount', { count: scans.length })}
+            />
+          </div>
+          <ScrollableListRegion aria-label={t('inventory.scansTitle')}>
+            {scans.length === 0 ? (
+              <p className="text-center text-gray-500 dark:text-gray-400 py-6">{t('inventory.noScans')}</p>
+            ) : (
+              <div className="space-y-2 p-4 sm:p-6">
+                {scans.map((scan, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700"
+                  >
+                    <span className="font-mono text-sm text-gray-700 dark:text-gray-300">{scan.barcode}</span>
+                    <Badge variant={scan.found ? 'success' : 'warning'}>
+                      {scan.found ? t('inventory.found') : t('inventory.unknown')}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollableListRegion>
         </Card>
       </div>
     );
