@@ -667,7 +667,9 @@ export default function LoginPage() {
           />
           <div className="relative">
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-1">
-              {libraryName ?? t('auth.loginTitle')}
+              {libraryInfo?.name?.trim() ||
+                libraryName?.trim() ||
+                t('auth.loginTitle')}
             </h1>
             <p className="text-base text-gray-500 dark:text-gray-400 mb-5">
               {t('opac.heroTitle')} — {t('opac.heroSub')}

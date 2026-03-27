@@ -1,6 +1,17 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, Globe, Loader2, CheckCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Globe,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Import,
+} from 'lucide-react';
 import { Input, Button } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
@@ -69,12 +80,14 @@ function applyZ3950BiblioToForm(
   };
 }
 
+const BIBLIO_FORM_SECTION =
+  'rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4 bg-gray-100 dark:bg-gray-800/50';
+
 export interface BiblioEditorFormProps {
   mode: 'create' | 'edit';
   formId: string;
   /** Required when mode is edit */
   initialBiblio?: Biblio | null;
-  defaultShowAdvanced?: boolean;
   /** Edit mode: wired to modal save button loading state */
   onLoadingChange?: (loading: boolean) => void;
   onSubmitCreate?: (payload: CreateBiblioPayload) => void | Promise<void>;
@@ -85,7 +98,6 @@ export default function BiblioEditorForm({
   mode,
   formId,
   initialBiblio,
-  defaultShowAdvanced,
   onLoadingChange,
   onSubmitCreate,
   onSubmitEdit,
@@ -169,9 +181,10 @@ export default function BiblioEditorForm({
     mode === 'edit' && initialBiblio ? initialSeries(initialBiblio) : []
   );
 
-  const [showAdvanced, setShowAdvanced] = useState(defaultShowAdvanced ?? mode === 'create');
-
   const [z3950Servers, setZ3950Servers] = useState<Z3950Server[]>([]);
+  const [z3950SelectedServerId, setZ3950SelectedServerId] = useState<string | null>(null);
+  const [z3950ServerMenuOpen, setZ3950ServerMenuOpen] = useState(false);
+  const z3950MenuRef = useRef<HTMLDivElement>(null);
   const [isSearchingZ3950, setIsSearchingZ3950] = useState(false);
   const [z3950Message, setZ3950Message] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [z3950PickList, setZ3950PickList] = useState<Biblio[] | null>(null);
@@ -193,6 +206,25 @@ export default function BiblioEditorForm({
     };
     fetchServers();
   }, []);
+
+  useEffect(() => {
+    setZ3950SelectedServerId((prev) => {
+      if (z3950Servers.length === 0) return null;
+      if (prev && z3950Servers.some((s) => s.id === prev)) return prev;
+      return z3950Servers[0].id;
+    });
+  }, [z3950Servers]);
+
+  useEffect(() => {
+    if (!z3950ServerMenuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (z3950MenuRef.current && !z3950MenuRef.current.contains(e.target as Node)) {
+        setZ3950ServerMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [z3950ServerMenuOpen]);
 
   useEffect(() => {
     if (!showSpecimens) return;
@@ -342,8 +374,8 @@ export default function BiblioEditorForm({
       return;
     }
 
-    if (z3950Servers.length === 0) {
-      setZ3950Message({ type: 'error', text: t('z3950.noServers') });
+    const serverId = z3950SelectedServerId ?? z3950Servers[0]?.id;
+    if (!serverId) {
       return;
     }
     setIsSearchingZ3950(true);
@@ -352,9 +384,7 @@ export default function BiblioEditorForm({
     setZ3950PickPage(0);
     try {
       const response = await api.searchZ3950(
-        isbnTrim !== ''
-          ? { isbn: isbnQuery, serverId: z3950Servers[0].id }
-          : { title: titleTrim, serverId: z3950Servers[0].id }
+        isbnTrim !== '' ? { isbn: isbnQuery, serverId } : { title: titleTrim, serverId }
       );
       const list = response.biblios ?? [];
       if (list.length === 0) {
@@ -377,6 +407,14 @@ export default function BiblioEditorForm({
   const z3950CanSearch =
     formData.isbn.trim() !== '' || formData.title.trim() !== '';
 
+  const z3950AutocompleteDisabled = isSearchingZ3950 || !z3950CanSearch;
+
+  useEffect(() => {
+    if (z3950AutocompleteDisabled) {
+      setZ3950ServerMenuOpen(false);
+    }
+  }, [z3950AutocompleteDisabled]);
+
   const z3950PickTotalPages =
     z3950PickList && z3950PickList.length > 1
       ? Math.max(1, Math.ceil(z3950PickList.length / Z3950_PICK_PAGE_SIZE))
@@ -388,6 +426,14 @@ export default function BiblioEditorForm({
     const start = safe * Z3950_PICK_PAGE_SIZE;
     return z3950PickList.slice(start, start + Z3950_PICK_PAGE_SIZE);
   }, [z3950PickList, z3950PickPage]);
+
+  const z3950AutocompleteButtonText = useMemo(() => {
+    const s =
+      z3950Servers.find((x) => x.id === z3950SelectedServerId) ?? z3950Servers[0];
+    const serverName =
+      s == null ? '—' : s.name?.trim() || s.address?.trim() || '—';
+    return t('z3950.autocompleteWithSearch', { serverName });
+  }, [t, z3950Servers, z3950SelectedServerId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -475,60 +521,112 @@ export default function BiblioEditorForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input
-          label={t('items.isbn')}
-          value={formData.isbn}
-          onChange={(e) => {
-            setFormData({ ...formData, isbn: e.target.value });
-            setZ3950Message(null);
-            setZ3950PickList(null);
-          }}
-          onBlur={() => {
-            const raw = formData.isbn.trim();
-            if (!raw) return;
-            const f = formatIsbnDisplay(raw);
-            if (f) setFormData((prev) => (prev.isbn === f ? prev : { ...prev, isbn: f }));
-          }}
-          className="font-mono"
-          placeholder={t('z3950.isbnPlaceholder')}
-        />
-        <Input
-          label={t('items.titleField')}
-          value={formData.title}
-          onChange={(e) => {
-            setFormData({ ...formData, title: e.target.value });
-            setZ3950Message(null);
-            setZ3950PickList(null);
-          }}
-          required
-        />
-      </div>
+      <section className={BIBLIO_FORM_SECTION}>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.identification')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label={t('items.isbn')}
+            value={formData.isbn}
+            onChange={(e) => {
+              setFormData({ ...formData, isbn: e.target.value });
+              setZ3950Message(null);
+              setZ3950PickList(null);
+            }}
+            onBlur={() => {
+              const raw = formData.isbn.trim();
+              if (!raw) return;
+              const f = formatIsbnDisplay(raw);
+              if (f) setFormData((prev) => (prev.isbn === f ? prev : { ...prev, isbn: f }));
+            }}
+            className="font-mono"
+            placeholder={t('z3950.isbnPlaceholder')}
+          />
+          <Input
+            label={t('items.titleField')}
+            value={formData.title}
+            onChange={(e) => {
+              setFormData({ ...formData, title: e.target.value });
+              setZ3950Message(null);
+              setZ3950PickList(null);
+            }}
+            required
+          />
+        </div>
 
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2 bg-gray-50/50 dark:bg-gray-800/30">
-        <p className="text-xs text-gray-600 dark:text-gray-400">{t('items.z3950CatalogHint')}</p>
-        {z3950Servers.length > 0 ? (
+        {z3950Servers.length > 0 && (
           <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleZ3950Search}
-              disabled={isSearchingZ3950 || !z3950CanSearch}
-              leftIcon={isSearchingZ3950 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
-              title={t('z3950.searchButton')}
-            >
-              {t('z3950.searchButton')}
-            </Button>
+            {z3950Servers.length === 1 ? (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleZ3950Search}
+                disabled={z3950AutocompleteDisabled}
+                leftIcon={isSearchingZ3950 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                title={z3950AutocompleteButtonText}
+              >
+                {z3950AutocompleteButtonText}
+              </Button>
+            ) : (
+              <div className="relative inline-flex items-stretch rounded-lg shadow-sm" ref={z3950MenuRef}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="rounded-r-none border-r border-amber-500/30 h-auto"
+                  onClick={handleZ3950Search}
+                  disabled={z3950AutocompleteDisabled}
+                  leftIcon={isSearchingZ3950 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                  title={z3950AutocompleteButtonText}
+                >
+                  {z3950AutocompleteButtonText}
+                </Button>
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center justify-center self-stretch px-2.5 rounded-r-lg bg-amber-600 text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:bg-amber-600 dark:hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-600 dark:disabled:hover:bg-amber-600 border-l border-amber-500/40"
+                  aria-expanded={z3950ServerMenuOpen}
+                  aria-haspopup="listbox"
+                  aria-label={t('z3950.selectServerForAutocomplete')}
+                  disabled={z3950AutocompleteDisabled}
+                  onClick={() => setZ3950ServerMenuOpen((o) => !o)}
+                >
+                  <ChevronDown className="h-4 w-4 shrink-0" />
+                </button>
+                {z3950ServerMenuOpen && (
+                  <ul
+                    role="listbox"
+                    className="absolute left-0 top-full z-30 mt-1 min-w-full rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-800"
+                  >
+                    {z3950Servers.map((s) => (
+                      <li key={s.id} role="presentation">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={s.id === z3950SelectedServerId}
+                          className={`w-full px-3 py-2 text-left text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                            s.id === z3950SelectedServerId ? 'bg-amber-50 dark:bg-amber-900/20 font-medium' : ''
+                          }`}
+                          onClick={() => {
+                            setZ3950SelectedServerId(s.id);
+                            setZ3950ServerMenuOpen(false);
+                          }}
+                        >
+                          {s.name?.trim() || s.address}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             {z3950PickList && z3950PickList.length > 1 && (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+              <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-950/40 p-3 space-y-3 shadow-inner">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                   {t('items.z3950PickFromList', { count: z3950PickList.length })}
                 </p>
-                <ul className="space-y-2">
+                <ul className="space-y-1.5">
                   {z3950PickPageSlice.map((b, idx) => (
                     <li
                       key={`${z3950PickPage * Z3950_PICK_PAGE_SIZE + idx}-${b.title ?? ''}-${b.isbn ?? ''}`}
-                      className="flex flex-wrap items-center gap-2 sm:flex-nowrap"
+                      className="flex flex-wrap items-center gap-2 sm:flex-nowrap rounded-md border border-gray-200/90 dark:border-gray-600/90 px-3 py-2.5 shadow-sm odd:bg-gray-50/95 even:bg-white dark:odd:bg-gray-800/45 dark:even:bg-gray-800/70 hover:border-amber-300/70 hover:bg-amber-50/80 dark:hover:border-amber-700/50 dark:hover:bg-amber-950/25 transition-colors"
                     >
                       <p className="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-100 truncate">
                         <span className="font-medium">{b.title?.trim() || '—'}</span>
@@ -539,9 +637,10 @@ export default function BiblioEditorForm({
                       </p>
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="primary"
                         size="sm"
-                        className="flex-shrink-0"
+                        className="flex-shrink-0 shadow-sm"
+                        leftIcon={<Import className="h-4 w-4" aria-hidden />}
                         onClick={() => applyZ3950Record(b)}
                       >
                         {t('items.z3950Choose')}
@@ -550,7 +649,7 @@ export default function BiblioEditorForm({
                   ))}
                 </ul>
                 {z3950PickTotalPages > 1 && (
-                  <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center justify-between gap-2 pt-3 mt-1 border-t border-gray-200/80 dark:border-gray-600">
                     <Button
                       type="button"
                       variant="secondary"
@@ -584,220 +683,223 @@ export default function BiblioEditorForm({
               </div>
             )}
           </>
-        ) : (
-          <p className="text-xs text-amber-700 dark:text-amber-300">{t('z3950.noServers')}</p>
         )}
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <section className={BIBLIO_FORM_SECTION}>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          {t('items.formSectionTypeAndPublication')}
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('items.mediaTypeLabel')}
+            </label>
+            <select
+              value={formData.mediaType}
+              onChange={(e) => setFormData({ ...formData, mediaType: e.target.value as MediaType })}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              {MEDIA_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Input
+            label={t('items.publicationDate')}
+            value={formData.publicationDate}
+            onChange={(e) => setFormData({ ...formData, publicationDate: e.target.value })}
+            placeholder="YYYY"
+          />
+        </div>
+
+        {z3950Message && (
+          <div
+            className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+              z3950Message.type === 'success'
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+            }`}
+          >
+            {z3950Message.type === 'success' ? (
+              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            )}
+            <span>{z3950Message.text}</span>
+          </div>
+        )}
+      </section>
+
+      <section className={BIBLIO_FORM_SECTION}>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          {t('items.formSectionAbstractAndIndexing')}
+        </h3>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('items.mediaTypeLabel')}
+            {t('items.abstract')}
           </label>
-          <select
-            value={formData.mediaType}
-            onChange={(e) => setFormData({ ...formData, mediaType: e.target.value as MediaType })}
+          <textarea
+            value={formData.abstract}
+            onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
+            rows={3}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-          >
-            {MEDIA_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <Input
-          label={t('items.publicationDate')}
-          value={formData.publicationDate}
-          onChange={(e) => setFormData({ ...formData, publicationDate: e.target.value })}
-          placeholder="YYYY"
+          label={t('items.keywords')}
+          value={formData.keywords}
+          onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+          placeholder={t('items.keywordsHint')}
         />
-      </div>
+        <Input
+          label={t('items.subject')}
+          value={formData.subject}
+          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+        />
+      </section>
 
-      {z3950Message && (
-        <div
-          className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
-            z3950Message.type === 'success'
-              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-              : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-          }`}
-        >
-          {z3950Message.type === 'success' ? (
-            <CheckCircle className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          )}
-          <span>{z3950Message.text}</span>
+      <section className={BIBLIO_FORM_SECTION}>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          {t('items.formSectionAudienceAndLanguage')}
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('items.publicType')}
+            </label>
+            <select
+              value={formData.audienceType}
+              onChange={(e) => setFormData({ ...formData, audienceType: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">{t('items.notSpecified')}</option>
+              {PUBLIC_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {t(opt.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('items.language')}
+            </label>
+            <select
+              value={formData.lang}
+              onChange={(e) => setFormData({ ...formData, lang: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">{t('items.notSpecified')}</option>
+              {LANG_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {t(opt.labelKey)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      )}
+      </section>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('items.abstract')}
-        </label>
-        <textarea
-          value={formData.abstract}
-          onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
-          rows={3}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-        />
-      </div>
-      <Input
-        label={t('items.keywords')}
-        value={formData.keywords}
-        onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
-        placeholder={t('items.keywordsHint')}
-      />
-      <Input
-        label={t('items.subject')}
-        value={formData.subject}
-        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-      />
+      <section className={BIBLIO_FORM_SECTION}>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.editionInfo')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Input
+            label={t('items.publisher')}
+            value={formData.editionPublisher}
+            onChange={(e) => setFormData({ ...formData, editionPublisher: e.target.value })}
+          />
+          <Input
+            label={t('items.publicationPlace')}
+            value={formData.editionPlace}
+            onChange={(e) => setFormData({ ...formData, editionPlace: e.target.value })}
+          />
+          <Input
+            label={t('items.editionDate')}
+            value={formData.editionDate}
+            onChange={(e) => setFormData({ ...formData, editionDate: e.target.value })}
+          />
+        </div>
+      </section>
 
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-        >
-          {showAdvanced ? t('common.hide') : t('items.advancedBibliographic')}
-        </button>
-      </div>
-
-      {showAdvanced && (
-        <div className="space-y-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('items.publicType')}
-              </label>
+      <section className={BIBLIO_FORM_SECTION}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.authors')}</h3>
+          <Button type="button" size="sm" variant="secondary" onClick={addAuthor} leftIcon={<Plus className="h-3 w-3" />}>
+            {t('common.add')}
+          </Button>
+        </div>
+        {formData.authors.length === 0 ? (
+          <p className="text-xs text-gray-500 dark:text-gray-400">{t('items.notSpecified')}</p>
+        ) : (
+          formData.authors.map((author, index) => (
+            <div
+              key={index}
+              className="flex flex-nowrap items-center gap-2 p-2 rounded-lg bg-white/80 dark:bg-gray-900/50 min-w-0 overflow-x-auto border border-gray-200/80 dark:border-gray-600/50"
+            >
+              <Input
+                placeholder={t('items.authorLastname')}
+                value={author.lastname}
+                onChange={(e) => updateAuthor(index, 'lastname', e.target.value)}
+                className="min-w-[6rem] flex-1 shrink"
+              />
+              <Input
+                placeholder={t('items.authorFirstname')}
+                value={author.firstname}
+                onChange={(e) => updateAuthor(index, 'firstname', e.target.value)}
+                className="min-w-[6rem] flex-1 shrink"
+              />
               <select
-                value={formData.audienceType}
-                onChange={(e) => setFormData({ ...formData, audienceType: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                value={author.function}
+                onChange={(e) => updateAuthor(index, 'function', e.target.value)}
+                className="shrink-0 w-[min(100%,11rem)] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
               >
                 <option value="">{t('items.notSpecified')}</option>
-                {PUBLIC_TYPE_OPTIONS.map((opt) => (
+                {FUNCTION_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {t(opt.labelKey)}
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('items.language')}
-              </label>
-              <select
-                value={formData.lang}
-                onChange={(e) => setFormData({ ...formData, lang: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              <button
+                type="button"
+                onClick={() => removeAuthor(index)}
+                className="shrink-0 p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
+                title={t('common.delete')}
               >
-                <option value="">{t('items.notSpecified')}</option>
-                {LANG_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {t(opt.labelKey)}
-                  </option>
-                ))}
-              </select>
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
-          </div>
+          ))
+        )}
+      </section>
 
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4 bg-gray-50/50 dark:bg-gray-800/30">
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.editionInfo')}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Input
-                label={t('items.publisher')}
-                value={formData.editionPublisher}
-                onChange={(e) => setFormData({ ...formData, editionPublisher: e.target.value })}
-              />
-              <Input
-                label={t('items.publicationPlace')}
-                value={formData.editionPlace}
-                onChange={(e) => setFormData({ ...formData, editionPlace: e.target.value })}
-              />
-              <Input
-                label={t('items.editionDate')}
-                value={formData.editionDate}
-                onChange={(e) => setFormData({ ...formData, editionDate: e.target.value })}
-              />
-            </div>
-          </div>
+      <section className={BIBLIO_FORM_SECTION}>
+        <EntityLinker
+          label={t('items.collection')}
+          addLabel={t('catalog.searchOrCreateCollection')}
+          entries={linkedCollections}
+          onChange={setLinkedCollections}
+          onSearch={searchCollections}
+          volumeLabel={t('catalog.volumeNumber')}
+        />
+      </section>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('items.authors')}</span>
-              <Button type="button" size="sm" variant="secondary" onClick={addAuthor} leftIcon={<Plus className="h-3 w-3" />}>
-                {t('common.add')}
-              </Button>
-            </div>
-            {formData.authors.length === 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{t('items.notSpecified')}</p>
-            ) : (
-              formData.authors.map((author, index) => (
-                <div
-                  key={index}
-                  className="flex flex-nowrap items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 min-w-0 overflow-x-auto"
-                >
-                  <Input
-                    placeholder={t('items.authorLastname')}
-                    value={author.lastname}
-                    onChange={(e) => updateAuthor(index, 'lastname', e.target.value)}
-                    className="min-w-[6rem] flex-1 shrink"
-                  />
-                  <Input
-                    placeholder={t('items.authorFirstname')}
-                    value={author.firstname}
-                    onChange={(e) => updateAuthor(index, 'firstname', e.target.value)}
-                    className="min-w-[6rem] flex-1 shrink"
-                  />
-                  <select
-                    value={author.function}
-                    onChange={(e) => updateAuthor(index, 'function', e.target.value)}
-                    className="shrink-0 w-[min(100%,11rem)] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
-                  >
-                    <option value="">{t('items.notSpecified')}</option>
-                    {FUNCTION_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {t(opt.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => removeAuthor(index)}
-                    className="shrink-0 p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-                    title={t('common.delete')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <EntityLinker
-            label={t('items.collection')}
-            addLabel={t('catalog.searchOrCreateCollection')}
-            entries={linkedCollections}
-            onChange={setLinkedCollections}
-            onSearch={searchCollections}
-            volumeLabel={t('catalog.volumeNumber')}
-          />
-
-          <EntityLinker
-            label={t('items.series')}
-            addLabel={t('catalog.searchOrCreateSerie')}
-            entries={linkedSeries}
-            onChange={setLinkedSeries}
-            onSearch={searchSeries}
-            volumeLabel={t('catalog.volumeNumber')}
-          />
-        </div>
-      )}
+      <section className={BIBLIO_FORM_SECTION}>
+        <EntityLinker
+          label={t('items.series')}
+          addLabel={t('catalog.searchOrCreateSerie')}
+          entries={linkedSeries}
+          onChange={setLinkedSeries}
+          onSearch={searchSeries}
+          volumeLabel={t('catalog.volumeNumber')}
+        />
+      </section>
 
       {showSpecimens && (
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+        <section className={BIBLIO_FORM_SECTION}>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t('items.specimensOptional')}
           </label>
@@ -821,11 +923,11 @@ export default function BiblioEditorForm({
                     placeholder={t('items.callNumber')}
                     inputId={`biblio-editor-specimen-call-${index}`}
                   />
-                  <div>
+                  <div className="min-w-0">
                     <select
                       value={specimen.sourceId}
                       onChange={(e) => handleSpecimenChange(index, 'sourceId', e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
                     >
                       <option value="">{t('items.selectSource')}</option>
                       {sources.map((src) => (
@@ -854,7 +956,7 @@ export default function BiblioEditorForm({
           <Button type="button" variant="secondary" size="sm" onClick={handleAddSpecimen} leftIcon={<Plus className="h-4 w-4" />}>
             {t('items.addSpecimen')}
           </Button>
-        </div>
+        </section>
       )}
     </form>
   );

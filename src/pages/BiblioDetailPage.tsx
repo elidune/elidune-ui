@@ -78,6 +78,10 @@ function hasNonEmptyText(value: string | null | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function defaultSourceIdFromList(sources: Source[]): string {
+  return sources.find((s) => s.default)?.id ?? sources[0]?.id ?? '';
+}
+
 export default function BiblioDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -836,12 +840,22 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
     barcode: '',
     callNumber: '',
     volumeDesignation: '',
-    borrowable: '' as '' | 'true' | 'false',
+    borrowable: 'true' as 'true' | 'false',
     sourceId: '',
   });
 
   useEffect(() => {
-    api.getSources(false).then(setSources).catch(() => {});
+    api
+      .getSources(false)
+      .then((list) => {
+        setSources(list);
+        setFormData((prev) => {
+          if (prev.sourceId.trim() !== '') return prev;
+          const id = defaultSourceIdFromList(list);
+          return id ? { ...prev, sourceId: id } : prev;
+        });
+      })
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -859,10 +873,7 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
         barcode: formData.barcode.trim(),
         callNumber: formData.callNumber || undefined,
         volumeDesignation: formData.volumeDesignation || undefined,
-        borrowable:
-          formData.borrowable === ''
-            ? undefined
-            : formData.borrowable === 'true',
+        borrowable: formData.borrowable === 'true',
         sourceId: formData.sourceId || undefined,
       });
       onSuccess();
@@ -926,10 +937,11 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
         </label>
         <select
           value={formData.borrowable}
-          onChange={(e) => setFormData({ ...formData, borrowable: e.target.value as '' | 'true' | 'false' })}
+          onChange={(e) =>
+            setFormData({ ...formData, borrowable: e.target.value as 'true' | 'false' })
+          }
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         >
-          <option value="">{t('items.notSpecified')}</option>
           <option value="true">{t('items.borrowableYes')}</option>
           <option value="false">{t('items.borrowableNo')}</option>
         </select>
@@ -963,7 +975,17 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
   });
 
   useEffect(() => {
-    api.getSources(false).then(setSources).catch(() => {});
+    api
+      .getSources(false)
+      .then((list) => {
+        setSources(list);
+        setFormData((prev) => {
+          if (prev.sourceId.trim() !== '') return prev;
+          const id = defaultSourceIdFromList(list);
+          return id ? { ...prev, sourceId: id } : prev;
+        });
+      })
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

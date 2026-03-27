@@ -101,7 +101,6 @@ export default function BiblioEditPage() {
           mode="edit"
           formId="biblio-edit-form"
           initialBiblio={item}
-          defaultShowAdvanced
           onLoadingChange={setIsSaving}
           onSubmitEdit={async (update) => {
             if (item.id == null) return;
