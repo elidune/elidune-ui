@@ -256,6 +256,7 @@
     "fee": "Tarif",
     "groupId": "Groupe (ID)",
     "publicType": "Type public",
+    "sex": "Sexe",
     "subscription": "Abonnement",
     "subscriptionExpiry": "Fin d'abonnement",
     "expiryUnlimited": "Illimité",
@@ -618,6 +619,15 @@
       "stepSelect": "Colonnes (SELECT)",
       "stepAggregations": "Agrégations",
       "stepFilters": "Filtres",
+      "stepFilterGroups": "Groupes de filtres (OU)",
+      "addOrGroup": "Ajouter un groupe OU",
+      "removeOrGroup": "Supprimer le groupe",
+      "orGroupLabel": "Groupe OU {{n}}",
+      "filterGroupsHelp": "Combiné avec les filtres ci-dessus ainsi : (ET de tous les filtres du haut) ET ((ET du groupe 1) OU (ET du groupe 2) OU …). Le serveur impose des limites sur le nombre de groupes et de clauses.",
+      "emptyOrGroup": "Aucune condition dans ce groupe — ajoutez-en une ou supprimez le groupe.",
+      "computedField": "calculé",
+      "aggregationsPhysicalOnly": "Seules les colonnes physiques peuvent être agrégées ; les champs calculés sont exclus.",
+      "timeBucketPhysicalOnly": "La découpe temporelle doit utiliser une colonne date ou horodatage physique.",
       "stepGroupBy": "GROUP BY",
       "stepTimeBucket": "Tranche temporelle (optionnel)",
       "enableTimeBucket": "Activer",
@@ -786,6 +796,10 @@
         "cleanupOrphanAuthors": {
           "label": "Nettoyer les auteurs orphelins",
           "description": "Supprime les auteurs non référencés par des notices."
+        },
+        "cleanupUsers": {
+          "label": "Nettoyer les utilisateurs",
+          "description": "Supprime ou met à jour les comptes utilisateurs selon les règles de maintenance du serveur."
         }
       }
     },
@@ -1132,7 +1146,10 @@
     "featureDigital": "Ressources numériques",
     "featureSuggestions": "Suggestions d'achats",
     "freeAccess": "Accès libre — aucune inscription requise pour la recherche",
-    "statsDocs": "documents"
+    "statsDocs": "documents",
+    "tabEvents": "Événements",
+    "tabCatalog": "Catalogue",
+    "eventsEmpty": "Les prochains événements de la bibliothèque seront affichés ici."
   },
   "events": {
     "title": "Événements",

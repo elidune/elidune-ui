@@ -47,9 +47,9 @@ export const LANG_OPTIONS: CodeOption[] = [
 
 // Sex (tab_sex)
 export const SEX_OPTIONS: CodeOption[] = [
-  { value: '77', labelKey: 'codes.sex.male' },
-  { value: '70', labelKey: 'codes.sex.female' },
-  { value: '85', labelKey: 'codes.sex.unknown' },
+  { value: 'm', labelKey: 'codes.sex.male' },
+  { value: 'f', labelKey: 'codes.sex.female' },
+  { value: '', labelKey: 'codes.sex.unknown' },
 ];
 
 // Account type (tab_accounttype)
@@ -62,39 +62,6 @@ export const ACCOUNT_TYPE_OPTIONS: CodeOption[] = [
   { value: '8', labelKey: 'codes.accountType.group' },
 ];
 
-// Genre (tab_genre)
-export const GENRE_OPTIONS: CodeOption[] = [
-  { value: '0', labelKey: 'codes.genre.unknown' },
-  { value: '1', labelKey: 'codes.genre.litteratureGeneral' },
-  { value: '2', labelKey: 'codes.genre.litteratureFiction' },
-  { value: '3', labelKey: 'codes.genre.litteratureComic' },
-  { value: '4', labelKey: 'codes.genre.litteratureTheatre' },
-  { value: '5', labelKey: 'codes.genre.litteraturePoem' },
-  { value: '6', labelKey: 'codes.genre.litteraturePhilosophy' },
-  { value: '7', labelKey: 'codes.genre.litteratureReligion' },
-  { value: '8', labelKey: 'codes.genre.litteratureSocialSciences' },
-  { value: '9', labelKey: 'codes.genre.litteratureLanguages' },
-  { value: '10', labelKey: 'codes.genre.litteratureSciences' },
-  { value: '11', labelKey: 'codes.genre.litteratureTechnical' },
-  { value: '12', labelKey: 'codes.genre.litteratureArt' },
-  { value: '13', labelKey: 'codes.genre.litteratureSport' },
-  { value: '14', labelKey: 'codes.genre.litteratureLitterature' },
-  { value: '15', labelKey: 'codes.genre.litteratureHistory' },
-  { value: '16', labelKey: 'codes.genre.litteratureGeography' },
-  { value: '17', labelKey: 'codes.genre.litteratureOther' },
-  { value: '100', labelKey: 'codes.genre.audioUnknown' },
-  { value: '101', labelKey: 'codes.genre.audioJazz' },
-  { value: '102', labelKey: 'codes.genre.audioBlues' },
-  { value: '103', labelKey: 'codes.genre.audioRock' },
-  { value: '104', labelKey: 'codes.genre.audioWorld' },
-  { value: '105', labelKey: 'codes.genre.audioClassical' },
-  { value: '200', labelKey: 'codes.genre.videoUnknown' },
-  { value: '201', labelKey: 'codes.genre.videoFiction' },
-  { value: '202', labelKey: 'codes.genre.videoHistory' },
-  { value: '203', labelKey: 'codes.genre.videoArt' },
-  { value: '204', labelKey: 'codes.genre.videoDocumentary' },
-  { value: '205', labelKey: 'codes.genre.videoMusical' },
-];
 
 // Author function (Function enum from server, serialized as camelCase)
 export const FUNCTION_OPTIONS: CodeOption[] = [
@@ -231,11 +198,10 @@ export function translateStatLabel(
       return opt ? t(opt.labelKey) : label;
     }
     case 'sex': {
-      // First try textual labels (male, female, unknown)
+      // API: physical column is 'm' | 'f' | null; discovery may expose computed labels (male/female/unknown)
       const textKey = SEX_TEXT_MAP[label.toLowerCase()];
       if (textKey) return t(textKey);
-      // Then try numeric codes
-      const opt = SEX_OPTIONS.find((o) => o.value === label);
+      const opt = SEX_OPTIONS.find((o) => o.value === String(label).trim());
       return opt ? t(opt.labelKey) : label;
     }
     default:

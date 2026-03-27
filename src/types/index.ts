@@ -622,6 +622,11 @@ export interface StatsBuilderBody {
   joins: string[];
   select: StatsSelectField[];
   filters: StatsFilterClause[];
+  /**
+   * OR-of-AND groups combined with top-level `filters` as:
+   * `(AND filters) AND ((AND g0) OR (AND g1) OR …)`.
+   */
+  filterGroups?: StatsFilterClause[][];
   aggregations: StatsAggregation[];
   groupBy: StatsGroupByField[];
   having: StatsHavingFilter[];
@@ -650,9 +655,16 @@ export interface StatsSchemaRelation {
   label: string;
 }
 
+/** Field metadata from `GET /stats/schema` (computed = SQL expression, not a physical column). */
+export interface StatsSchemaField {
+  type: string;
+  label: string;
+  computed?: boolean;
+}
+
 export interface StatsSchemaEntity {
   label: string;
-  fields: Record<string, { type: string; label: string }>;
+  fields: Record<string, StatsSchemaField>;
   relations: Record<string, StatsSchemaRelation>;
 }
 
@@ -661,6 +673,8 @@ export interface StatsSchema {
   aggregationFunctions: string[];
   operators: string[];
   timeGranularities: string[];
+  /** Human-readable explanation of `filterGroups` OR-of-AND semantics (from server). */
+  filterGroupsSemantics?: string;
 }
 
 export interface SavedStatsQuery {
@@ -930,7 +944,8 @@ export type MaintenanceAction =
   | 'cleanupCollections'
   | 'mergeDuplicateSeries'
   | 'mergeDuplicateCollections'
-  | 'cleanupOrphanAuthors';
+  | 'cleanupOrphanAuthors'
+  | 'cleanupUsers';
 
 export interface MaintenanceActionReport {
   action: MaintenanceAction | string;

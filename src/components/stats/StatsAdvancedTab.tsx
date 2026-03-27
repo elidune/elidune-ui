@@ -24,11 +24,30 @@ import type {
   StatsGroupByField,
   StatsOrderBy,
   StatsTimeGranularity,
+  StatsFilterClause,
 } from '@/types';
 import { isAdmin } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { Card, Button, Table, Modal, Input, Badge, MessageModal } from '@/components/common';
+
+/** Stats builder: keep each added row on one line; scroll horizontally if needed. */
+const STATS_EDITOR_ROW =
+  'flex flex-nowrap gap-2 items-center overflow-x-auto min-w-0 pb-0.5';
+
+/** Native `<select>` styled like `Input` (same height, border, text, focus). */
+const STATS_ROW_SELECT =
+  'rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 py-2.5 pl-4 pr-4 text-sm text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40 focus:outline-none';
+
+/** Extra classes for `<Input>` in stats rows (`Input` already uses py-2.5 / borders). */
+const STATS_ROW_INPUT = 'text-sm';
+
+/** Shell (border + light gray fill) for stats editor sections. */
+const STATS_EDITOR_BLOCK_SHELL =
+  'rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3';
+
+/** Default section: shell + vertical spacing between children. */
+const STATS_EDITOR_BLOCK = `${STATS_EDITOR_BLOCK_SHELL} space-y-2`;
 
 function relationTarget(rel: { join: [string, string] }): string {
   return rel.join[1].split('.')[0] ?? '';
@@ -67,21 +86,42 @@ function entitiesInScope(root: string, joins: string[], entities: StatsSchema['e
   return set;
 }
 
-function fieldOptions(
+interface FieldOpt {
+  value: string;
+  label: string;
+  computed: boolean;
+}
+
+function fieldOptionsWithMeta(
   scope: Set<string>,
-  entities: StatsSchema['entities']
-): { value: string; label: string }[] {
-  const opts: { value: string; label: string }[] = [];
+  entities: StatsSchema['entities'],
+  t: (key: string) => string
+): FieldOpt[] {
+  const opts: FieldOpt[] = [];
   for (const ent of scope) {
     const f = entities[ent]?.fields;
     if (!f) continue;
     for (const [key, meta] of Object.entries(f)) {
       const value = `${ent}.${key}`;
-      opts.push({ value, label: `${meta.label} (${value})` });
+      const computed = meta.computed === true;
+      const suffix = computed ? ` — ${t('stats.advanced.computedField')}` : '';
+      opts.push({ value, label: `${meta.label} (${value})${suffix}`, computed });
     }
   }
   opts.sort((a, b) => a.value.localeCompare(b.value));
   return opts;
+}
+
+function firstPhysicalDateField(physical: FieldOpt[], schema: StatsSchema): FieldOpt | undefined {
+  if (physical.length === 0) return undefined;
+  for (const o of physical) {
+    const [ent, key] = o.value.split('.');
+    const dt = schema.entities[ent]?.fields[key]?.type ?? '';
+    if (isTimestampDataType(dt)) return o;
+  }
+  return (
+    physical.find((o) => o.value.toLowerCase().includes('date')) ?? physical[0]
+  );
 }
 
 function defaultAliasFromField(field: string): string {
@@ -94,6 +134,7 @@ function emptyBody(entity: string): StatsBuilderBody {
     joins: [],
     select: [],
     filters: [],
+    filterGroups: [],
     aggregations: [],
     groupBy: [],
     having: [],
@@ -225,8 +266,10 @@ export default function StatsAdvancedTab() {
   const fieldOpts = useMemo(() => {
     if (!schema || !body) return [];
     const scope = entitiesInScope(body.entity, body.joins, schema.entities);
-    return fieldOptions(scope, schema.entities);
-  }, [schema, body]);
+    return fieldOptionsWithMeta(scope, schema.entities, t);
+  }, [schema, body, t]);
+
+  const fieldOptsPhysical = useMemo(() => fieldOpts.filter((o) => !o.computed), [fieldOpts]);
 
   const openNew = () => {
     if (!firstEntity) return;
@@ -243,7 +286,9 @@ export default function StatsAdvancedTab() {
     setSaveName(row.name);
     setSaveDescription(row.description ?? '');
     setSaveShared(row.isShared);
-    setBody(JSON.parse(JSON.stringify(row.query)) as StatsBuilderBody);
+    const q = JSON.parse(JSON.stringify(row.query)) as StatsBuilderBody;
+    if (!q.filterGroups) q.filterGroups = [];
+    setBody(q);
     setEditorOpen(true);
   };
 
@@ -346,9 +391,9 @@ export default function StatsAdvancedTab() {
   };
 
   const addAgg = () => {
-    if (!body || fieldOpts.length === 0 || !schema) return;
+    if (!body || fieldOptsPhysical.length === 0 || !schema) return;
     const fn = schema.aggregationFunctions[0] as StatsAggregation['fn'];
-    const first = fieldOpts[0].value;
+    const first = fieldOptsPhysical[0].value;
     const agg: StatsAggregation = {
       fn,
       field: first,
@@ -390,6 +435,51 @@ export default function StatsAdvancedTab() {
   const removeFilter = (index: number) => {
     if (!body) return;
     updateBody({ filters: body.filters.filter((_, i) => i !== index) });
+  };
+
+  const addFilterGroup = () => {
+    if (!body) return;
+    updateBody({ filterGroups: [...(body.filterGroups ?? []), []] });
+  };
+
+  const removeFilterGroup = (groupIndex: number) => {
+    if (!body) return;
+    updateBody({
+      filterGroups: (body.filterGroups ?? []).filter((_, i) => i !== groupIndex),
+    });
+  };
+
+  const addFilterInGroup = (groupIndex: number) => {
+    if (!body || fieldOpts.length === 0 || !schema) return;
+    const op = schema.operators[0] as StatsFilterOperator;
+    const groups = (body.filterGroups ?? []).map((g) => [...g]);
+    if (!groups[groupIndex]) return;
+    const row: StatsFilterClause = { field: fieldOpts[0].value, op, value: '' };
+    groups[groupIndex] = [...groups[groupIndex], row];
+    updateBody({ filterGroups: groups });
+  };
+
+  const patchFilterInGroup = (
+    groupIndex: number,
+    filterIndex: number,
+    field: string,
+    op: StatsFilterOperator,
+    valueRaw: string
+  ) => {
+    if (!body) return;
+    const groups = (body.filterGroups ?? []).map((g) => g.map((c) => ({ ...c })));
+    const g = groups[groupIndex];
+    if (!g?.[filterIndex]) return;
+    g[filterIndex] = { field, op, value: parseFilterValue(valueRaw, op) };
+    updateBody({ filterGroups: groups });
+  };
+
+  const removeFilterInGroup = (groupIndex: number, filterIndex: number) => {
+    if (!body) return;
+    const groups = (body.filterGroups ?? []).map((g, i) =>
+      i === groupIndex ? g.filter((_, j) => j !== filterIndex) : [...g]
+    );
+    updateBody({ filterGroups: groups });
   };
 
   const addGroupBy = () => {
@@ -605,24 +695,38 @@ export default function StatsAdvancedTab() {
       >
         {body && schema && (
           <div className="space-y-4 px-1 max-h-[70vh] overflow-y-auto">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  {t('stats.advanced.saveName')}
-                </label>
-                <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} />
-              </div>
-              <label className="flex items-center gap-2 mt-5 sm:mt-0 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={saveShared}
-                  onChange={(e) => setSaveShared(e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-600 text-indigo-600"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {t('stats.advanced.shareWithStaff')}
-                </span>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {t('stats.advanced.saveName')}
               </label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="min-w-0 flex-1">
+                  <Input value={saveName} onChange={(e) => setSaveName(e.target.value)} />
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={saveShared}
+                    aria-label={t('stats.advanced.shareWithStaff')}
+                    onClick={() => setSaveShared((v) => !v)}
+                    className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 ${
+                      saveShared
+                        ? 'bg-amber-500 dark:bg-amber-600'
+                        : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none absolute top-1 left-1 block h-6 w-6 rounded-full bg-white shadow transition-transform ${
+                        saveShared ? 'translate-x-6' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {t('stats.advanced.shareWithStaff')}
+                  </span>
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -631,14 +735,14 @@ export default function StatsAdvancedTab() {
               <Input value={saveDescription} onChange={(e) => setSaveDescription(e.target.value)} />
             </div>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                 1. {t('stats.advanced.stepEntity')}
               </h3>
               <select
                 value={body.entity}
                 onChange={(e) => setEntity(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm"
+                className={`w-full ${STATS_ROW_SELECT}`}
               >
                 {entityKeys.map((k) => (
                   <option key={k} value={k}>
@@ -648,7 +752,7 @@ export default function StatsAdvancedTab() {
               </select>
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                 2. {t('stats.advanced.stepJoins')}
               </h3>
@@ -673,7 +777,7 @@ export default function StatsAdvancedTab() {
               </div>
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   3. {t('stats.advanced.stepSelect')}
@@ -687,7 +791,7 @@ export default function StatsAdvancedTab() {
                 </button>
               </div>
               {body.select.map((row, i) => (
-                <div key={i} className="flex flex-wrap gap-2 items-end">
+                <div key={i} className={STATS_EDITOR_ROW}>
                   <select
                     value={row.field}
                     onChange={(e) => {
@@ -697,7 +801,7 @@ export default function StatsAdvancedTab() {
                         alias: row.alias || defaultAliasFromField(field),
                       });
                     }}
-                    className="flex-1 min-w-[200px] px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`flex-1 min-w-[200px] ${STATS_ROW_SELECT}`}
                   >
                     {fieldOpts.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -706,7 +810,7 @@ export default function StatsAdvancedTab() {
                     ))}
                   </select>
                   <Input
-                    className="w-40"
+                    className={`${STATS_ROW_INPUT} w-40`}
                     placeholder={t('stats.advanced.alias')}
                     value={row.alias ?? ''}
                     onChange={(e) => patchSelect(i, { alias: e.target.value })}
@@ -718,21 +822,27 @@ export default function StatsAdvancedTab() {
               ))}
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t('stats.advanced.stepAggregations')}
                 </h3>
-                <button type="button" onClick={addAgg} className="text-xs text-indigo-600 hover:underline">
+                <button
+                  type="button"
+                  onClick={addAgg}
+                  disabled={fieldOptsPhysical.length === 0}
+                  className="text-xs text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   + {t('stats.advanced.addRow')}
                 </button>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('stats.advanced.aggregationsPhysicalOnly')}</p>
               {body.aggregations.map((row, i) => (
-                <div key={i} className="flex flex-wrap gap-2 items-end">
+                <div key={i} className={STATS_EDITOR_ROW}>
                   <select
                     value={row.fn}
                     onChange={(e) => patchAgg(i, { fn: e.target.value as StatsAggregation['fn'] })}
-                    className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`shrink-0 ${STATS_ROW_SELECT}`}
                   >
                     {schema.aggregationFunctions.map((fn) => (
                       <option key={fn} value={fn}>
@@ -743,16 +853,16 @@ export default function StatsAdvancedTab() {
                   <select
                     value={row.field}
                     onChange={(e) => patchAgg(i, { field: e.target.value })}
-                    className="flex-1 min-w-[180px] px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`flex-1 min-w-[180px] ${STATS_ROW_SELECT}`}
                   >
-                    {fieldOpts.map((o) => (
+                    {fieldOptsPhysical.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
                     ))}
                   </select>
                   <Input
-                    className="w-36"
+                    className={`${STATS_ROW_INPUT} w-36`}
                     placeholder="alias"
                     value={row.alias}
                     onChange={(e) => patchAgg(i, { alias: e.target.value })}
@@ -764,7 +874,7 @@ export default function StatsAdvancedTab() {
               ))}
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t('stats.advanced.stepFilters')}
@@ -781,13 +891,13 @@ export default function StatsAdvancedTab() {
                       ? String(row.value)
                       : JSON.stringify(row.value);
                 return (
-                  <div key={i} className="flex flex-wrap gap-2 items-end">
+                  <div key={i} className={STATS_EDITOR_ROW}>
                     <select
                       value={row.field}
                       onChange={(e) =>
                         patchFilter(i, e.target.value, row.op, raw)
                       }
-                      className="flex-1 min-w-[160px] px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                      className={`flex-1 min-w-[160px] ${STATS_ROW_SELECT}`}
                     >
                       {fieldOpts.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -801,7 +911,7 @@ export default function StatsAdvancedTab() {
                         const op = e.target.value as StatsFilterOperator;
                         patchFilter(i, row.field, op, raw);
                       }}
-                      className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                      className={`shrink-0 ${STATS_ROW_SELECT}`}
                     >
                       {schema.operators.map((op) => (
                         <option key={op} value={op}>
@@ -810,7 +920,7 @@ export default function StatsAdvancedTab() {
                       ))}
                     </select>
                     <Input
-                      className="flex-1 min-w-[120px]"
+                      className={`${STATS_ROW_INPUT} flex-1 min-w-[120px]`}
                       disabled={row.op === 'isNull' || row.op === 'isNotNull'}
                       placeholder={t('stats.advanced.filterValueHint')}
                       value={raw}
@@ -824,7 +934,111 @@ export default function StatsAdvancedTab() {
               })}
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {t('stats.advanced.stepFilterGroups')}
+                </h3>
+                <button type="button" onClick={addFilterGroup} className="text-xs text-indigo-600 hover:underline">
+                  + {t('stats.advanced.addOrGroup')}
+                </button>
+              </div>
+              {schema.filterGroupsSemantics ? (
+                <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                  {schema.filterGroupsSemantics}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('stats.advanced.filterGroupsHelp')}</p>
+              )}
+              {(body.filterGroups ?? []).map((group, gi) => (
+                <div
+                  key={gi}
+                  className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-3 space-y-2 bg-gray-50/80 dark:bg-gray-900/20"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {t('stats.advanced.orGroupLabel', { n: gi + 1 })}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => addFilterInGroup(gi)}
+                        className="text-xs text-indigo-600 hover:underline"
+                      >
+                        + {t('stats.advanced.addRow')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeFilterGroup(gi)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        {t('stats.advanced.removeOrGroup')}
+                      </button>
+                    </div>
+                  </div>
+                  {group.map((row, fi) => {
+                    const raw =
+                      row.op === 'isNull' || row.op === 'isNotNull'
+                        ? ''
+                        : typeof row.value === 'string' || typeof row.value === 'number'
+                          ? String(row.value)
+                          : JSON.stringify(row.value);
+                    return (
+                      <div key={fi} className={STATS_EDITOR_ROW}>
+                        <select
+                          value={row.field}
+                          onChange={(e) =>
+                            patchFilterInGroup(gi, fi, e.target.value, row.op, raw)
+                          }
+                          className={`flex-1 min-w-[160px] ${STATS_ROW_SELECT}`}
+                        >
+                          {fieldOpts.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={row.op}
+                          onChange={(e) => {
+                            const op = e.target.value as StatsFilterOperator;
+                            patchFilterInGroup(gi, fi, row.field, op, raw);
+                          }}
+                          className={`shrink-0 ${STATS_ROW_SELECT}`}
+                        >
+                          {schema.operators.map((op) => (
+                            <option key={op} value={op}>
+                              {op}
+                            </option>
+                          ))}
+                        </select>
+                        <Input
+                          className={`${STATS_ROW_INPUT} flex-1 min-w-[120px]`}
+                          disabled={row.op === 'isNull' || row.op === 'isNotNull'}
+                          placeholder={t('stats.advanced.filterValueHint')}
+                          value={raw}
+                          onChange={(e) =>
+                            patchFilterInGroup(gi, fi, row.field, row.op, e.target.value)
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFilterInGroup(gi, fi)}
+                          className="p-1 text-gray-400 hover:text-red-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {group.length === 0 && (
+                    <p className="text-xs text-gray-400 italic">{t('stats.advanced.emptyOrGroup')}</p>
+                  )}
+                </div>
+              ))}
+            </section>
+
+            <section className={STATS_EDITOR_BLOCK}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t('stats.advanced.stepGroupBy')}
@@ -834,7 +1048,7 @@ export default function StatsAdvancedTab() {
                 </button>
               </div>
               {body.groupBy.map((row, i) => (
-                <div key={i} className="flex flex-wrap gap-2 items-end">
+                <div key={i} className={STATS_EDITOR_ROW}>
                   <select
                     value={row.field}
                     onChange={(e) => {
@@ -844,7 +1058,7 @@ export default function StatsAdvancedTab() {
                         alias: row.alias || defaultAliasFromField(field),
                       });
                     }}
-                    className="flex-1 min-w-[200px] px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`flex-1 min-w-[200px] ${STATS_ROW_SELECT}`}
                   >
                     {fieldOpts.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -853,7 +1067,7 @@ export default function StatsAdvancedTab() {
                     ))}
                   </select>
                   <Input
-                    className="w-40"
+                    className={`${STATS_ROW_INPUT} w-40`}
                     placeholder={t('stats.advanced.alias')}
                     value={row.alias ?? ''}
                     onChange={(e) => patchGroupBy(i, { alias: e.target.value })}
@@ -865,20 +1079,20 @@ export default function StatsAdvancedTab() {
               ))}
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                 {t('stats.advanced.stepTimeBucket')}
               </h3>
-              <div className="flex flex-wrap gap-2 items-end">
-                <label className="flex items-center gap-2 text-sm">
+              <div className={STATS_EDITOR_ROW}>
+                <label className="flex shrink-0 items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={!!body.timeBucket}
+                    disabled={fieldOptsPhysical.length === 0}
                     onChange={(e) => {
-                      if (e.target.checked && fieldOpts.length) {
-                        const f = fieldOpts.find((o) =>
-                          o.value.toLowerCase().includes('date')
-                        ) ?? fieldOpts[0];
+                      if (e.target.checked && fieldOptsPhysical.length) {
+                        const f = firstPhysicalDateField(fieldOptsPhysical, schema);
+                        if (!f) return;
                         updateBody({
                           timeBucket: {
                             field: f.value,
@@ -895,8 +1109,9 @@ export default function StatsAdvancedTab() {
                   {t('stats.advanced.enableTimeBucket')}
                 </label>
               </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('stats.advanced.timeBucketPhysicalOnly')}</p>
               {body.timeBucket && (
-                <div className="flex flex-wrap gap-2">
+                <div className={STATS_EDITOR_ROW}>
                   <select
                     value={body.timeBucket.field}
                     onChange={(e) =>
@@ -907,9 +1122,9 @@ export default function StatsAdvancedTab() {
                         },
                       })
                     }
-                    className="flex-1 min-w-[180px] px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`flex-1 min-w-[180px] ${STATS_ROW_SELECT}`}
                   >
-                    {fieldOpts.map((o) => (
+                    {fieldOptsPhysical.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
                       </option>
@@ -925,7 +1140,7 @@ export default function StatsAdvancedTab() {
                         },
                       })
                     }
-                    className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`shrink-0 ${STATS_ROW_SELECT}`}
                   >
                     {schema.timeGranularities.map((g) => (
                       <option key={g} value={g}>
@@ -934,7 +1149,7 @@ export default function StatsAdvancedTab() {
                     ))}
                   </select>
                   <Input
-                    className="w-40"
+                    className={`${STATS_ROW_INPUT} w-40`}
                     placeholder="alias"
                     value={body.timeBucket.alias ?? ''}
                     onChange={(e) =>
@@ -950,7 +1165,7 @@ export default function StatsAdvancedTab() {
               )}
             </section>
 
-            <section className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+            <section className={STATS_EDITOR_BLOCK}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t('stats.advanced.stepOrderBy')}
@@ -960,11 +1175,11 @@ export default function StatsAdvancedTab() {
                 </button>
               </div>
               {body.orderBy.map((row, i) => (
-                <div key={i} className="flex flex-wrap gap-2 items-end">
+                <div key={i} className={STATS_EDITOR_ROW}>
                   <select
                     value={row.field}
                     onChange={(e) => patchOrderBy(i, { field: e.target.value })}
-                    className="flex-1 min-w-[160px] px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`flex-1 min-w-[160px] ${STATS_ROW_SELECT}`}
                   >
                     {outputAliases(body).map((a) => (
                       <option key={a} value={a}>
@@ -977,7 +1192,7 @@ export default function StatsAdvancedTab() {
                     onChange={(e) =>
                       patchOrderBy(i, { dir: e.target.value as 'asc' | 'desc' })
                     }
-                    className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                    className={`shrink-0 ${STATS_ROW_SELECT}`}
                   >
                     <option value="asc">asc</option>
                     <option value="desc">desc</option>
@@ -990,7 +1205,7 @@ export default function StatsAdvancedTab() {
               <p className="text-xs text-gray-500">{t('stats.advanced.orderByHint')}</p>
             </section>
 
-            <section className="flex flex-wrap gap-4 items-end">
+            <section className={`${STATS_EDITOR_BLOCK_SHELL} flex flex-wrap gap-4 items-end`}>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">limit</label>
                 <Input

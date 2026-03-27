@@ -27,6 +27,7 @@ export default function MaintenanceSettings() {
         'mergeDuplicateSeries',
         'mergeDuplicateCollections',
         'cleanupOrphanAuthors',
+        'cleanupUsers',
       ] as MaintenanceAction[],
     []
   );

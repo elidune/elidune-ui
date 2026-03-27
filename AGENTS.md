@@ -68,6 +68,11 @@ Role hierarchy: `Guest < Reader < Librarian < Administrator`
 - Co-locate domain logic in the matching `hooks/<domain>/` folder.
 - Common UI building blocks go in `components/common/`.
 
+## Coding Conventions
+- factorize as much as possible, reuse existing code and create new factorisations on changes
+- avoid multi call to same rest apis, reuse data
+
+
 ### Data fetching
 - Use TanStack Query (`useQuery` / `useMutation`) for all server state.
 - Pass the `ApiService` method directly as `queryFn`; don't duplicate fetch logic.

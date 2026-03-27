@@ -244,6 +244,7 @@
     "fee": "Fee",
     "groupId": "Group (ID)",
     "publicType": "Public type",
+    "sex": "Sex",
     "subscription": "Subscription",
     "subscriptionExpiry": "Subscription end date",
     "expiryUnlimited": "Unlimited",
@@ -589,6 +590,15 @@
       "stepSelect": "Columns (SELECT)",
       "stepAggregations": "Aggregations",
       "stepFilters": "Filters",
+      "stepFilterGroups": "Filter groups (OR)",
+      "addOrGroup": "Add OR group",
+      "removeOrGroup": "Remove group",
+      "orGroupLabel": "OR group {{n}}",
+      "filterGroupsHelp": "Combined with the filters above as: (AND of all top filters) AND ((AND of group 1) OR (AND of group 2) OR …). The server enforces limits on group and clause counts.",
+      "emptyOrGroup": "No conditions in this group — add one or remove the group.",
+      "computedField": "computed",
+      "aggregationsPhysicalOnly": "Only physical columns can be aggregated; computed fields are excluded.",
+      "timeBucketPhysicalOnly": "Time bucketing must use a physical date/timestamp column.",
       "stepGroupBy": "GROUP BY",
       "stepTimeBucket": "Time bucket (optional)",
       "enableTimeBucket": "Enable",
@@ -757,6 +767,10 @@
         "cleanup_orphan_authors": {
           "label": "Clean orphan authors",
           "description": "Deletes authors not referenced by any bibliographic record."
+        },
+        "cleanupUsers": {
+          "label": "Clean users",
+          "description": "Removes or updates user accounts according to server maintenance rules."
         }
       }
     },
