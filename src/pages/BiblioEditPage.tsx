@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems } from '@/types';
 import api from '@/services/api';
-import type { Biblio } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BiblioEditorForm from '@/components/items/BiblioEditorForm';
 
 export default function BiblioEditPage() {
@@ -19,24 +18,21 @@ export default function BiblioEditPage() {
   const queryClient = useQueryClient();
   const savedSearch = (location.state as { savedSearch?: unknown } | null)?.savedSearch;
 
-  const [item, setItem] = useState<Biblio | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    const fetchItem = async () => {
-      if (!id) return;
-      try {
-        const data = await api.getBiblio(id);
-        setItem(data);
-      } catch {
-        navigate('/biblios');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchItem();
-  }, [id, navigate]);
+  const {
+    data: item,
+    isPending: isLoading,
+    isError: isBiblioQueryError,
+  } = useQuery({
+    queryKey: ['biblio', id],
+    queryFn: () => api.getBiblio(id!),
+    enabled: Boolean(id),
+  });
+
+  if (isBiblioQueryError) {
+    return <Navigate to="/biblios" replace />;
+  }
 
   if (!canManageItems(user?.accountType)) {
     return id ? <Navigate to={`/biblios/${id}`} replace /> : <Navigate to="/biblios" replace />;
@@ -106,6 +102,7 @@ export default function BiblioEditPage() {
             if (item.id == null) return;
             await api.updateBiblio(item.id, update);
             queryClient.invalidateQueries({ queryKey: ['biblios'] });
+            queryClient.invalidateQueries({ queryKey: ['biblio', id] });
             navigate(`/biblios/${id}`, {
               state: savedSearch !== undefined ? { savedSearch } : undefined,
             });

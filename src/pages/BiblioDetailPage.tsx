@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,19 +16,20 @@ import {
   Plus,
   AlertCircle,
   ExternalLink,
+  Bookmark,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType } from '@/types';
+import PlaceHoldDialog from '@/components/holds/PlaceHoldDialog';
 import api from '@/services/api';
 import type { Biblio, Item, Author, Source } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
 import { getApiErrorCode } from '@/utils/apiError';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
-import { useQueryClient } from '@tanstack/react-query';
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
   if (!mediaType) return 'unknown';
@@ -90,11 +92,18 @@ export default function BiblioDetailPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
+  const {
+    data: item,
+    isPending: isLoading,
+    isError: isBiblioQueryError,
+  } = useQuery({
+    queryKey: ['biblio', id],
+    queryFn: () => api.getBiblio(id!),
+    enabled: Boolean(id),
+  });
+
   // Search state saved by BibliosPage when navigating here; used to restore on back
   const savedSearch = (location.state as { savedSearch?: unknown } | null)?.savedSearch;
-
-  const [item, setItem] = useState<Biblio | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [showAddSpecimenModal, setShowAddSpecimenModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditSpecimenModal, setShowEditSpecimenModal] = useState(false);
@@ -106,23 +115,18 @@ export default function BiblioDetailPage() {
   const [deleteSpecimenLoading, setDeleteSpecimenLoading] = useState(false);
   const [deleteItemBorrowedError, setDeleteItemBorrowedError] = useState(false);
   const [deleteItemLoading, setDeleteItemLoading] = useState(false);
+  const [reserveSpecimen, setReserveSpecimen] = useState<Item | null>(null);
 
   useEffect(() => {
-    const fetchItem = async () => {
-      if (!id) return;
-      try {
-        const data = await api.getBiblio(id);
-        setItem(data);
-      } catch (error) {
-        console.error('Error fetching biblio:', error);
-        navigate('/biblios');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (isBiblioQueryError) {
+      console.error('Error fetching biblio');
+      navigate('/biblios');
+    }
+  }, [isBiblioQueryError, navigate]);
 
-    fetchItem();
-  }, [id, navigate]);
+  const invalidateBiblio = () => {
+    if (id) void queryClient.invalidateQueries({ queryKey: ['biblio', id] });
+  };
 
   const handleDelete = async (force = false) => {
     if (!item || item.id == null) return;
@@ -186,7 +190,7 @@ export default function BiblioDetailPage() {
       setShowDeleteSpecimenModal(false);
       setSelectedSpecimen(null);
       setDeleteSpecimenBorrowedError(false);
-      api.getBiblio(item.id).then(setItem);
+      invalidateBiblio();
     } catch (error: unknown) {
       if (!force) {
         const code = getApiErrorCode(error);
@@ -429,6 +433,8 @@ export default function BiblioDetailPage() {
                     key={specimen.id}
                     specimen={specimen}
                     canManage={canManageItems(user?.accountType)}
+                    showReserveButton={!!user?.id && specimen.borrowable !== false}
+                    onReserve={() => setReserveSpecimen(specimen)}
                     onEdit={() => {
                       setSelectedSpecimen(specimen);
                       setShowEditSpecimenModal(true);
@@ -659,7 +665,7 @@ export default function BiblioDetailPage() {
           onLoadingChange={setIsAddSpecimenLoading}
           onSuccess={() => {
             setShowAddSpecimenModal(false);
-            if (item.id) api.getBiblio(item.id).then(setItem);
+            invalidateBiblio();
           }}
         />
       </Modal>
@@ -689,7 +695,7 @@ export default function BiblioDetailPage() {
             onSuccess={() => {
               setShowEditSpecimenModal(false);
               setSelectedSpecimen(null);
-              if (item.id) api.getBiblio(item.id).then(setItem);
+              invalidateBiblio();
             }}
           />
         )}
@@ -735,6 +741,20 @@ export default function BiblioDetailPage() {
           </p>
         )}
       </Modal>
+
+      {item && reserveSpecimen && user?.id && (
+        <PlaceHoldDialog
+          open={!!reserveSpecimen}
+          onClose={() => setReserveSpecimen(null)}
+          specimen={reserveSpecimen}
+          biblioTitle={item.title || '—'}
+          accountType={user.accountType}
+          currentUserId={user.id}
+          onSuccess={() => {
+            invalidateBiblio();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -762,11 +782,21 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
 interface SpecimenCardProps {
   specimen: Item;
   canManage: boolean;
+  showReserveButton?: boolean;
+  onReserve?: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardProps) { // specimen is physical Item
+function SpecimenCard({
+  specimen,
+  canManage,
+  showReserveButton,
+  onReserve,
+  onEdit,
+  onDelete,
+}: SpecimenCardProps) {
+  // specimen is physical Item
   const { t } = useTranslation();
 
   const getAvailabilityBadge = (borrowed?: boolean) => {
@@ -820,6 +850,14 @@ function SpecimenCard({ specimen, canManage, onEdit, onDelete }: SpecimenCardPro
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {t('items.source')}: {specimen.sourceName ?? '—'}
       </p>
+
+      {showReserveButton && onReserve && (
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+          <Button size="sm" variant="secondary" leftIcon={<Bookmark className="h-4 w-4" />} onClick={onReserve}>
+            {t('holds.reserve')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

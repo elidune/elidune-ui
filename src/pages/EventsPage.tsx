@@ -13,7 +13,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react';
-import { Card, Button, Table, Pagination, Modal, Input } from '@/components/common';
+import { Card, Button, Table, Pagination, Modal, Input, ConfirmDialog } from '@/components/common';
 import api from '@/services/api';
 import type { Event, CreateEvent, UpdateEvent } from '@/types';
 
@@ -74,6 +74,7 @@ export default function EventsPage() {
     Record<string, 'loading' | 'success' | 'error'>
   >({});
   const [confirmAnnouncementEvent, setConfirmAnnouncementEvent] = useState<Event | null>(null);
+  const [eventPendingDelete, setEventPendingDelete] = useState<Event | null>(null);
 
   const doSendAnnouncement = async (event: Event) => {
     setAnnouncementState((prev) => ({ ...prev, [event.id]: 'loading' }));
@@ -138,8 +139,7 @@ export default function EventsPage() {
     setEditingEvent(event);
   };
 
-  const handleDeleteEvent = async (event: Event) => {
-    if (!confirm(t('events.confirmDelete', { name: event.name }))) return;
+  const performDeleteEvent = async (event: Event) => {
     try {
       await api.deleteEvent(event.id);
       setEditingEvent(null);
@@ -383,6 +383,21 @@ export default function EventsPage() {
         )}
       </Modal>
 
+      <ConfirmDialog
+        isOpen={eventPendingDelete !== null}
+        onClose={() => setEventPendingDelete(null)}
+        onConfirm={() => {
+          const ev = eventPendingDelete;
+          setEventPendingDelete(null);
+          if (ev) void performDeleteEvent(ev);
+        }}
+        message={
+          eventPendingDelete ? t('events.confirmDelete', { name: eventPendingDelete.name }) : ''
+        }
+        confirmVariant="danger"
+        stackOnTop
+      />
+
       {/* Edit modal */}
       <Modal
         isOpen={!!editingEvent}
@@ -393,7 +408,11 @@ export default function EventsPage() {
           <div className="flex justify-between gap-2">
             <Button
               variant="danger"
-              onClick={() => editingEvent && handleDeleteEvent(editingEvent)}
+              onClick={() => {
+                if (!editingEvent) return;
+                setEventPendingDelete(editingEvent);
+                setEditingEvent(null);
+              }}
               leftIcon={<Trash2 className="h-4 w-4" />}
             >
               {t('common.delete')}

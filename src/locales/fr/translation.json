@@ -66,7 +66,8 @@
     "profile": "Mon Profil",
     "logout": "Déconnexion",
     "about": "À propos",
-    "privacy": "Confidentialité"
+    "privacy": "Confidentialité",
+    "holds": "Réservations"
   },
   "home": {
     "welcome": "bienvenue",
@@ -228,6 +229,8 @@
     "searchPlaceholder": "Rechercher par nom, prénom ou code-barre...",
     "noUsers": "Aucun usager trouvé",
     "loans": "Emprunts",
+    "pastLoansTab": "Emprunts passés",
+    "holdsTab": "Réservations",
     "lateLoans": "en retard",
     "late": "Retard",
     "identifier": "Identifiant",
@@ -690,7 +693,7 @@
     },
     "server": {
       "title": "Serveur Elidune",
-      "subtitle": "SMTP, journalisation, rappels et rétention d'audit (surcharges en base)",
+      "subtitle": "SMTP, journalisation, rappels, réservations et rétention d'audit (surcharges en base)",
       "overridden": "Surcharge BDD",
       "fileDefault": "Fichier de config",
       "notOverridable": "Lecture seule",
@@ -705,7 +708,8 @@
         "email": "E-mail (SMTP)",
         "logging": "Journalisation",
         "reminders": "Rappels de retard",
-        "audit": "Journal d'audit"
+        "audit": "Journal d'audit",
+        "holds": "Réservations (retrait)"
       },
       "smtpHost": "Hôte SMTP",
       "smtpPort": "Port SMTP",
@@ -731,7 +735,9 @@
       "frequencyDays": "Jours min entre rappels (par prêt)",
       "sendTime": "Heure d'envoi quotidienne (HH:MM)",
       "smtpThrottleMs": "Délai entre envois (ms)",
-      "retentionDays": "Rétention de l'audit (jours)"
+      "retentionDays": "Rétention de l'audit (jours)",
+      "readyExpiryDays": "Jours pour retirer l'exemplaire après notification (réservation « prête »)",
+      "holdsOverridable": "Autoriser la surcharge de cette section en base"
     },
     "audit": {
       "title": "Journal d'audit",
@@ -1286,14 +1292,49 @@
       "waived": "Exonéré"
     }
   },
-  "reservations": {
+  "holds": {
     "title": "Réservations",
-    "noReservations": "Aucune réservation.",
+    "activeHoldsTitle": "Réservations en cours",
+    "activeHoldsCount": "{{total}} réservation(s) en cours",
+    "newHoldButton": "Nouvelle réservation",
+    "noActiveHolds": "Aucune réservation en cours.",
+    "subtitle": "Réservations actives (en attente ou prêtes au retrait)",
+    "pageTitle": "Gestion des réservations",
+    "reserve": "Réserver",
+    "dialogTitle": "Confirmer la réservation",
+    "confirmReserve": "Réserver",
+    "notesOptional": "Notes (optionnel)",
+    "createError": "Impossible de créer la réservation.",
+    "selectUser": "Sélectionnez un usager.",
+    "reserveFor": "Réservation pour",
+    "forMe": "Pour moi",
+    "forUser": "Pour un usager",
+    "selectedUser": "Usager sélectionné",
+    "hintBorrowed": "Cet exemplaire est actuellement emprunté. Vous serez averti lorsqu'il sera disponible pour vous.",
+    "hintQueue": "D'autres réservations sont en file ({{count}} en attente). Vous serez notifié à votre tour ; votre position sera environ la {{position}}e.",
+    "hintNotifyWhenReady": "Vous serez notifié lorsque l'exemplaire sera disponible pour vous.",
+    "searchBiblio": "Rechercher une notice (titre, auteur, ISBN…)",
+    "pickSpecimen": "Exemplaire",
+    "createSection": "Nouvelle réservation",
+    "userSection": "Réservations d'un usager",
+    "queueSection": "File d'attente de l'exemplaire",
+    "pickUser": "Rechercher un usager",
+    "loadUserHolds": "Afficher",
+    "columnUser": "Usager",
+    "columnDocument": "Document",
+    "itemId": "Exemplaire (ID)",
+    "cancelHold": "Annuler la réservation",
+    "cancelConfirm": "Annuler cette réservation ?",
+    "createdAt": "Créée le",
+    "expiresAt": "Expire le",
+    "noHolds": "Aucune réservation.",
     "position": "Position",
     "status": "Statut",
+    "notes": "Notes",
+    "biblio": "Notice",
     "statuses": {
       "pending": "En attente",
-      "ready": "Disponible",
+      "ready": "Disponible au retrait",
       "fulfilled": "Satisfaite",
       "cancelled": "Annulée",
       "expired": "Expirée"

@@ -927,7 +927,7 @@ export const canManageSettings = (accountType?: string): boolean =>
   isAdmin(accountType);
 
 // Admin dynamic config (GET/PUT/DELETE /admin/config)
-export type AdminConfigSectionKey = 'email' | 'logging' | 'reminders' | 'audit';
+export type AdminConfigSectionKey = 'email' | 'logging' | 'reminders' | 'audit' | 'holds';
 
 export interface ConfigSectionInfo {
   key: string;
@@ -1091,24 +1091,31 @@ export interface EventsListResponse {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Reservations / Holds
+// Holds (physical copy queue) — API tag `holds`
 // ──────────────────────────────────────────────────────────────────
 
-export type ReservationStatus = 'pending' | 'ready' | 'fulfilled' | 'cancelled' | 'expired';
+export type HoldStatus = 'pending' | 'ready' | 'fulfilled' | 'cancelled' | 'expired';
 
-export interface Reservation {
+/**
+ * Hold detail rows (GET list endpoints). Aligned with {@link Loan}: `biblio.items`
+ * contains exactly one {@link ItemShort} — the reserved specimen.
+ */
+export interface Hold {
   id: string;
-  userId?: string;
-  itemId?: string;
-  status: ReservationStatus;
+  userId: string;
+  itemId: string;
+  createdAt: string;
+  notifiedAt: string | null;
+  expiresAt: string | null;
+  status: HoldStatus;
   position: number;
-  createdAt?: string;
-  notifiedAt?: string | null;
-  expiresAt?: string | null;
-  notes?: string | null;
+  notes: string | null;
+  /** Populated on GET /holds, GET /items/:id/holds, GET /users/:id/holds */
+  biblio?: BiblioShort | null;
+  user?: UserShort | null;
 }
 
-export interface CreateReservation {
+export interface CreateHold {
   userId: string;
   itemId: string;
   notes?: string | null;

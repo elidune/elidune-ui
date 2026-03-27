@@ -29,7 +29,7 @@ import type {
 import { isAdmin } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { getApiErrorMessage } from '@/utils/apiError';
-import { Card, Button, Table, Modal, Input, Badge, MessageModal } from '@/components/common';
+import { Card, Button, Table, Modal, Input, Badge, MessageModal, ConfirmDialog } from '@/components/common';
 
 /** Stats builder: keep each added row on one line; scroll horizontally if needed. */
 const STATS_EDITOR_ROW =
@@ -242,6 +242,7 @@ export default function StatsAdvancedTab() {
   const [resultTitle, setResultTitle] = useState('');
   const [lastExecutedQuery, setLastExecutedQuery] = useState<StatsBuilderBody | null>(null);
   const [messageDialog, setMessageDialog] = useState<string | null>(null);
+  const [savedQueryToDelete, setSavedQueryToDelete] = useState<SavedStatsQuery | null>(null);
 
   const { data: schema, isLoading: schemaLoading, error: schemaError } = useQuery({
     queryKey: ['stats', 'schema'],
@@ -536,8 +537,7 @@ export default function StatsAdvancedTab() {
 
   const handleDelete = (row: SavedStatsQuery) => {
     if (!canManage(row)) return;
-    if (!window.confirm(t('stats.advanced.deleteConfirm', { name: row.name }))) return;
-    deleteMutation.mutate(row.id);
+    setSavedQueryToDelete(row);
   };
 
   const entityKeys = schema ? Object.keys(schema.entities).sort() : [];
@@ -1379,6 +1379,23 @@ export default function StatsAdvancedTab() {
         isOpen={messageDialog !== null}
         onClose={() => setMessageDialog(null)}
         message={messageDialog ?? ''}
+        stackOnTop
+      />
+
+      <ConfirmDialog
+        isOpen={savedQueryToDelete !== null}
+        onClose={() => setSavedQueryToDelete(null)}
+        onConfirm={() => {
+          const row = savedQueryToDelete;
+          setSavedQueryToDelete(null);
+          if (row) deleteMutation.mutate(row.id);
+        }}
+        message={
+          savedQueryToDelete
+            ? t('stats.advanced.deleteConfirm', { name: savedQueryToDelete.name })
+            : ''
+        }
+        confirmVariant="danger"
         stackOnTop
       />
     </div>

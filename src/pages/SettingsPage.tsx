@@ -4,7 +4,7 @@ import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, 
 import AdminServerSettings from '@/components/settings/AdminServerSettings';
 import AuditLogViewer from '@/components/settings/AuditLogViewer';
 import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
-import { Card, CardHeader, Button, Input, Badge } from '@/components/common';
+import { Card, CardHeader, Button, Input, Badge, ConfirmDialog } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import type {
@@ -83,6 +83,7 @@ function SourceEditor() {
   const [mergeName, setMergeName] = useState('');
   const [isMerging, setIsMerging] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [archiveConfirmSource, setArchiveConfirmSource] = useState<Source | null>(null);
 
   const clearMessages = () => { setError(null); setSuccessMsg(null); };
   const showSuccess = (msg: string) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000); };
@@ -140,9 +141,8 @@ function SourceEditor() {
 
   const handleRenameCancel = () => { setRenamingId(null); setRenameValue(''); };
 
-  const handleArchive = async (source: Source) => {
+  const performArchiveSource = async (source: Source) => {
     clearMessages();
-    if (!confirm(t('settings.sources.archiveConfirm', { name: source.name }))) return;
     try {
       await api.archiveSource(source.id);
       showSuccess(t('settings.sources.archiveSuccess'));
@@ -302,7 +302,7 @@ function SourceEditor() {
               <Pencil className="h-4 w-4" />
             </button>
             <button
-              onClick={() => handleArchive(source)}
+              onClick={() => setArchiveConfirmSource(source)}
               className="p-1.5 rounded-md text-gray-400 hover:text-amber-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               title={t('settings.sources.archive')}
             >
@@ -461,6 +461,21 @@ function SourceEditor() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={archiveConfirmSource !== null}
+        onClose={() => setArchiveConfirmSource(null)}
+        onConfirm={() => {
+          const src = archiveConfirmSource;
+          setArchiveConfirmSource(null);
+          if (src) void performArchiveSource(src);
+        }}
+        message={
+          archiveConfirmSource
+            ? t('settings.sources.archiveConfirm', { name: archiveConfirmSource.name })
+            : ''
+        }
+        confirmVariant="danger"
+      />
     </Card>
   );
 }
@@ -476,6 +491,7 @@ function PublicTypesEditor() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailsTab, setDetailsTab] = useState<'general' | 'overrides'>('general');
   const [loanOverrides, setLoanOverrides] = useState<Record<string, PublicTypeLoanSettings[]>>({});
+  const [publicTypeToDelete, setPublicTypeToDelete] = useState<PublicType | null>(null);
 
   const clearMessages = () => {
     setError(null);
@@ -541,8 +557,7 @@ function PublicTypesEditor() {
     }
   };
 
-  const handleDelete = async (pt: PublicType) => {
-    if (!confirm(t('settings.publicTypes.deleteConfirm', { label: pt.label }))) return;
+  const performDeletePublicType = async (pt: PublicType) => {
     clearMessages();
     try {
       await api.deletePublicType(pt.id);
@@ -653,7 +668,7 @@ function PublicTypesEditor() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(pt)}>
+                  <Button size="sm" variant="ghost" onClick={() => setPublicTypeToDelete(pt)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                   <ChevronDown
@@ -713,6 +728,21 @@ function PublicTypesEditor() {
           onCancel={() => setShowCreateModal(false)}
         />
       )}
+      <ConfirmDialog
+        isOpen={publicTypeToDelete !== null}
+        onClose={() => setPublicTypeToDelete(null)}
+        onConfirm={() => {
+          const pt = publicTypeToDelete;
+          setPublicTypeToDelete(null);
+          if (pt) void performDeletePublicType(pt);
+        }}
+        message={
+          publicTypeToDelete
+            ? t('settings.publicTypes.deleteConfirm', { label: publicTypeToDelete.label })
+            : ''
+        }
+        confirmVariant="danger"
+      />
     </Card>
   );
 }

@@ -20,6 +20,7 @@ import {
   CalendarDays,
   LibraryBig,
   ClipboardList,
+  Bookmark,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -59,6 +60,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: t('nav.inventory'), href: '/inventory', icon: ClipboardList, show: isLibrarian(user?.accountType) },
     { name: t('nav.myLoans'), href: '/my-loans', icon: BookMarked, show: true },
     { name: t('nav.loans'), href: '/loans', icon: ArrowLeftRight, show: isLibrarian(user?.accountType) },
+    { name: t('nav.holds'), href: '/holds', icon: Bookmark, show: isLibrarian(user?.accountType) },
     { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.accountType) },
     { name: t('nav.z3950Search'), href: '/z3950', icon: Globe, show: isLibrarian(user?.accountType) },
     { name: t('nav.importIso'), href: '/import-iso', icon: Upload, show: isLibrarian(user?.accountType) },

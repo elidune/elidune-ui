@@ -47,6 +47,7 @@ import type {
   AdminConfigSectionKey,
   ConfigSectionInfo,
   AdminConfigResponse,
+  Hold,
   ReindexSearchResponse,
   MaintenanceAction,
   AuditLogPage,
@@ -65,8 +66,7 @@ import type {
   CreateScheduleClosure,
   LibraryInfo,
   UpdateLibraryInfoRequest,
-  Reservation,
-  CreateReservation,
+  CreateHold,
   FinesResponse,
   FineRule,
   InventorySession,
@@ -468,25 +468,46 @@ class ApiService {
     return response.data;
   }
 
-  // ─── Reservations ────────────────────────────────────────────────
+  // ─── Holds ──────────────────────────────────────────────────────
 
-  async createReservation(data: CreateReservation): Promise<Reservation> {
-    const response = await this.client.post<Reservation>('/reservations', data);
+  async createHold(data: CreateHold): Promise<Hold> {
+    const response = await this.client.post<Hold>('/holds', {
+      userId: data.userId,
+      itemId: data.itemId,
+      notes: data.notes,
+    });
     return response.data;
   }
 
-  async deleteReservation(id: string): Promise<void> {
-    await this.client.delete(`/reservations/${id}`);
-  }
-
-  async getBiblioReservations(biblioId: string): Promise<Reservation[]> {
-    const response = await this.client.get<Reservation[]>(`/biblios/${biblioId}/reservations`);
+  async cancelHold(holdId: string): Promise<Hold> {
+    const response = await this.client.delete<Hold>(`/holds/${holdId}`);
     return response.data;
   }
 
-  async getUserReservations(userId: string): Promise<Reservation[]> {
-    const response = await this.client.get<Reservation[]>(`/users/${userId}/reservations`);
+  async getItemHolds(itemId: string): Promise<Hold[]> {
+    const response = await this.client.get<Hold[]>(`/items/${itemId}/holds`);
     return response.data;
+  }
+
+  async getUserHolds(userId: string): Promise<Hold[]> {
+    const response = await this.client.get<Hold[]>(`/users/${userId}/holds`);
+    return response.data;
+  }
+
+  async getHolds(params?: {
+    page?: number;
+    perPage?: number;
+    /** When true, only pending + ready holds (ongoing). */
+    activeOnly?: boolean;
+  }): Promise<PaginatedResponse<Hold>> {
+    const response = await this.client.get('/holds', {
+      params: {
+        page: params?.page,
+        perPage: params?.perPage,
+        activeOnly: params?.activeOnly,
+      },
+    });
+    return normalizePaginatedResponse<Hold>(response.data);
   }
 
   // ─── Fines / Penalties ──────────────────────────────────────────

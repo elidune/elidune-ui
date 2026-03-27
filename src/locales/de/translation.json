@@ -50,6 +50,7 @@
     "catalog": "Katalog",
     "myLoans": "Meine Ausleihen",
     "loans": "Ausleihen/Rückgaben",
+    "holds": "Vorbestellungen",
     "users": "Benutzer",
     "z3950Search": "Z39.50 Suche",
     "importIso": "MARC Import",

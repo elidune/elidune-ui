@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mail, RotateCcw, Save, Send, AlertTriangle, Check, X } from 'lucide-react';
-import { Card, CardHeader, Button, Input, Badge } from '@/components/common';
+import { Card, CardHeader, Button, Input, Badge, ConfirmDialog } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import type { AdminConfigSectionKey, ConfigSectionInfo } from '@/types';
@@ -48,6 +48,7 @@ export default function AdminServerSettings() {
   const [success, setSuccess] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<AdminConfigSectionKey | null>(null);
   const [testTo, setTestTo] = useState('');
+  const [resetSectionKey, setResetSectionKey] = useState<AdminConfigSectionKey | null>(null);
   const [testing, setTesting] = useState(false);
 
   const [emailValue, setEmailValue] = useState<Record<string, unknown>>({});
@@ -55,6 +56,7 @@ export default function AdminServerSettings() {
   const [loggingValue, setLoggingValue] = useState<Record<string, unknown>>({});
   const [remindersValue, setRemindersValue] = useState<Record<string, unknown>>({});
   const [auditValue, setAuditValue] = useState<Record<string, unknown>>({});
+  const [holdsValue, setHoldsValue] = useState<Record<string, unknown>>({});
 
   const clearMessages = () => {
     setError(null);
@@ -86,6 +88,9 @@ export default function AdminServerSettings() {
       case 'audit':
         setAuditValue({ ...o });
         break;
+      case 'holds':
+        setHoldsValue({ ...o });
+        break;
       default:
         break;
     }
@@ -93,7 +98,7 @@ export default function AdminServerSettings() {
 
   const applySectionsToForms = useCallback(
     (list: ConfigSectionInfo[]) => {
-      for (const key of ['email', 'logging', 'reminders', 'audit'] as const) {
+      for (const key of ['email', 'logging', 'reminders', 'audit', 'holds'] as const) {
         const v = pickSection(list, key)?.value;
         if (v !== undefined) syncFormFromSection(key, v);
       }
@@ -158,8 +163,7 @@ export default function AdminServerSettings() {
     void saveSection('email', payload);
   };
 
-  const resetSection = async (key: AdminConfigSectionKey) => {
-    if (!confirm(t('settings.server.resetConfirm', { section: key }))) return;
+  const performResetSection = async (key: AdminConfigSectionKey) => {
     clearMessages();
     setSavingKey(key);
     try {
@@ -207,6 +211,7 @@ export default function AdminServerSettings() {
   const loggingMeta = getMeta('logging');
   const remindersMeta = getMeta('reminders');
   const auditMeta = getMeta('audit');
+  const holdsMeta = getMeta('holds');
 
   const str = (v: unknown) => (v == null ? '' : String(v));
   const num = (v: unknown, d: number) => (typeof v === 'number' && !Number.isNaN(v) ? v : d);
@@ -326,7 +331,7 @@ export default function AdminServerSettings() {
               leftIcon={<RotateCcw className="h-4 w-4" />}
               isLoading={savingKey === 'email'}
               disabled={!emailMeta.overridden || !emailMeta.overridable}
-              onClick={() => resetSection('email')}
+              onClick={() => setResetSectionKey('email')}
             >
               {t('settings.server.resetToFile')}
             </Button>
@@ -448,7 +453,7 @@ export default function AdminServerSettings() {
               leftIcon={<RotateCcw className="h-4 w-4" />}
               isLoading={savingKey === 'logging'}
               disabled={!loggingMeta.overridden || !loggingMeta.overridable}
-              onClick={() => resetSection('logging')}
+              onClick={() => setResetSectionKey('logging')}
             >
               {t('settings.server.resetToFile')}
             </Button>
@@ -522,7 +527,7 @@ export default function AdminServerSettings() {
               leftIcon={<RotateCcw className="h-4 w-4" />}
               isLoading={savingKey === 'reminders'}
               disabled={!remindersMeta.overridden || !remindersMeta.overridable}
-              onClick={() => resetSection('reminders')}
+              onClick={() => setResetSectionKey('reminders')}
             >
               {t('settings.server.resetToFile')}
             </Button>
@@ -564,13 +569,90 @@ export default function AdminServerSettings() {
               leftIcon={<RotateCcw className="h-4 w-4" />}
               isLoading={savingKey === 'audit'}
               disabled={!auditMeta.overridden || !auditMeta.overridable}
-              onClick={() => resetSection('audit')}
+              onClick={() => setResetSectionKey('audit')}
+            >
+              {t('settings.server.resetToFile')}
+            </Button>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title={t('settings.server.sections.holds')}
+          overridden={holdsMeta.overridden}
+          overridable={holdsMeta.overridable}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label={t('settings.server.readyExpiryDays')}
+              type="number"
+              min={1}
+              value={str(num(holdsValue.ready_expiry_days as number, 14))}
+              onChange={(e) =>
+                setHoldsValue((v) => ({
+                  ...v,
+                  ready_expiry_days: parseInt(e.target.value, 10) || 1,
+                }))
+              }
+              disabled={!holdsMeta.overridable}
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={bool(holdsValue.overridable, true)}
+                onChange={(e) =>
+                  setHoldsValue((v) => ({ ...v, overridable: e.target.checked }))
+                }
+                disabled={!holdsMeta.overridable}
+                className="rounded border-gray-300 dark:border-gray-700 text-indigo-600"
+              />
+              {t('settings.server.holdsOverridable')}
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button
+              size="sm"
+              variant="primary"
+              leftIcon={<Save className="h-4 w-4" />}
+              isLoading={savingKey === 'holds'}
+              disabled={!holdsMeta.overridable}
+              onClick={() =>
+                void saveSection('holds', {
+                  ready_expiry_days: num(holdsValue.ready_expiry_days as number, 14),
+                  overridable: bool(holdsValue.overridable, true),
+                })
+              }
+            >
+              {t('common.save')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={<RotateCcw className="h-4 w-4" />}
+              isLoading={savingKey === 'holds'}
+              disabled={!holdsMeta.overridden || !holdsMeta.overridable}
+              onClick={() => setResetSectionKey('holds')}
             >
               {t('settings.server.resetToFile')}
             </Button>
           </div>
         </SectionCard>
       </div>
+
+      <ConfirmDialog
+        isOpen={resetSectionKey !== null}
+        onClose={() => setResetSectionKey(null)}
+        onConfirm={() => {
+          const key = resetSectionKey;
+          setResetSectionKey(null);
+          if (key) void performResetSection(key);
+        }}
+        message={
+          resetSectionKey
+            ? t('settings.server.resetConfirm', { section: resetSectionKey })
+            : ''
+        }
+        confirmVariant="danger"
+      />
     </Card>
   );
 }

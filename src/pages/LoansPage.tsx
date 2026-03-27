@@ -16,7 +16,7 @@ import {
   Send,
   FlaskConical,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Input, Modal, MessageModal } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Table, Input, Modal, MessageModal, ConfirmDialog } from '@/components/common';
 import Pagination from '@/components/common/Pagination';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -76,6 +76,9 @@ export default function LoansPage() {
   const [overdueError, setOverdueError] = useState<string | null>(null);
   const [reminderReport, setReminderReport] = useState<ReminderReport | null>(null);
   const [reminderSending, setReminderSending] = useState(false);
+  const [sendRemindersConfirmOpen, setSendRemindersConfirmOpen] = useState(false);
+  const [forceBorrowDialog, setForceBorrowDialog] = useState<{ message: string } | null>(null);
+  const forceBorrowResolveRef = useRef<((v: boolean) => void) | null>(null);
 
   const loadOverdue = useCallback(async () => {
     setOverdueLoading(true);
@@ -115,8 +118,7 @@ export default function LoansPage() {
     ? Math.max(1, Math.ceil(overdueData.total / overduePerPage))
     : 1;
 
-  const handleSendReminders = async (dryRun: boolean) => {
-    if (!dryRun && !confirm(t('loans.sendRemindersConfirm'))) return;
+  const executeSendReminders = async (dryRun: boolean) => {
     setReminderSending(true);
     setReminderReport(null);
     setOverdueError(null);
@@ -129,6 +131,14 @@ export default function LoansPage() {
     } finally {
       setReminderSending(false);
     }
+  };
+
+  const handleSendReminders = async (dryRun: boolean) => {
+    if (!dryRun) {
+      setSendRemindersConfirmOpen(true);
+      return;
+    }
+    await executeSendReminders(true);
   };
 
   const userSearchSeqRef = useRef(0);
@@ -257,9 +267,16 @@ export default function LoansPage() {
       const rawMessage = typeof axiosData?.message === 'string' ? axiosData.message : '';
       const displayMsg = getApiErrorMessage(error, t) || t('loans.errorCreatingLoan');
       const confirmMsg = rawMessage || displayMsg;
-      // business_rule_violation (blocked account, expired subscription) → offer force option
-      if (errorCode === 'business_rule_violation' && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
-        return handleBorrow(specimenBarcode, true);
+      if (errorCode === 'business_rule_violation' && !force) {
+        setShowBorrowModal(false);
+        setBarcodeInput('');
+        const ok = await new Promise<boolean>((resolve) => {
+          setForceBorrowDialog({
+            message: `${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`,
+          });
+          forceBorrowResolveRef.current = resolve;
+        });
+        if (ok) return handleBorrow(specimenBarcode, true);
       }
       throw new Error(displayMsg);
     }
@@ -1054,6 +1071,33 @@ export default function LoansPage() {
         isOpen={messageDialog !== null}
         onClose={() => setMessageDialog(null)}
         message={messageDialog ?? ''}
+      />
+
+      <ConfirmDialog
+        isOpen={sendRemindersConfirmOpen}
+        onClose={() => setSendRemindersConfirmOpen(false)}
+        onConfirm={() => {
+          setSendRemindersConfirmOpen(false);
+          void executeSendReminders(false);
+        }}
+        message={t('loans.sendRemindersConfirm')}
+        confirmVariant="primary"
+      />
+
+      <ConfirmDialog
+        isOpen={forceBorrowDialog !== null}
+        onClose={() => {
+          setForceBorrowDialog(null);
+          forceBorrowResolveRef.current?.(false);
+          forceBorrowResolveRef.current = null;
+        }}
+        onConfirm={() => {
+          setForceBorrowDialog(null);
+          forceBorrowResolveRef.current?.(true);
+          forceBorrowResolveRef.current = null;
+        }}
+        message={forceBorrowDialog?.message ?? ''}
+        stackOnTop
       />
     </div>
   );

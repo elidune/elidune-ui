@@ -11,6 +11,8 @@ import {
   Phone,
   Calendar,
   BookMarked,
+  Ban,
+  Bookmark,
   RotateCcw,
   RefreshCw,
   Check,
@@ -39,13 +41,14 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { Card, CardHeader, Button, Badge, Modal, Input, Table, Pagination } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Modal, Input, Table, Pagination, ConfirmDialog, MessageModal } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
+import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
 import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
-import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType, type FinesResponse, type Reservation, type HistoryPreference } from '@/types';
+import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type PublicType, type FinesResponse, type Hold, type HistoryPreference } from '@/types';
 
 const USER_LOANS_PAGE_SIZE = 20;
 
@@ -57,7 +60,7 @@ export default function UserDetailPage() {
   const [user, setUser] = useState<UserType | null>(null);
   const [activeLoans, setActiveLoans] = useState<Loan[]>([]);
   const [pastLoans, setPastLoans] = useState<Loan[]>([]);
-  const [activeLoansTab, setActiveLoansTab] = useState<'active' | 'past'>('active');
+  const [activeLoansTab, setActiveLoansTab] = useState<'active' | 'past' | 'holds'>('active');
   const [activeLoansPage, setActiveLoansPage] = useState(1);
   const [activeLoansTotal, setActiveLoansTotal] = useState(0);
   const [pastLoansPage, setPastLoansPage] = useState(1);
@@ -69,6 +72,10 @@ export default function UserDetailPage() {
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
   const [deleteUserActiveLoansError, setDeleteUserActiveLoansError] = useState(false);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
+  const [forceBorrowDialog, setForceBorrowDialog] = useState<{ message: string; specimenCode: string } | null>(
+    null
+  );
+  const [borrowForceError, setBorrowForceError] = useState<string | null>(null);
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [isBorrowLoading, setIsBorrowLoading] = useState(false);
   const [loanDetails, setLoanDetails] = useState<Loan | null>(null);
@@ -80,10 +87,9 @@ export default function UserDetailPage() {
   const [isLoadingFines, setIsLoadingFines] = useState(false);
   const [showFines, setShowFines] = useState(false);
 
-  // Reservations state
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [isLoadingReservations, setIsLoadingReservations] = useState(false);
-  const [showReservations, setShowReservations] = useState(false);
+  const [holds, setHolds] = useState<Hold[]>([]);
+  const [isLoadingHolds, setIsLoadingHolds] = useState(false);
+  const [cancellingHoldId, setCancellingHoldId] = useState<string | null>(null);
 
   // Reading history state
   const [historyPref, setHistoryPref] = useState<HistoryPreference | null>(null);
@@ -142,7 +148,7 @@ export default function UserDetailPage() {
   }, [id, navigate]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || activeLoansTab !== 'active') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -162,7 +168,7 @@ export default function UserDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, activeLoansPage]);
+  }, [id, activeLoansPage, activeLoansTab]);
 
   useEffect(() => {
     if (!id || activeLoansTab !== 'past') return;
@@ -303,15 +309,14 @@ export default function UserDetailPage() {
       .finally(() => setIsLoadingFines(false));
   }, [showFines, user?.id]);
 
-  // Load reservations when section is opened
   useEffect(() => {
-    if (!showReservations || !user?.id) return;
-    setIsLoadingReservations(true);
-    api.getUserReservations(user.id)
-      .then(setReservations)
+    if (!id || activeLoansTab !== 'holds') return;
+    setIsLoadingHolds(true);
+    api.getUserHolds(id)
+      .then(setHolds)
       .catch(() => {})
-      .finally(() => setIsLoadingReservations(false));
-  }, [showReservations, user?.id]);
+      .finally(() => setIsLoadingHolds(false));
+  }, [id, activeLoansTab]);
 
   // Load history preference when section is opened
   useEffect(() => {
@@ -337,12 +342,15 @@ export default function UserDetailPage() {
     }
   };
 
-  const handleCancelReservation = async (reservationId: string) => {
+  const handleCancelHold = async (holdId: string) => {
+    setCancellingHoldId(holdId);
     try {
-      await api.deleteReservation(reservationId);
-      setReservations((prev) => prev.filter((r) => r.id !== reservationId));
+      await api.cancelHold(holdId);
+      setHolds((prev) => prev.filter((r) => r.id !== holdId));
     } catch {
       // ignore
+    } finally {
+      setCancellingHoldId(null);
     }
   };
 
@@ -578,6 +586,53 @@ export default function UserDetailPage() {
     },
   ];
 
+  const userHoldColumns = [
+    {
+      key: 'document',
+      header: t('holds.columnDocument'),
+      render: (h: Hold) => <HoldDocumentCell hold={h} />,
+    },
+    {
+      key: 'status',
+      header: t('holds.status'),
+      render: (h: Hold) => (
+        <Badge variant={h.status === 'ready' ? 'success' : 'default'}>{t(`holds.statuses.${h.status}`)}</Badge>
+      ),
+    },
+    {
+      key: 'position',
+      header: t('holds.position'),
+      render: (h: Hold) => h.position,
+    },
+    {
+      key: 'created',
+      header: t('holds.createdAt'),
+      render: (h: Hold) => new Date(h.createdAt).toLocaleString(i18n.language),
+    },
+    {
+      key: 'expires',
+      header: t('holds.expiresAt'),
+      render: (h: Hold) => (h.expiresAt ? new Date(h.expiresAt).toLocaleString(i18n.language) : '—'),
+    },
+    {
+      key: 'actions',
+      header: t('common.actions'),
+      align: 'right' as const,
+      render: (h: Hold) =>
+        h.status === 'pending' || h.status === 'ready' ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            leftIcon={<Ban className="h-4 w-4" />}
+            isLoading={cancellingHoldId === h.id}
+            onClick={() => void handleCancelHold(h.id)}
+          >
+            {t('holds.cancelHold')}
+          </Button>
+        ) : null,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -694,7 +749,7 @@ export default function UserDetailPage() {
         <div className="lg:col-span-2">
           <Card padding="none">
             <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
-              <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-900">
+              <div className="inline-flex flex-wrap gap-1 rounded-lg border border-gray-200 dark:border-gray-700 p-0.5 bg-gray-50 dark:bg-gray-900">
                 <button
                   type="button"
                   onClick={() => setActiveLoansTab('active')}
@@ -704,18 +759,30 @@ export default function UserDetailPage() {
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Emprunts en cours
+                  {t('loans.activeLoans')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveLoansTab('past')}
-                  className={`ml-1 px-3 py-1.5 text-sm font-medium rounded-md ${
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${
                     activeLoansTab === 'past'
                       ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Emprunts passés
+                  {t('users.pastLoansTab')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLoansTab('holds')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md inline-flex items-center gap-1.5 ${
+                    activeLoansTab === 'holds'
+                      ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Bookmark className="h-3.5 w-3.5" />
+                  {t('users.holdsTab')}
                 </button>
               </div>
               {renewError && (
@@ -726,18 +793,28 @@ export default function UserDetailPage() {
               )}
             </div>
             <div className="h-[60vh] overflow-y-auto">
-              <Table
-                columns={activeLoansTab === 'active' ? loanColumnsActive : loanColumnsPast}
-                data={
-                  activeLoansTab === 'active'
-                    ? activeLoans
-                    : isLoadingPastLoans
-                      ? []
-                      : pastLoans
-                }
-                keyExtractor={(loan) => loan.id}
-                emptyMessage={activeLoansTab === 'past' && isLoadingPastLoans ? 'Chargement…' : t('loans.noLoans')}
-              />
+              {activeLoansTab === 'holds' ? (
+                <Table
+                  columns={userHoldColumns}
+                  data={holds}
+                  keyExtractor={(h) => h.id}
+                  isLoading={isLoadingHolds}
+                  emptyMessage={t('holds.noHolds')}
+                />
+              ) : (
+                <Table
+                  columns={activeLoansTab === 'active' ? loanColumnsActive : loanColumnsPast}
+                  data={
+                    activeLoansTab === 'active'
+                      ? activeLoans
+                      : isLoadingPastLoans
+                        ? []
+                        : pastLoans
+                  }
+                  keyExtractor={(loan) => loan.id}
+                  emptyMessage={activeLoansTab === 'past' && isLoadingPastLoans ? 'Chargement…' : t('loans.noLoans')}
+                />
+              )}
             </div>
             {activeLoansTab === 'active' && activeLoansTotal > 0 && (
               <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
@@ -1102,41 +1179,6 @@ export default function UserDetailPage() {
         )}
       </Card>
 
-      {/* Reservations section */}
-      <Card>
-        <button
-          type="button"
-          className="w-full flex items-center justify-between p-1"
-          onClick={() => setShowReservations(!showReservations)}
-        >
-          <span className="font-semibold text-gray-900 dark:text-white">{t('reservations.title')}</span>
-          {reservations.length > 0 && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">{reservations.length}</span>
-          )}
-        </button>
-        {showReservations && (
-          <div className="mt-4 space-y-3">
-            {isLoadingReservations ? (
-              <p className="text-center text-gray-500 py-4">{t('common.loading')}</p>
-            ) : reservations.length === 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-4">{t('reservations.noReservations')}</p>
-            ) : (
-              reservations.map((r) => (
-                <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{t('reservations.position')}: {r.position}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('reservations.status')}: {t(`reservations.statuses.${r.status}`)}</p>
-                  </div>
-                  {(r.status === 'pending' || r.status === 'ready') && (
-                    <Button size="sm" variant="ghost" onClick={() => handleCancelReservation(r.id)}>{t('common.cancel')}</Button>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </Card>
-
       {/* Reading history section */}
       <Card>
         <button
@@ -1288,8 +1330,46 @@ export default function UserDetailPage() {
             setShowBorrowModal(false);
             refreshLoans();
           }}
+          onBusinessRuleViolation={(msg, specimenCode) => {
+            setShowBorrowModal(false);
+            setForceBorrowDialog({
+              message: `${msg}\n\n${t('loans.forceBorrowConfirm')}`,
+              specimenCode,
+            });
+          }}
         />
       </Modal>
+
+      <ConfirmDialog
+        isOpen={forceBorrowDialog !== null}
+        onClose={() => setForceBorrowDialog(null)}
+        onConfirm={() => {
+          const ctx = forceBorrowDialog;
+          setForceBorrowDialog(null);
+          if (!ctx) return;
+          void (async () => {
+            try {
+              await api.createLoan({
+                userId: user.id,
+                itemIdentification: ctx.specimenCode,
+                force: true,
+              });
+              await refreshLoans();
+            } catch (e) {
+              setBorrowForceError(getApiErrorMessage(e, t) || t('loans.errorCreatingLoan'));
+            }
+          })();
+        }}
+        message={forceBorrowDialog?.message ?? ''}
+        stackOnTop
+      />
+
+      <MessageModal
+        isOpen={borrowForceError !== null}
+        onClose={() => setBorrowForceError(null)}
+        message={borrowForceError ?? ''}
+        stackOnTop
+      />
     </div>
   );
 }
@@ -1317,9 +1397,16 @@ interface BorrowFormProps {
   userId: string;
   onLoadingChange: (loading: boolean) => void;
   onSuccess: () => void;
+  onBusinessRuleViolation?: (message: string, specimenCode: string) => void;
 }
 
-function BorrowForm({ formId, userId, onLoadingChange, onSuccess }: BorrowFormProps) {
+function BorrowForm({
+  formId,
+  userId,
+  onLoadingChange,
+  onSuccess,
+  onBusinessRuleViolation,
+}: BorrowFormProps) {
   const { t } = useTranslation();
   const [specimenCode, setSpecimenCode] = useState('');
   const [error, setError] = useState('');
@@ -1340,8 +1427,9 @@ function BorrowForm({ formId, userId, onLoadingChange, onSuccess }: BorrowFormPr
       const rawMessage = typeof axiosData?.message === 'string' ? axiosData.message : '';
       const displayMsg = getApiErrorMessage(err, t) || t('loans.errorCreatingLoan');
       const confirmMsg = rawMessage || displayMsg;
-      if (errorCode === 'business_rule_violation' && !force && window.confirm(`${confirmMsg}\n\n${t('loans.forceBorrowConfirm')}`)) {
-        return doCreateLoan(true);
+      if (errorCode === 'business_rule_violation' && !force) {
+        onBusinessRuleViolation?.(confirmMsg, specimenCode.trim());
+        return;
       }
       setError(displayMsg);
     }
@@ -1372,9 +1460,7 @@ function BorrowForm({ formId, userId, onLoadingChange, onSuccess }: BorrowFormPr
         autoFocus
         required
       />
-      {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </form>
   );
 }
