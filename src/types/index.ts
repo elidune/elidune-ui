@@ -627,6 +627,11 @@ export interface StatsBuilderBody {
    * `(AND filters) AND ((AND g0) OR (AND g1) OR …)`.
    */
   filterGroups?: StatsFilterClause[][];
+  /**
+   * Additional root tables to combine with `entity` via UNION ALL (e.g. `loans` + `loans_archives`).
+   * Discovery lists allowed branches on `entities.<name>.unionWith`.
+   */
+  unionWith?: string[];
   aggregations: StatsAggregation[];
   groupBy: StatsGroupByField[];
   having: StatsHavingFilter[];
@@ -666,6 +671,8 @@ export interface StatsSchemaEntity {
   label: string;
   fields: Record<string, StatsSchemaField>;
   relations: Record<string, StatsSchemaRelation>;
+  /** Additional roots that can be UNION ALL’d with this entity (e.g. `["loans_archives"]` for `loans`). */
+  unionWith?: string[];
 }
 
 export interface StatsSchema {
@@ -675,6 +682,8 @@ export interface StatsSchema {
   timeGranularities: string[];
   /** Human-readable explanation of `filterGroups` OR-of-AND semantics (from server). */
   filterGroupsSemantics?: string;
+  /** Explains `unionWith` / multi-root UNION ALL (from server). */
+  unionWithSemantics?: string;
 }
 
 export interface SavedStatsQuery {

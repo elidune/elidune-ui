@@ -135,6 +135,7 @@ function emptyBody(entity: string): StatsBuilderBody {
     select: [],
     filters: [],
     filterGroups: [],
+    unionWith: [],
     aggregations: [],
     groupBy: [],
     having: [],
@@ -288,6 +289,7 @@ export default function StatsAdvancedTab() {
     setSaveShared(row.isShared);
     const q = JSON.parse(JSON.stringify(row.query)) as StatsBuilderBody;
     if (!q.filterGroups) q.filterGroups = [];
+    if (!q.unionWith) q.unionWith = [];
     setBody(q);
     setEditorOpen(true);
   };
@@ -605,10 +607,11 @@ export default function StatsAdvancedTab() {
               <button
                 type="button"
                 onClick={() => handleDelete(row)}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                title={t('common.delete')}
+                aria-label={t('stats.advanced.deleteQueryAria', { name: row.name })}
+                className="inline-flex items-center justify-center p-1.5 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                {t('common.delete')}
+                <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
               </button>
             </>
           )}
@@ -750,6 +753,48 @@ export default function StatsAdvancedTab() {
                   </option>
                 ))}
               </select>
+              {(() => {
+                const unionBranches = schema.entities[body.entity]?.unionWith ?? [];
+                if (unionBranches.length === 0) return null;
+                const selected = new Set(body.unionWith ?? []);
+                return (
+                  <div className="mt-3 space-y-2 rounded-lg border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2.5">
+                    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                      {t('stats.advanced.stepUnionWith')}
+                    </h4>
+                    {schema.unionWithSemantics ? (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                        {schema.unionWithSemantics}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('stats.advanced.unionWithHelp')}
+                      </p>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      {unionBranches.map((branch) => (
+                        <label
+                          key={branch}
+                          className="inline-flex items-center gap-2 text-sm cursor-pointer text-gray-800 dark:text-gray-200"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.has(branch)}
+                            onChange={() => {
+                              const next = new Set(body.unionWith ?? []);
+                              if (next.has(branch)) next.delete(branch);
+                              else next.add(branch);
+                              updateBody({ unionWith: [...next].sort() });
+                            }}
+                            className="rounded border-gray-300 dark:border-gray-600 text-indigo-600"
+                          />
+                          <span className="font-mono text-xs">{branch}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </section>
 
             <section className={STATS_EDITOR_BLOCK}>

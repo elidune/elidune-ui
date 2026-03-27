@@ -197,14 +197,23 @@ function SourceEditor() {
     const isRenaming = renamingId === source.id;
     const isSelected = selectedIds.has(source.id);
 
+    const rowClickableMerge = mergeMode && !isArchived && !isRenaming;
+
     return (
       <div
         key={source.id}
+        onClick={
+          rowClickableMerge
+            ? () => {
+                toggleSelect(source.id);
+              }
+            : undefined
+        }
         className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
           isSelected
             ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-600'
             : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50'
-        } ${isArchived ? 'opacity-60' : ''}`}
+        } ${isArchived ? 'opacity-60' : ''} ${rowClickableMerge ? 'cursor-pointer' : ''}`}
       >
         {/* Checkbox for merge mode */}
         {mergeMode && !isArchived && (
@@ -212,6 +221,7 @@ function SourceEditor() {
             type="checkbox"
             checked={isSelected}
             onChange={() => toggleSelect(source.id)}
+            onClick={(e) => e.stopPropagation()}
             className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 focus:ring-indigo-500"
           />
         )}
