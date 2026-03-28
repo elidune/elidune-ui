@@ -9,7 +9,8 @@ import type {
   ImportResult,
   Loan,
   Stats,
-  Settings,
+  LoanSettings,
+  Z3950Server,
   PaginatedResponse,
   ApiError,
   UpdateProfileRequest,
@@ -86,6 +87,32 @@ import type {
   UpdateCollection,
 } from '@/types';
 import { normalizePaginatedResponse } from '@/utils/serverJson';
+
+function normalizeZ3950ServersPayload(data: unknown): Z3950Server[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>;
+    if (Array.isArray(o.servers)) return o.servers as Z3950Server[];
+    if (Array.isArray(o.z3950Servers)) return o.z3950Servers as Z3950Server[];
+  }
+  return [];
+}
+
+function normalizeLoanSettingsResponse(data: unknown): { loanSettings: LoanSettings[] } {
+  if (Array.isArray(data)) {
+    return { loanSettings: data as LoanSettings[] };
+  }
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>;
+    if (Array.isArray(o.loanSettings)) {
+      return { loanSettings: o.loanSettings as LoanSettings[] };
+    }
+    if (Array.isArray(o.loan_settings)) {
+      return { loanSettings: o.loan_settings as LoanSettings[] };
+    }
+  }
+  return { loanSettings: [] };
+}
 
 const API_BASE_URL = '/api/v1';
 
@@ -725,16 +752,27 @@ class ApiService {
     return response.data;
   }
 
-  // ─── Settings ───────────────────────────────────────────────────
+  // ─── Settings (global loans + Z39.50; split API resources) ─────
 
-  async getSettings(): Promise<Settings> {
-    const response = await this.client.get<Settings>('/settings');
-    return response.data;
+  async getLoanSettings(): Promise<{ loanSettings: LoanSettings[] }> {
+    const response = await this.client.get<unknown>('/loans/settings');
+    return normalizeLoanSettingsResponse(response.data);
   }
 
-  async updateSettings(settings: Partial<Settings>): Promise<Settings> {
-    const response = await this.client.put<Settings>('/settings', settings);
-    return response.data;
+  async updateLoanSettings(body: { loanSettings: LoanSettings[] }): Promise<{ loanSettings: LoanSettings[] }> {
+    const response = await this.client.put<unknown>('/loans/settings', body);
+    return normalizeLoanSettingsResponse(response.data);
+  }
+
+  async getZ3950Servers(): Promise<Z3950Server[]> {
+    const response = await this.client.get<unknown>('/z3950/servers');
+    return normalizeZ3950ServersPayload(response.data);
+  }
+
+  async updateZ3950Servers(servers: Z3950Server[]): Promise<Z3950Server[]> {
+    const response = await this.client.put<unknown>('/z3950/servers', { z3950Servers: servers });
+    const next = normalizeZ3950ServersPayload(response.data);
+    return next.length > 0 ? next : servers;
   }
 
   // ─── Public types ────────────────────────────────────────────────

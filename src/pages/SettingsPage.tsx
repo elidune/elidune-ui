@@ -1063,8 +1063,24 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const data = await api.getSettings();
-        setSettings(data);
+        const [loanResult, z3950Result] = await Promise.allSettled([
+          api.getLoanSettings(),
+          api.getZ3950Servers(),
+        ]);
+
+        if (loanResult.status === 'rejected') {
+          console.error('Error fetching loan settings:', loanResult.reason);
+        }
+        if (z3950Result.status === 'rejected') {
+          console.error('Error fetching Z39.50 servers:', z3950Result.reason);
+        }
+
+        const loanSettings =
+          loanResult.status === 'fulfilled' ? loanResult.value.loanSettings ?? [] : [];
+        const z3950Servers =
+          z3950Result.status === 'fulfilled' ? z3950Result.value ?? [] : [];
+
+        setSettings({ loanSettings, z3950Servers });
       } catch (error) {
         console.error('Error fetching settings:', error);
       } finally {
@@ -1079,7 +1095,15 @@ export default function SettingsPage() {
     if (!settings) return;
     setIsSaving(true);
     try {
-      await api.updateSettings(settings);
+      if (activeTab === 'loans') {
+        const data = await api.updateLoanSettings({ loanSettings: settings.loanSettings ?? [] });
+        setSettings((prev) =>
+          prev ? { ...prev, loanSettings: data.loanSettings ?? prev.loanSettings ?? [] } : prev
+        );
+      } else if (activeTab === 'z3950') {
+        const z3950Servers = await api.updateZ3950Servers(settings.z3950Servers ?? []);
+        setSettings((prev) => (prev ? { ...prev, z3950Servers } : prev));
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
     } finally {

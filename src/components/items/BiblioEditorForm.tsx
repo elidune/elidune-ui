@@ -198,8 +198,8 @@ export default function BiblioEditorForm({
   useEffect(() => {
     const fetchServers = async () => {
       try {
-        const settings = await api.getSettings();
-        setZ3950Servers((settings.z3950Servers || []).filter((s) => s.isActive));
+        const servers = await api.getZ3950Servers();
+        setZ3950Servers(servers.filter((s) => s.isActive));
       } catch {
         /* ignore */
       }

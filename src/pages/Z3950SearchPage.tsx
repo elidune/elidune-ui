@@ -119,8 +119,8 @@ export default function Z3950SearchPage() {
   useEffect(() => {
     const fetchServers = async () => {
       try {
-        const settings = await api.getSettings();
-        const activeServers = (settings.z3950Servers || []).filter(s => s.isActive);
+        const z3950Servers = await api.getZ3950Servers();
+        const activeServers = z3950Servers.filter((s) => s.isActive);
         setServers(activeServers);
         // Select first server by default if available
         if (activeServers.length > 0) {
