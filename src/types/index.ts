@@ -1157,36 +1157,64 @@ export interface FineRule {
 // Inventory / Stock check
 // ──────────────────────────────────────────────────────────────────
 
+export type InventoryScanResultCode = 'found' | 'found_archived' | 'unknown_barcode';
+
 export interface InventorySession {
   id: string;
-  name?: string | null;
+  /** Session label (required on create; may be absent on legacy rows) */
+  name?: string;
   locationFilter?: string | null;
   status: 'open' | 'closed';
   startedAt?: string | null;
+  /** @deprecated prefer startedAt */
   createdAt?: string;
   closedAt?: string | null;
   notes?: string | null;
   createdBy?: string | null;
+  /** When set, scope is active non-archived items with this `items.place` only; null = entire active collection */
+  scopePlace?: number | null;
 }
 
 export interface CreateInventorySession {
-  name?: string | null;
+  name: string;
   locationFilter?: string | null;
   notes?: string | null;
+  scopePlace?: number | null;
 }
 
-export interface InventoryScanResult {
+export interface InventoryScan {
+  id: number;
+  sessionId: string;
   barcode: string;
-  found: boolean;
   itemId?: string | null;
+  scannedAt?: string | null;
+  result: InventoryScanResultCode;
+  scannedBy?: string | null;
+}
+
+/** @deprecated use InventoryScan */
+export type InventoryScanResult = InventoryScan;
+
+export interface InventoryMissingRow {
+  itemId: string;
+  barcode?: string | null;
+  callNumber?: string | null;
+  place?: number | null;
+  biblioTitle?: string | null;
 }
 
 export interface InventoryReport {
-  sessionId?: string;
+  sessionId: string;
+  expectedInScope?: number;
   totalScanned?: number;
   totalFound?: number;
+  totalFoundArchived?: number;
   totalUnknown?: number;
+  distinctItemsScanned?: number;
+  duplicateScanCount?: number;
   missingCount?: number;
+  missingScannable?: number;
+  missingWithoutBarcode?: number;
 }
 
 // ──────────────────────────────────────────────────────────────────

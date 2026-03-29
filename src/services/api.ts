@@ -72,8 +72,9 @@ import type {
   FineRule,
   InventorySession,
   CreateInventorySession,
-  InventoryScanResult,
+  InventoryScan,
   InventoryReport,
+  InventoryMissingRow,
   HistoryPreference,
   ReadingHistoryEntry,
   BatchReturnResponse,
@@ -584,9 +585,13 @@ class ApiService {
 
   // ─── Inventory ──────────────────────────────────────────────────
 
-  async getInventorySessions(): Promise<InventorySession[]> {
-    const response = await this.client.get<InventorySession[]>('/inventory/sessions');
-    return response.data;
+  async getInventorySessions(params?: {
+    page?: number;
+    perPage?: number;
+    status?: 'open' | 'closed';
+  }): Promise<PaginatedResponse<InventorySession>> {
+    const response = await this.client.get('/inventory/sessions', { params });
+    return normalizePaginatedResponse<InventorySession>(response.data);
   }
 
   async createInventorySession(data: CreateInventorySession): Promise<InventorySession> {
@@ -604,19 +609,36 @@ class ApiService {
     return response.data;
   }
 
-  async scanInventoryItem(sessionId: string, barcode: string): Promise<InventoryScanResult> {
-    const response = await this.client.post<InventoryScanResult>(
+  async scanInventoryItem(sessionId: string, barcode: string): Promise<InventoryScan> {
+    const response = await this.client.post<InventoryScan>(
       `/inventory/sessions/${sessionId}/scan`,
       { barcode }
     );
     return response.data;
   }
 
-  async getInventoryScans(sessionId: string): Promise<InventoryScanResult[]> {
-    const response = await this.client.get<InventoryScanResult[]>(
-      `/inventory/sessions/${sessionId}/scans`
+  async batchInventoryScans(sessionId: string, barcodes: string[]): Promise<InventoryScan[]> {
+    const response = await this.client.post<InventoryScan[]>(
+      `/inventory/sessions/${sessionId}/scans/batch`,
+      { barcodes }
     );
     return response.data;
+  }
+
+  async getInventoryScans(
+    sessionId: string,
+    params?: { page?: number; perPage?: number }
+  ): Promise<PaginatedResponse<InventoryScan>> {
+    const response = await this.client.get(`/inventory/sessions/${sessionId}/scans`, { params });
+    return normalizePaginatedResponse<InventoryScan>(response.data);
+  }
+
+  async getInventoryMissing(
+    sessionId: string,
+    params?: { page?: number; perPage?: number }
+  ): Promise<PaginatedResponse<InventoryMissingRow>> {
+    const response = await this.client.get(`/inventory/sessions/${sessionId}/missing`, { params });
+    return normalizePaginatedResponse<InventoryMissingRow>(response.data);
   }
 
   async getInventoryReport(sessionId: string): Promise<InventoryReport> {
