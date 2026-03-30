@@ -1,13 +1,45 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, CheckCircle, Loader2, RefreshCw, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Check, CheckCircle, Globe, Loader2, Play, RefreshCw, X } from 'lucide-react';
 import { Card, CardHeader, Button } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { useBackgroundTask, restoreTaskId } from '@/hooks/common/useBackgroundTask';
-import type { MaintenanceAction, MaintenanceActionReport, MaintenanceResponse, ReindexSearchResponse, BackgroundTask } from '@/types';
+import type {
+  CatalogZ3950RefreshResult,
+  MaintenanceAction,
+  MaintenanceActionReport,
+  MaintenanceRequestAction,
+  MaintenanceResponse,
+  ReindexSearchResponse,
+  BackgroundTask,
+} from '@/types';
 
 const MAINTENANCE_TASK_KEY = 'elidune.maintenanceTask';
+
+function getMaintenanceReportKey(action: MaintenanceActionReport['action']): string {
+  if (typeof action === 'string') return action;
+  if (action && typeof action === 'object' && 'action' in action) {
+    const a = action as { action: string; z3950ServerId?: number };
+    if (a.action === 'z3950Refresh' && a.z3950ServerId != null) {
+      return `z3950Refresh:${a.z3950ServerId}`;
+    }
+    return a.action;
+  }
+  return String(action);
+}
+
+function isZ3950RefreshDetails(d: MaintenanceActionReport['details']): d is CatalogZ3950RefreshResult {
+  return (
+    typeof d === 'object' &&
+    d !== null &&
+    'updated' in d &&
+    'notFound' in d &&
+    'failed' in d &&
+    'total' in d
+  );
+}
 
 export default function MaintenanceSettings() {
   const { t } = useTranslation();
@@ -16,6 +48,18 @@ export default function MaintenanceSettings() {
   const [reindexResult, setReindexResult] = useState<ReindexSearchResponse | null>(null);
   const [actionReports, setActionReports] = useState<Record<string, MaintenanceActionReport>>({});
   const [recoveredTask, setRecoveredTask] = useState<BackgroundTask | null>(null);
+  const [z3950ServerId, setZ3950ServerId] = useState<string>('');
+  const [z3950RebuildAll, setZ3950RebuildAll] = useState(false);
+
+  const { data: z3950Servers = [] } = useQuery({
+    queryKey: ['z3950-servers'],
+    queryFn: () => api.getZ3950Servers(),
+  });
+
+  const activeZ3950Servers = useMemo(
+    () => z3950Servers.filter((s) => s.isActive),
+    [z3950Servers]
+  );
 
   const maintenanceActions = useMemo(
     () =>
@@ -44,7 +88,7 @@ export default function MaintenanceSettings() {
         setActionReports((prev) => {
           const next = { ...prev };
           for (const r of report.reports) {
-            next[r.action] = r;
+            next[getMaintenanceReportKey(r.action)] = r;
           }
           return next;
         });
@@ -66,6 +110,14 @@ export default function MaintenanceSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (activeZ3950Servers.length === 0) return;
+    setZ3950ServerId((prev) => {
+      if (prev && activeZ3950Servers.some((s) => s.id === prev)) return prev;
+      return activeZ3950Servers[0].id;
+    });
+  }, [activeZ3950Servers]);
+
   const runReindex = async () => {
     setError(null);
     setReindexResult(null);
@@ -81,7 +133,7 @@ export default function MaintenanceSettings() {
     }
   };
 
-  const runMaintenanceActions = async (actions: MaintenanceAction[]) => {
+  const runMaintenanceActions = async (actions: MaintenanceRequestAction[]) => {
     setError(null);
     try {
       const { taskId } = await api.postMaintenance(actions);
@@ -91,12 +143,46 @@ export default function MaintenanceSettings() {
     }
   };
 
+  const runZ3950Refresh = async () => {
+    const sid = z3950ServerId.trim();
+    const num = Number(sid);
+    if (!sid || Number.isNaN(num) || num <= 0) {
+      setError(t('settings.maintenance.z3950SelectServer'));
+      return;
+    }
+    setError(null);
+    const payload: MaintenanceRequestAction = {
+      action: 'z3950Refresh',
+      z3950ServerId: num,
+      rebuildAll: z3950RebuildAll,
+    };
+    await runMaintenanceActions([payload]);
+  };
+
   const isTaskRunning = maintenanceTask.isPolling;
 
-  const formatDetails = (details: Record<string, number>) =>
-    Object.entries(details)
+  const formatDetails = (details: MaintenanceActionReport['details']) => {
+    if (isZ3950RefreshDetails(details)) {
+      return t('settings.maintenance.z3950ResultSummary', {
+        total: details.total,
+        updated: details.updated,
+        notFound: details.notFound,
+        failed: details.failed,
+      });
+    }
+    const rec = details as Record<string, number>;
+    return Object.entries(rec)
       .map(([key, value]) => `${key}: ${value}`)
       .join(' · ');
+  };
+
+  const z3950NumericId =
+    z3950ServerId.trim() !== '' ? Number(z3950ServerId) : Number.NaN;
+  const z3950ReportKey =
+    Number.isFinite(z3950NumericId) && z3950NumericId > 0
+      ? `z3950Refresh:${z3950NumericId}`
+      : '';
+  const z3950Report = z3950ReportKey ? actionReports[z3950ReportKey] : undefined;
 
   return (
     <Card>
@@ -207,6 +293,94 @@ export default function MaintenanceSettings() {
         </section>
 
         <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Globe className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden />
+            {t('settings.maintenance.z3950Title')}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            {t('settings.maintenance.z3950Intro')}
+          </p>
+          {activeZ3950Servers.length === 0 ? (
+            <p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              {t('settings.maintenance.z3950NoActiveServers')}
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  id="maint-z3950-server"
+                  value={z3950ServerId}
+                  onChange={(e) => setZ3950ServerId(e.target.value)}
+                  title={t('settings.maintenance.z3950Server')}
+                  aria-label={t('settings.maintenance.z3950Server')}
+                  className="min-w-[10rem] max-w-[min(100%,20rem)] flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                >
+                  {activeZ3950Servers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || s.address}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={z3950RebuildAll}
+                    aria-label={t('settings.maintenance.z3950RebuildAll')}
+                    title={t('settings.maintenance.z3950RebuildAllHint')}
+                    onClick={() => setZ3950RebuildAll((v) => !v)}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-transparent px-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1 dark:focus:ring-offset-gray-900 ${
+                      z3950RebuildAll ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-out ${
+                        z3950RebuildAll ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                    {t('settings.maintenance.z3950RebuildAll')}
+                  </span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0"
+                  leftIcon={isTaskRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                  disabled={isTaskRunning || activeZ3950Servers.length === 0}
+                  onClick={() => void runZ3950Refresh()}
+                >
+                  {isTaskRunning ? t('settings.maintenance.runningAllActions') : t('settings.maintenance.z3950Run')}
+                </Button>
+              </div>
+              {z3950Report && (
+                <div
+                  className={`rounded-md border px-2.5 py-2 text-xs ${
+                    z3950Report.success
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300'
+                      : 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300'
+                  }`}
+                >
+                  <p className="font-medium">
+                    {z3950Report.success
+                      ? t('settings.maintenance.actionSuccess')
+                      : t('settings.maintenance.actionFailed')}
+                  </p>
+                  {(isZ3950RefreshDetails(z3950Report.details) ||
+                    (typeof z3950Report.details === 'object' &&
+                      z3950Report.details !== null &&
+                      Object.keys(z3950Report.details).length > 0)) && (
+                    <p className="mt-0.5">{formatDetails(z3950Report.details)}</p>
+                  )}
+                  {z3950Report.error && <p className="mt-0.5">{z3950Report.error}</p>}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4 space-y-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -247,7 +421,8 @@ export default function MaintenanceSettings() {
                     </div>
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="secondary"
+                      leftIcon={<Play className="h-4 w-4" aria-hidden />}
                       isLoading={isTaskRunning}
                       onClick={() => void runMaintenanceActions([action])}
                       disabled={isTaskRunning}

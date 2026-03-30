@@ -156,6 +156,7 @@ export default function BiblioDetailPage() {
         !force &&
         (
           code === 'business_rule_violation' ||
+          code === 'conflict' ||
           (
             typeof msg === 'string' &&
             (msg.includes('borrowed') || msg.includes('force=true'))
@@ -186,7 +187,7 @@ export default function BiblioDetailPage() {
     if (!selectedSpecimen || !item || item.id == null) return;
     setDeleteSpecimenLoading(true);
     try {
-      await api.deleteItem(item.id, selectedSpecimen.id, force);
+      await api.deleteItem(selectedSpecimen.id, force);
       setShowDeleteSpecimenModal(false);
       setSelectedSpecimen(null);
       setDeleteSpecimenBorrowedError(false);
@@ -197,6 +198,7 @@ export default function BiblioDetailPage() {
         const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
         if (
           code === 'business_rule_violation' ||
+          code === 'conflict' ||
           (typeof msg === 'string' && (msg.includes('borrowed') || msg.includes('force=true')))
         ) {
           setDeleteSpecimenBorrowedError(true);
@@ -1037,7 +1039,7 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
     onLoadingChange(true);
     setError(null);
     try {
-      await api.updateItem(item.id, specimen.id, {
+      await api.updateItem(specimen.id, {
         barcode: formData.barcode.trim(),
         callNumber: formData.callNumber || undefined,
         volumeDesignation: formData.volumeDesignation || undefined,

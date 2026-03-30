@@ -726,12 +726,27 @@ export interface ImportResult<T> {
   importReport: ImportReport;
 }
 
-// UNIMARC batch upload / import
+// UNIMARC batch upload / import (POST load-marc, GET marc-batch/:id)
+/** Single validation issue from marc-rs `Record::validation_issues` (JSON: camelCase). */
+export interface RecordValidationIssue {
+  tag: string;
+  /** Subfield code when applicable (serialized as a one-character string) */
+  subfield?: string | null;
+  targetPath: string;
+  value: string;
+  pattern: string;
+}
+
+/** BiblioShort-shaped preview plus optional MARC parse validation diagnostics. */
+export type MarcImportPreview = BiblioShort & {
+  validationIssues: RecordValidationIssue[];
+};
+
 export interface EnqueueResult {
   /** Unique batch identifier in Redis (stringified i64) */
   batchId: string;
-  /** Lightweight preview of bibliographic records in this batch */
-  biblios: BiblioShort[];
+  /** One entry per cached notice (same order as upload for load-marc) */
+  previews: MarcImportPreview[];
 }
 
 export interface MarcBatchImportError {
@@ -956,10 +971,29 @@ export type MaintenanceAction =
   | 'cleanupOrphanAuthors'
   | 'cleanupUsers';
 
+/** POST /maintenance — tagged action for Z39.50 catalog refresh (requires server id). */
+export interface Z3950RefreshMaintenanceAction {
+  action: 'z3950Refresh';
+  z3950ServerId: number;
+  rebuildAll?: boolean;
+}
+
+export type MaintenanceRequestAction = MaintenanceAction | Z3950RefreshMaintenanceAction;
+
+/** Summary in maintenance report `details` for z3950Refresh (camelCase from API). */
+export interface CatalogZ3950RefreshResult {
+  z3950ServerId: number;
+  rebuildAll: boolean;
+  total: number;
+  updated: number;
+  notFound: number;
+  failed: number;
+}
+
 export interface MaintenanceActionReport {
-  action: MaintenanceAction | string;
+  action: MaintenanceRequestAction | string;
   success: boolean;
-  details: Record<string, number>;
+  details: Record<string, number> | CatalogZ3950RefreshResult;
   error?: string;
 }
 

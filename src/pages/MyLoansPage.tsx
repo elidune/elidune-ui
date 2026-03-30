@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Calendar, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Pagination } from '@/components/common';
+import LoansMarcExportButton from '@/components/loans/LoansMarcExportButton';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import type { Loan } from '@/types';
@@ -73,11 +74,18 @@ export default function MyLoansPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('loans.myLoans')}</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          {t('loans.count', { count: loansTotal })}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('loans.myLoans')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            {t('loans.count', { count: loansTotal })}
+          </p>
+        </div>
+        {user?.id ? (
+          <div className="shrink-0">
+            <LoansMarcExportButton userId={user.id} />
+          </div>
+        ) : null}
       </div>
 
       {/* Renew error */}

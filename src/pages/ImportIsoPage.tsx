@@ -31,6 +31,8 @@ import type {
   ImportReport,
   DuplicateConfirmationRequired,
   BiblioShort,
+  MarcImportPreview,
+  RecordValidationIssue,
   MarcBatchInfo,
   BackgroundTask,
   MarcBatchImportError,
@@ -116,6 +118,39 @@ interface ParsedRecord {
   importReport?: ImportReport;
   /** When record comes from UNIMARC upload (server), biblio short for display */
   biblioShort?: BiblioShort;
+  /** MARC parse diagnostics (server UNIMARC preview only) */
+  validationIssues?: RecordValidationIssue[];
+}
+
+function hasMarcValidationErrors(record: ParsedRecord): boolean {
+  return (record.validationIssues?.length ?? 0) > 0;
+}
+
+function marcPreviewToParsedRecord(item: MarcImportPreview, index: number): ParsedRecord {
+  return {
+    id: `record-${index}-${Date.now()}`,
+    recordIndex: index,
+    title1: item.title ?? undefined,
+    title2: undefined,
+    identification: normalizeIsbn(item.isbn ?? undefined),
+    authors1: item.author ? [item.author] : undefined,
+    authors2: undefined,
+    publicationDate: item.date ?? undefined,
+    edition_name: undefined,
+    edition_place: undefined,
+    abstract: undefined,
+    keywords: undefined,
+    subject: undefined,
+    mediaType: (item.mediaType ?? undefined) as MediaType | undefined,
+    raw_fields: new Map<string, string[]>(),
+    detectedEncoding: undefined,
+    status: 'pending',
+    error: undefined,
+    importedId: undefined,
+    importReport: undefined,
+    biblioShort: item,
+    validationIssues: item.validationIssues,
+  };
 }
 
 type MarcFormat = 'UNIMARC' | 'MARC21';
@@ -710,29 +745,9 @@ export default function ImportIsoPage() {
     setParseError('');
     try {
       const result = await api.loadMarcBatch(batchId);
-      const recordsFromBatch: ParsedRecord[] = result.biblios.map((item, index) => ({
-        id: `record-${index}-${Date.now()}`,
-        recordIndex: index,
-        title1: item.title ?? undefined,
-        title2: undefined,
-        identification: normalizeIsbn(item.isbn ?? undefined),
-        authors1: item.author ? [item.author] : undefined,
-        authors2: undefined,
-        publicationDate: item.date ?? undefined,
-        edition_name: undefined,
-        edition_place: undefined,
-        abstract: undefined,
-        keywords: undefined,
-        subject: undefined,
-        mediaType: (item.mediaType ?? undefined) as MediaType | undefined,
-        raw_fields: new Map<string, string[]>(),
-        detectedEncoding: undefined,
-        status: 'pending',
-        error: undefined,
-        importedId: undefined,
-        importReport: undefined,
-        biblioShort: item,
-      }));
+      const recordsFromBatch: ParsedRecord[] = result.previews.map((item, index) =>
+        marcPreviewToParsedRecord(item, index),
+      );
       if (recordsFromBatch.length === 0) {
         setParseError(t('importMarc.noRecordsFound'));
       } else {
@@ -842,31 +857,10 @@ export default function ImportIsoPage() {
 
       // For UNIMARC ISO 2709 we delegate parsing to the backend (sourceId optional for load)
       const enqueueResult = await api.uploadUnimarc(file, sourceId ?? undefined);
-      const uploadedItems: BiblioShort[] = enqueueResult.biblios;
 
-      const recordsFromItems: ParsedRecord[] = uploadedItems.map((item, index) => ({
-        id: `record-${index}-${Date.now()}`,
-        recordIndex: index,
-        title1: item.title ?? undefined,
-        title2: undefined,
-        identification: normalizeIsbn(item.isbn ?? undefined),
-        authors1: item.author ? [item.author] : undefined,
-        authors2: undefined,
-        publicationDate: item.date ?? undefined,
-        edition_name: undefined,
-        edition_place: undefined,
-        abstract: undefined,
-        keywords: undefined,
-        subject: undefined,
-        mediaType: (item.mediaType ?? undefined) as MediaType | undefined,
-        raw_fields: new Map<string, string[]>(),
-        detectedEncoding: undefined,
-        status: 'pending',
-        error: undefined,
-        importedId: undefined,
-        importReport: undefined,
-        biblioShort: item,
-      }));
+      const recordsFromItems: ParsedRecord[] = enqueueResult.previews.map((item, index) =>
+        marcPreviewToParsedRecord(item, index),
+      );
 
       return { records: recordsFromItems, detectedFormat: 'UNIMARC', batchId: enqueueResult.batchId };
     },
@@ -919,6 +913,10 @@ export default function ImportIsoPage() {
   const handleImportAll = async () => {
     if (!selectedSourceId) {
       setParseError(t('importMarc.sourceRequired'));
+      return;
+    }
+    if (records.some((r) => r.status === 'pending' && hasMarcValidationErrors(r))) {
+      setParseError(t('importMarc.cannotImportWithValidationErrors'));
       return;
     }
     // For server-side UNIMARC batches: start an async task
@@ -1006,6 +1004,10 @@ export default function ImportIsoPage() {
       setParseError(t('importMarc.sourceRequired'));
       return;
     }
+    if (hasMarcValidationErrors(record)) {
+      setParseError(t('importMarc.cannotImportWithValidationErrors'));
+      return;
+    }
     const showErrorModal = options?.showErrorModal !== false;
     const showDuplicateModal = options?.showDuplicateModal !== false;
 
@@ -1053,6 +1055,10 @@ export default function ImportIsoPage() {
 
   const handleConfirmReplaceExisting = async () => {
     if (!replaceConfirmModal) return;
+    if (hasMarcValidationErrors(replaceConfirmModal.record)) {
+      setReplaceConfirmError(t('importMarc.cannotImportWithValidationErrors'));
+      return;
+    }
     if (!replaceConfirmModal.existingId) {
       setReplaceConfirmError(t('importMarc.cannotReplaceNoId'));
       return;
@@ -1076,6 +1082,10 @@ export default function ImportIsoPage() {
 
   const handleCreateNewDuplicateIsbn = async () => {
     if (!replaceConfirmModal) return;
+    if (hasMarcValidationErrors(replaceConfirmModal.record)) {
+      setReplaceConfirmError(t('importMarc.cannotImportWithValidationErrors'));
+      return;
+    }
     setReplaceConfirmLoading(true);
     setReplaceConfirmError(null);
     try {
@@ -1119,6 +1129,13 @@ export default function ImportIsoPage() {
       return;
     }
 
+    if (hasMarcValidationErrors(matchingRecord)) {
+      setScanError(t('importMarc.cannotImportWithValidationErrors'));
+      setScanInput('');
+      scanInputRef.current?.focus();
+      return;
+    }
+
     await importRecord(matchingRecord);
 
     setScanInput('');
@@ -1154,6 +1171,9 @@ export default function ImportIsoPage() {
   };
 
   const pendingCount = records.filter(r => r.status === 'pending').length;
+  const pendingHasValidationErrors = records.some(
+    (r) => r.status === 'pending' && hasMarcValidationErrors(r),
+  );
   const errorCount = records.filter(r => r.status === 'error').length;
 
   const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
@@ -1204,6 +1224,13 @@ export default function ImportIsoPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                 {record.title2}
               </p>
+            )}
+            {(record.validationIssues?.length ?? 0) > 0 && (
+              <div className="mt-1">
+                <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                  {t('importMarc.validationErrorCount', { count: record.validationIssues!.length })}
+                </span>
+              </div>
             )}
             {record.status === 'error' && (
               <div className="mt-1 flex items-center gap-2">
@@ -1268,9 +1295,13 @@ export default function ImportIsoPage() {
               size="sm"
               variant="primary"
               onClick={() => importRecord(record)}
-              title={t('importMarc.importOne')}
+              title={
+                hasMarcValidationErrors(record)
+                  ? t('importMarc.cannotImportWithValidationErrors')
+                  : t('importMarc.importOne')
+              }
               leftIcon={<Download className="h-4 w-4" />}
-              disabled={!selectedSourceId}
+              disabled={!selectedSourceId || hasMarcValidationErrors(record)}
             >
               {t('importMarc.import')}
             </Button>
@@ -1286,8 +1317,13 @@ export default function ImportIsoPage() {
               size="sm"
               variant="primary"
               onClick={() => importRecord(record)}
+              title={
+                hasMarcValidationErrors(record)
+                  ? t('importMarc.cannotImportWithValidationErrors')
+                  : undefined
+              }
               leftIcon={<Download className="h-4 w-4" />}
-              disabled={!selectedSourceId}
+              disabled={!selectedSourceId || hasMarcValidationErrors(record)}
             >
               {t('importMarc.import')}
             </Button>
@@ -1574,7 +1610,12 @@ export default function ImportIsoPage() {
                       variant="secondary"
                       onClick={handleStartScanMode}
                       leftIcon={<ScanLine className="h-4 w-4" />}
-                      disabled={!selectedSourceId}
+                      disabled={!selectedSourceId || pendingHasValidationErrors}
+                      title={
+                        pendingHasValidationErrors
+                          ? t('importMarc.cannotImportWithValidationErrors')
+                          : undefined
+                      }
                     >
                       {t('importMarc.importWithScan')}
                     </Button>
@@ -1582,7 +1623,12 @@ export default function ImportIsoPage() {
                       onClick={handleImportAll}
                       isLoading={isImporting}
                       leftIcon={<Download className="h-4 w-4" />}
-                      disabled={!selectedSourceId}
+                      disabled={!selectedSourceId || pendingHasValidationErrors}
+                      title={
+                        pendingHasValidationErrors
+                          ? t('importMarc.cannotImportWithValidationErrors')
+                          : undefined
+                      }
                     >
                       {t('importMarc.importAll', { count: pendingCount })}
                     </Button>
@@ -1805,6 +1851,57 @@ export default function ImportIsoPage() {
 
                               return (
                                 <div className="space-y-4">
+                                  {(record.validationIssues?.length ?? 0) > 0 && (
+                                    <div className="p-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/30">
+                                      <h4 className="text-sm font-semibold text-red-900 dark:text-red-100 mb-2">
+                                        {t('importMarc.validationDiagnostics')}
+                                      </h4>
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                          <thead>
+                                            <tr className="border-b border-red-200 dark:border-red-800">
+                                              <th className="py-2 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-red-800 dark:text-red-300">
+                                                {t('importMarc.preview.tag')}
+                                              </th>
+                                              <th className="py-2 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-red-800 dark:text-red-300">
+                                                {t('importMarc.validationSubfield')}
+                                              </th>
+                                              <th className="py-2 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-red-800 dark:text-red-300">
+                                                {t('importMarc.validationTargetPath')}
+                                              </th>
+                                              <th className="py-2 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-red-800 dark:text-red-300">
+                                                {t('importMarc.preview.value')}
+                                              </th>
+                                              <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-red-800 dark:text-red-300">
+                                                {t('importMarc.validationPattern')}
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-red-100 dark:divide-red-900/50">
+                                            {record.validationIssues!.map((issue, idx) => (
+                                              <tr key={`${issue.tag}-${issue.targetPath}-${idx}`}>
+                                                <td className="py-2 pr-3 font-mono text-gray-900 dark:text-gray-100">
+                                                  {issue.tag}
+                                                </td>
+                                                <td className="py-2 pr-3 font-mono text-gray-700 dark:text-gray-300">
+                                                  {issue.subfield ?? '-'}
+                                                </td>
+                                                <td className="py-2 pr-3 text-gray-800 dark:text-gray-200 break-all">
+                                                  {issue.targetPath}
+                                                </td>
+                                                <td className="py-2 pr-3 text-gray-800 dark:text-gray-200 break-all">
+                                                  {issue.value}
+                                                </td>
+                                                <td className="py-2 text-gray-800 dark:text-gray-200 break-all font-mono text-xs">
+                                                  {issue.pattern}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
                                   <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                                       <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
                                         {t('importMarc.itemDetails')}

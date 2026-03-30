@@ -431,7 +431,20 @@
     "reminderDryRunResult": "Probelauf — keine E-Mails gesendet",
     "reminderSendResult": "Erinnerungslauf abgeschlossen",
     "reminderReportEmails": "{{count}} E-Mail(s) gesendet",
-    "reminderReportLoans": "{{count}} Ausleihe(n) abgedeckt"
+    "reminderReportLoans": "{{count}} Ausleihe(n) abgedeckt",
+    "export": {
+      "download": "Herunterladen",
+      "chooseFormat": "Exportformat wählen",
+      "sectionActive": "Aktive Ausleihen",
+      "sectionArchived": "Zurückgegebene Ausleihen (Archiv)",
+      "formatJson": "JSON (marc-rs)",
+      "marc21Utf8": "MARC21 — ISO 2709 (UTF-8)",
+      "marc21Marc8": "MARC21 — ISO 2709 (MARC-8)",
+      "unimarcUtf8": "UNIMARC — ISO 2709 (UTF-8)",
+      "unimarcMarc8": "UNIMARC — ISO 2709 (MARC-8)",
+      "formatMarcxml": "MARCXML",
+      "error": "Export der Ausleihen fehlgeschlagen"
+    }
   },
   "stats": {
     "title": "Statistiken",
@@ -774,6 +787,13 @@
     "remainingToScan": "{{count}} Dokument noch zu scannen",
     "remainingToScan_plural": "{{count}} Dokumente noch zu scannen",
     "importProgress": "Import läuft...",
+    "validationDiagnostics": "MARC-Validierungsfehler",
+    "validationErrorCount": "{{count}} Fehler",
+    "validationErrorCount_plural": "{{count}} Fehler",
+    "cannotImportWithValidationErrors": "Import nicht möglich, solange MARC-Validierungsfehler bei einem oder mehreren Datensätzen vorliegen.",
+    "validationSubfield": "Unterfeld",
+    "validationTargetPath": "Zielpfad",
+    "validationPattern": "Muster",
     "detectedEncoding": "Erkannte Kodierung: {{encoding}}",
     "rawFields": "Extrahierte MARC-Felder",
     "preview": {

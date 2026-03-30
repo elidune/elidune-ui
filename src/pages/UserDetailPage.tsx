@@ -40,8 +40,10 @@ import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
+import LoansMarcExportButton from '@/components/loans/LoansMarcExportButton';
 import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
-import { isAdmin, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type Hold } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin, isLibrarian, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type Hold } from '@/types';
 
 const USER_LOANS_PAGE_SIZE = 20;
 const USER_HOLDS_PAGE_SIZE = 20;
@@ -52,6 +54,7 @@ export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const { t, i18n } = useTranslation();
   const holdsLoadMoreRef = useRef<HTMLDivElement>(null);
   const activeLoansLoadMoreRef = useRef<HTMLDivElement>(null);
@@ -778,6 +781,7 @@ export default function UserDetailPage() {
           <Button variant="secondary" onClick={() => setShowBorrowModal(true)} leftIcon={<BookMarked className="h-4 w-4" />}>
             {t('loans.borrow')}
           </Button>
+          {isLibrarian(currentUser?.accountType) && <LoansMarcExportButton userId={user.id} />}
           {user.expiryAt != null && isSubscriptionExpired(user.expiryAt) && (
             <Button
               type="button"

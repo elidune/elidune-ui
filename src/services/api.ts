@@ -37,6 +37,8 @@ import type {
   CreateItem,
   UpdateItem,
   EnqueueResult,
+  MarcImportPreview,
+  RecordValidationIssue,
   MarcBatchInfo,
   TaskStartResponse,
   BackgroundTask,
@@ -50,7 +52,7 @@ import type {
   AdminConfigResponse,
   Hold,
   ReindexSearchResponse,
-  MaintenanceAction,
+  MaintenanceRequestAction,
   AuditLogPage,
   OverdueLoansPage,
   ReminderReport,
@@ -113,6 +115,45 @@ function normalizeLoanSettingsResponse(data: unknown): { loanSettings: LoanSetti
     }
   }
   return { loanSettings: [] };
+}
+
+function normalizeRecordValidationIssue(raw: Record<string, unknown>): RecordValidationIssue {
+  const sf = raw.subfield;
+  return {
+    tag: String(raw.tag ?? ''),
+    subfield:
+      sf == null || sf === ''
+        ? null
+        : typeof sf === 'string'
+          ? sf.charAt(0)
+          : String(sf).charAt(0),
+    targetPath: String(raw.targetPath ?? raw.target_path ?? ''),
+    value: String(raw.value ?? ''),
+    pattern: String(raw.pattern ?? ''),
+  };
+}
+
+function normalizeMarcImportPreview(raw: unknown): MarcImportPreview {
+  const o = raw as Record<string, unknown>;
+  const issuesRaw = o.validationIssues ?? o.validation_issues;
+  const validationIssues: RecordValidationIssue[] = Array.isArray(issuesRaw)
+    ? issuesRaw.map((item) => normalizeRecordValidationIssue(item as Record<string, unknown>))
+    : [];
+  const rest = { ...o };
+  delete rest.validationIssues;
+  delete rest.validation_issues;
+  return { ...rest, validationIssues } as MarcImportPreview;
+}
+
+/** Maps `previews` (current API) or legacy `biblios` to `MarcImportPreview[]`. */
+function normalizeEnqueueResult(
+  data: EnqueueResult & { biblios?: unknown[] },
+): EnqueueResult {
+  const rawList = data.previews ?? data.biblios;
+  const previews: MarcImportPreview[] = Array.isArray(rawList)
+    ? rawList.map((p) => normalizeMarcImportPreview(p))
+    : [];
+  return { batchId: data.batchId, previews };
 }
 
 const API_BASE_URL = '/api/v1';
@@ -372,20 +413,27 @@ class ApiService {
 
   // ─── Items (exemplaires physiques) ──────────────────────────────
 
-  async updateItem(biblioId: string, itemId: string, data: UpdateItem): Promise<Item> {
-    const response = await this.client.put<Item>(`/biblios/${biblioId}/items`, {
-      id: itemId,
-      ...data,
-    });
+  /** `PUT /items/:id` — path id is authoritative; body may omit `id` or match the path. */
+  async updateItem(itemId: string, data: UpdateItem): Promise<Item> {
+    const response = await this.client.put<Item>(`/items/${itemId}`, data);
     return response.data;
   }
 
-  async deleteItem(biblioId: string, itemId: string, force = false): Promise<void> {
-    await this.client.delete(`/biblios/${biblioId}/items/${itemId}`, { params: { force } });
+  async deleteItem(itemId: string, force = false): Promise<void> {
+    await this.client.delete(`/items/${itemId}`, { params: { force } });
   }
 
   async createItem(biblioId: string, data: CreateItem): Promise<Item> {
     const response = await this.client.post<Item>(`/biblios/${biblioId}/items`, data);
+    return response.data;
+  }
+
+  /**
+   * `GET /items/:id` returns the bibliographic record with nested `items` (physical copies),
+   * including the copy matching `id`.
+   */
+  async getItem(id: string): Promise<Biblio> {
+    const response = await this.client.get<Biblio>(`/items/${id}`);
     return response.data;
   }
 
@@ -434,6 +482,48 @@ class ApiService {
       },
     });
     return normalizePaginatedResponse<Loan>(response.data);
+  }
+
+  /**
+   * Download loans as MARC (JSON / ISO2709 / MARCXML). Uses Bearer auth; triggers browser save via blob on the client.
+   */
+  async exportUserLoansMarc(
+    userId: string,
+    options?: {
+      archived?: boolean;
+      format?: 'json' | 'marc21' | 'unimarc' | 'marcxml';
+      encoding?: 'utf8' | 'marc8';
+    }
+  ): Promise<{ blob: Blob; filename: string }> {
+    const params: Record<string, string | boolean> = {};
+    if (options?.archived === true) params.archived = true;
+    if (options?.format) params.format = options.format;
+    if (options?.encoding) params.encoding = options.encoding;
+
+    try {
+      const response = await this.client.get(`/users/${userId}/loans/export`, {
+        params,
+        responseType: 'blob',
+      });
+      const cd = response.headers['content-disposition'] as string | undefined;
+      const quoted = cd?.match(/filename="([^"]+)"/);
+      const plain = cd?.match(/filename=([^;\s]+)/);
+      const raw = quoted?.[1] ?? plain?.[1]?.replace(/^"|"$/g, '');
+      const filename = raw?.trim() || 'loans-export';
+      return { blob: response.data as Blob, filename };
+    } catch (err) {
+      const axiosErr = err as AxiosError<Blob | ApiError>;
+      const data = axiosErr.response?.data;
+      if (data instanceof Blob && axiosErr.response) {
+        const text = await data.text();
+        try {
+          axiosErr.response.data = JSON.parse(text) as ApiError;
+        } catch {
+          axiosErr.response.data = { message: text } as ApiError;
+        }
+      }
+      throw axiosErr;
+    }
   }
 
   async createLoan(data: {
@@ -932,11 +1022,13 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await this.client.post<EnqueueResult>('/biblios/load-marc', formData, {
+    const response = await this.client.post<
+      EnqueueResult & { biblios?: BiblioShort[] }
+    >('/biblios/load-marc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       params: sourceId != null ? { sourceId } : undefined,
     });
-    return response.data;
+    return normalizeEnqueueResult(response.data);
   }
 
   async listMarcBatches(): Promise<MarcBatchInfo[]> {
@@ -945,8 +1037,10 @@ class ApiService {
   }
 
   async loadMarcBatch(batchId: string): Promise<EnqueueResult> {
-    const response = await this.client.get<EnqueueResult>(`/biblios/marc-batch/${batchId}`);
-    return response.data;
+    const response = await this.client.get<EnqueueResult & { biblios?: BiblioShort[] }>(
+      `/biblios/marc-batch/${batchId}`,
+    );
+    return normalizeEnqueueResult(response.data);
   }
 
   async importMarcBatch(
@@ -1043,7 +1137,7 @@ class ApiService {
     return response.data;
   }
 
-  async postMaintenance(actions: MaintenanceAction[]): Promise<TaskStartResponse> {
+  async postMaintenance(actions: MaintenanceRequestAction[]): Promise<TaskStartResponse> {
     const response = await this.client.post<TaskStartResponse>('/maintenance', { actions });
     return response.data;
   }

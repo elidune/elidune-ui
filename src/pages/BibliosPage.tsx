@@ -9,7 +9,8 @@ import { canManageItems, type MediaType, type MediaTypeOption, type Serie, type 
 import api from '@/services/api';
 import type { BiblioShort, Author, PaginatedResponse } from '@/types';
 import { PUBLIC_TYPE_OPTIONS } from '@/utils/codeLabels';
-import { getApiErrorMessage } from '@/utils/apiError';
+import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
+import { LIST_ROW_ICON_BTN, LIST_ROW_ICON_BTN_DANGER } from '@/utils/listRowActionIconClass';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 type CatalogTab = 'catalog' | 'collections' | 'series';
@@ -206,6 +207,12 @@ export default function BibliosPage() {
   const items = data?.pages.flatMap((p) => p.items) ?? [];
   const totalItems = data?.pages[0]?.total ?? 0;
 
+  const canManage = canManageItems(user?.accountType);
+
+  const [catalogBiblioToDelete, setCatalogBiblioToDelete] = useState<BiblioShort | null>(null);
+  const [catalogDeleteBorrowedError, setCatalogDeleteBorrowedError] = useState(false);
+  const [catalogDeleteLoading, setCatalogDeleteLoading] = useState(false);
+
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -260,13 +267,57 @@ export default function BibliosPage() {
     queryClient.invalidateQueries({ queryKey: ['biblios'] });
   };
 
+  const getSavedSearch = useCallback((): SavedSearch => ({
+    searchQuery,
+    mediaType,
+    audienceType,
+    showFilters,
+    advancedFilters,
+    serieId: activeFilterSerieId,
+    serieName: activeFilterSerieName,
+    collectionId: activeFilterCollectionId,
+    collectionName: activeFilterCollectionName,
+  }), [
+    searchQuery,
+    mediaType,
+    audienceType,
+    showFilters,
+    advancedFilters,
+    activeFilterSerieId,
+    activeFilterSerieName,
+    activeFilterCollectionId,
+    activeFilterCollectionName,
+  ]);
+
   const handleRowClick = (item: BiblioShort) => {
-    const savedSearch: SavedSearch = {
-      searchQuery, mediaType, audienceType, showFilters, advancedFilters,
-      serieId: activeFilterSerieId, serieName: activeFilterSerieName,
-      collectionId: activeFilterCollectionId, collectionName: activeFilterCollectionName,
-    };
-    navigate(`/biblios/${item.id}`, { state: { savedSearch } });
+    navigate(`/biblios/${item.id}`, { state: { savedSearch: getSavedSearch() } });
+  };
+
+  const handleCatalogBiblioDelete = async (force: boolean) => {
+    if (!catalogBiblioToDelete) return;
+    setCatalogDeleteLoading(true);
+    try {
+      await api.deleteBiblio(catalogBiblioToDelete.id, force);
+      setCatalogBiblioToDelete(null);
+      setCatalogDeleteBorrowedError(false);
+      await queryClient.invalidateQueries({ queryKey: ['biblios'] });
+    } catch (error: unknown) {
+      const code = getApiErrorCode(error);
+      const msg =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+      if (
+        !force &&
+        (code === 'business_rule_violation' ||
+          code === 'conflict' ||
+          (typeof msg === 'string' && (msg.includes('borrowed') || msg.includes('force=true'))))
+      ) {
+        setCatalogDeleteBorrowedError(true);
+      } else {
+        console.error(error);
+      }
+    } finally {
+      setCatalogDeleteLoading(false);
+    }
   };
 
   const formatAuthor = (author?: Author | null) => {
@@ -413,9 +464,47 @@ export default function BibliosPage() {
       header: t('common.status'),
       render: (item: BiblioShort) => getCatalogRowStatusBadge(item),
     },
+    ...(canManage
+      ? [
+          {
+            key: 'actions',
+            header: '',
+            align: 'right' as const,
+            className: 'w-[1%] whitespace-nowrap',
+            render: (item: BiblioShort) => (
+              <div
+                className="flex justify-end gap-1.5"
+                onClick={(e) => e.stopPropagation()}
+                role="group"
+                aria-label={t('common.actions')}
+              >
+                <button
+                  type="button"
+                  className={LIST_ROW_ICON_BTN}
+                  title={t('common.edit')}
+                  onClick={() =>
+                    navigate(`/biblios/${item.id}/edit`, { state: { savedSearch: getSavedSearch() } })
+                  }
+                >
+                  <Edit className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={LIST_ROW_ICON_BTN_DANGER}
+                  title={t('common.delete')}
+                  onClick={() => {
+                    setCatalogDeleteBorrowedError(false);
+                    setCatalogBiblioToDelete(item);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
-
-  const canManage = canManageItems(user?.accountType);
 
   return (
     <div className="space-y-4">
@@ -651,6 +740,26 @@ export default function BibliosPage() {
                           notSpecified={t('items.notSpecified')}
                           statusBadge={getCatalogRowStatusBadge(item)}
                           onOpen={() => handleRowClick(item)}
+                          canManage={canManage}
+                          editLabel={t('common.edit')}
+                          deleteLabel={t('common.delete')}
+                          actionsAriaLabel={t('common.actions')}
+                          onEdit={
+                            canManage
+                              ? () =>
+                                  navigate(`/biblios/${item.id}/edit`, {
+                                    state: { savedSearch: getSavedSearch() },
+                                  })
+                              : undefined
+                          }
+                          onDelete={
+                            canManage
+                              ? () => {
+                                  setCatalogDeleteBorrowedError(false);
+                                  setCatalogBiblioToDelete(item);
+                                }
+                              : undefined
+                          }
                         />
                       ))}
                     </div>
@@ -668,6 +777,58 @@ export default function BibliosPage() {
           )}
         </ScrollableListRegion>
       </Card>
+
+      <Modal
+        isOpen={catalogBiblioToDelete !== null}
+        onClose={() => {
+          if (catalogDeleteLoading) return;
+          setCatalogBiblioToDelete(null);
+          setCatalogDeleteBorrowedError(false);
+        }}
+        title={t('common.confirm')}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (catalogDeleteLoading) return;
+                setCatalogBiblioToDelete(null);
+                setCatalogDeleteBorrowedError(false);
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+            {catalogDeleteBorrowedError ? (
+              <Button
+                variant="danger"
+                disabled={catalogDeleteLoading}
+                isLoading={catalogDeleteLoading}
+                onClick={() => void handleCatalogBiblioDelete(true)}
+              >
+                {t('items.forceDeleteItem')}
+              </Button>
+            ) : (
+              <Button
+                variant="danger"
+                disabled={catalogDeleteLoading}
+                isLoading={catalogDeleteLoading}
+                onClick={() => void handleCatalogBiblioDelete(false)}
+              >
+                {t('common.delete')}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <p className="text-gray-600 dark:text-gray-300">
+          {catalogDeleteBorrowedError
+            ? t('items.itemBorrowedForceDelete')
+            : t('items.deleteConfirm', {
+                title: catalogBiblioToDelete?.title || t('items.notSpecified'),
+              })}
+        </p>
+      </Modal>
 
       </>)}
     </div>
@@ -785,11 +946,28 @@ function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
           align: 'right' as const,
           render: (c: Collection) => (
             <div className="flex justify-end gap-1">
-              <button onClick={(e) => { e.stopPropagation(); setEditItem(c); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                <Edit className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditItem(c);
+                }}
+                className={LIST_ROW_ICON_BTN}
+                title={t('common.edit')}
+              >
+                <Edit className="h-4 w-4" aria-hidden />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteItem(c); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500">
-                <Trash2 className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteError(null);
+                  setDeleteItem(c);
+                }}
+                className={LIST_ROW_ICON_BTN_DANGER}
+                title={t('common.delete')}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
               </button>
             </div>
           ),
@@ -870,20 +1048,22 @@ function CollectionsTab({ canManage, onSelect }: CollectionsTabProps) {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              className={`${LIST_ROW_ICON_BTN} min-h-[2.75rem] min-w-[2.75rem]`}
+                              title={t('common.edit')}
                               onClick={() => setEditItem(c)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4" aria-hidden />
                             </button>
                             <button
                               type="button"
-                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              className={`${LIST_ROW_ICON_BTN_DANGER} min-h-[2.75rem] min-w-[2.75rem]`}
+                              title={t('common.delete')}
                               onClick={() => {
                                 setDeleteError(null);
                                 setDeleteItem(c);
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </button>
                           </div>
                         )}
@@ -1143,11 +1323,28 @@ function SeriesTab({ canManage, onSelect }: SeriesTabProps) {
           align: 'right' as const,
           render: (s: Serie) => (
             <div className="flex justify-end gap-1">
-              <button onClick={(e) => { e.stopPropagation(); setEditItem(s); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                <Edit className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditItem(s);
+                }}
+                className={LIST_ROW_ICON_BTN}
+                title={t('common.edit')}
+              >
+                <Edit className="h-4 w-4" aria-hidden />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteItem(s); }} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500">
-                <Trash2 className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteError(null);
+                  setDeleteItem(s);
+                }}
+                className={LIST_ROW_ICON_BTN_DANGER}
+                title={t('common.delete')}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
               </button>
             </div>
           ),
@@ -1226,20 +1423,22 @@ function SeriesTab({ canManage, onSelect }: SeriesTabProps) {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              className={`${LIST_ROW_ICON_BTN} min-h-[2.75rem] min-w-[2.75rem]`}
+                              title={t('common.edit')}
                               onClick={() => setEditItem(s)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4" aria-hidden />
                             </button>
                             <button
                               type="button"
-                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                              className={`${LIST_ROW_ICON_BTN_DANGER} min-h-[2.75rem] min-w-[2.75rem]`}
+                              title={t('common.delete')}
                               onClick={() => {
                                 setDeleteError(null);
                                 setDeleteItem(s);
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </button>
                           </div>
                         )}

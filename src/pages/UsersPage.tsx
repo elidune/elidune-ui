@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, BookMarked, RefreshCw, Loader2 } from 'lucide-react';
+import { Plus, BookMarked, RefreshCw, Loader2, Edit, Trash2 } from 'lucide-react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
 import {
@@ -15,12 +15,12 @@ import {
   ResponsiveRecordList,
   ListSkeleton,
 } from '@/components/common';
+import { getApiErrorCode } from '@/utils/apiError';
+import { LIST_ROW_ICON_BTN, LIST_ROW_ICON_BTN_DANGER, LIST_ROW_ICON_BTN_MUTED } from '@/utils/listRowActionIconClass';
 import { RenewSubscriptionModal, UserEditorForm, UserListCard } from '@/components/users';
 import api from '@/services/api';
 import type { UserShort } from '@/types';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
-import { formatSubscriptionExpiryLine } from '@/utils/subscriptionDisplay';
-
 const USERS_PER_PAGE = 20;
 
 export default function UsersPage() {
@@ -34,6 +34,9 @@ export default function UsersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreateLoading, setIsCreateLoading] = useState(false);
   const [renewModalUser, setRenewModalUser] = useState<UserShort | null>(null);
+  const [deleteModalUser, setDeleteModalUser] = useState<UserShort | null>(null);
+  const [deleteUserForce, setDeleteUserForce] = useState(false);
+  const [deleteUserLoading, setDeleteUserLoading] = useState(false);
 
   const {
     data,
@@ -88,6 +91,39 @@ export default function UsersPage() {
 
   const openRenewModal = (user: UserShort) => setRenewModalUser(user);
 
+  const openDeleteModal = (user: UserShort) => {
+    setDeleteUserForce(false);
+    setDeleteModalUser(user);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteModalUser) return;
+    setDeleteUserLoading(true);
+    try {
+      await api.deleteUser(deleteModalUser.id, deleteUserForce);
+      setDeleteModalUser(null);
+      setDeleteUserForce(false);
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+    } catch (error: unknown) {
+      const code = getApiErrorCode(error);
+      const msg =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '';
+      if (
+        !deleteUserForce &&
+        (code === 'business_rule_violation' ||
+          code === 'conflict' ||
+          (typeof msg === 'string' &&
+            (msg.includes('active loans') || msg.includes('force=true'))))
+      ) {
+        setDeleteUserForce(true);
+      } else {
+        console.error(error);
+      }
+    } finally {
+      setDeleteUserLoading(false);
+    }
+  };
+
   const handleRefreshList = () => {
     void queryClient.invalidateQueries({ queryKey: ['users'] });
   };
@@ -132,6 +168,35 @@ export default function UsersPage() {
           : '—',
     },
     {
+      key: 'expiryAt',
+      header: t('users.subscriptionExpiry'),
+      className: 'whitespace-nowrap',
+      render: (user: UserShort) => {
+        if (user.expiryAt == null || user.expiryAt === '') {
+          return (
+            <span className="text-gray-500 dark:text-gray-400">{t('users.expiryUnlimited')}</span>
+          );
+        }
+        const expired = isSubscriptionExpired(user.expiryAt);
+        const d = new Date(user.expiryAt);
+        return (
+          <span
+            className={
+              expired
+                ? 'text-red-600 dark:text-red-400 font-medium'
+                : 'text-gray-700 dark:text-gray-200'
+            }
+          >
+            {d.toLocaleDateString(i18n.language, {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+          </span>
+        );
+      },
+    },
+    {
       key: 'loans',
       header: t('users.loans'),
       render: (user: UserShort) => {
@@ -150,31 +215,46 @@ export default function UsersPage() {
       },
     },
     {
-      key: 'status',
-      header: t('common.status'),
+      key: 'actions',
+      header: '',
       align: 'right' as const,
+      className: 'w-[1%] whitespace-nowrap',
       render: (user: UserShort) => {
-        const expired = isSubscriptionExpired(user.expiryAt);
-        if (expired) {
-          return (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openRenewModal(user);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-2.5 py-1.5 text-sm font-medium text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors min-h-[44px]"
-              >
-                <span>{t('users.subscriptionExpired')}</span>
-                <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              </button>
-            </div>
-          );
-        }
+        const renewDisabled = !isSubscriptionExpired(user.expiryAt);
         return (
-          <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-gray-700 dark:text-gray-200">
-            {formatSubscriptionExpiryLine(user.expiryAt, t, i18n)}
+          <div
+            className="flex justify-end gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+            role="group"
+            aria-label={t('common.actions')}
+          >
+            <button
+              type="button"
+              className={LIST_ROW_ICON_BTN}
+              title={t('common.edit')}
+              onClick={() => navigate(`/users/${user.id}`)}
+            >
+              <Edit className="h-4 w-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className={LIST_ROW_ICON_BTN_DANGER}
+              title={t('common.delete')}
+              onClick={() => openDeleteModal(user)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className={LIST_ROW_ICON_BTN_MUTED}
+              title={t('users.renewSubscription')}
+              disabled={renewDisabled}
+              onClick={() => {
+                if (!renewDisabled) openRenewModal(user);
+              }}
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden />
+            </button>
           </div>
         );
       },
@@ -249,7 +329,13 @@ export default function UsersPage() {
                           user={user}
                           publicTypes={publicTypes}
                           onOpen={() => handleRowClick(user)}
+                          onEdit={() => navigate(`/users/${user.id}`)}
+                          onDelete={() => openDeleteModal(user)}
                           onRenew={() => openRenewModal(user)}
+                          editLabel={t('common.edit')}
+                          deleteLabel={t('common.delete')}
+                          renewLabel={t('users.renewSubscription')}
+                          actionsAriaLabel={t('common.actions')}
                         />
                       ))}
                     </div>
@@ -267,6 +353,58 @@ export default function UsersPage() {
           )}
         </ScrollableListRegion>
       </Card>
+
+      <Modal
+        isOpen={deleteModalUser !== null}
+        onClose={() => {
+          if (deleteUserLoading) return;
+          setDeleteModalUser(null);
+          setDeleteUserForce(false);
+        }}
+        title={t('common.confirm')}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (deleteUserLoading) return;
+                setDeleteModalUser(null);
+                setDeleteUserForce(false);
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+            {deleteUserForce ? (
+              <Button
+                variant="danger"
+                disabled={deleteUserLoading}
+                isLoading={deleteUserLoading}
+                onClick={() => void confirmDeleteUser()}
+              >
+                {t('users.forceDelete')}
+              </Button>
+            ) : (
+              <Button
+                variant="danger"
+                disabled={deleteUserLoading}
+                isLoading={deleteUserLoading}
+                onClick={() => void confirmDeleteUser()}
+              >
+                {t('common.delete')}
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <p className="text-gray-600 dark:text-gray-300">
+          {deleteUserForce
+            ? t('users.activeLoansForceDelete')
+            : t('users.deleteConfirm', {
+                name: `${deleteModalUser?.firstname ?? ''} ${deleteModalUser?.lastname ?? ''}`.trim() || '—',
+              })}
+        </p>
+      </Modal>
 
       <RenewSubscriptionModal
         user={renewModalUser}
