@@ -1125,6 +1125,61 @@
       "title": "Keine Weitergabe an Dritte",
       "description": "Personenbezogene Daten werden nicht an Dritte weitergegeben und nicht außerhalb des internen Netzwerks der Bibliothek übertragen."
     }
+  },
+  "maintenance": {
+    "title": "Dienst nicht verfügbar",
+    "body": "Die Anwendung läuft, aber die Datenbank ist nicht erreichbar. Bitte PostgreSQL und die Konfiguration prüfen und es erneut versuchen.",
+    "retry": "Erneut prüfen",
+    "version": "Serverversion: {{version}}"
+  },
+  "firstSetup": {
+    "healthError": "Der Server ist nicht erreichbar oder der Status konnte nicht gelesen werden. Verbindung prüfen und erneut versuchen.",
+    "retryHealth": "Erneut versuchen",
+    "welcomeBody": "Dieser Elidune-Server wurde noch nicht eingerichtet. Der Assistent erstellt das erste Administratorkonto und die Bibliotheksdaten. Sie werden am Ende automatisch angemeldet.",
+    "libraryHint": "Geben Sie mindestens den Bibliotheksnamen oder die Stadt an (erforderlich für das Administratorkonto).",
+    "smtpIntro": "Optional: SMTP für ausgehende E-Mails (Erinnerungen usw.). Später in den Servereinstellungen änderbar. Überspringen, wenn SMTP-Overrides nicht erlaubt sind.",
+    "finish": "Einrichtung abschließen",
+    "footer": "Ersteinrichtung",
+    "sex": { "m": "Männlich", "f": "Weiblich" },
+    "validation": {
+      "libraryIdentity": "Bibliotheksname oder Stadt angeben.",
+      "login": "Benutzername erforderlich.",
+      "passwordMin": "Passwort mindestens 8 Zeichen.",
+      "passwordMatch": "Passwörter stimmen nicht überein.",
+      "name": "Vor- und Nachname erforderlich.",
+      "birthdate": "Geburtsdatum erforderlich."
+    },
+    "fields": {
+      "libraryName": "Bibliotheksname",
+      "addrCity": "Stadt",
+      "addrLine1": "Adresse Zeile 1",
+      "addrLine2": "Adresse Zeile 2",
+      "addrPostcode": "Postleitzahl",
+      "addrCountry": "Land",
+      "libraryEmail": "Kontakt-E-Mail (Bibliothek)",
+      "firstname": "Vorname",
+      "lastname": "Nachname",
+      "sex": "Geschlecht",
+      "birthdate": "Geburtsdatum",
+      "login": "Benutzername",
+      "password": "Passwort",
+      "password2": "Passwort bestätigen",
+      "adminEmail": "E-Mail (Administrator)",
+      "uiLanguage": "Kontosprache",
+      "smtpHost": "SMTP-Host",
+      "smtpPort": "SMTP-Port",
+      "smtpUseTls": "TLS",
+      "smtpUsername": "SMTP-Benutzername",
+      "smtpPassword": "SMTP-Passwort",
+      "smtpFrom": "Absenderadresse",
+      "smtpFromName": "Absendername"
+    },
+    "steps": {
+      "0": { "title": "Willkommen", "description": "Ersteinrichtung des Servers" },
+      "1": { "title": "Bibliothek", "description": "Name und Kontakt" },
+      "2": { "title": "Administrator", "description": "Erstes Admin-Konto" },
+      "3": { "title": "E-Mail (optional)", "description": "SMTP-Server" }
+    }
   }
 }
 

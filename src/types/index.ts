@@ -778,7 +778,7 @@ export interface DuplicateConfirmationRequired {
 }
 
 // Background tasks (async long-running operations)
-export type TaskKind = 'marcBatchImport' | 'maintenance';
+export type TaskKind = 'marcBatchImport' | 'maintenance' | 'inventoryBatchScan';
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface TaskProgress {
@@ -797,7 +797,7 @@ export interface BackgroundTask {
   kind: TaskKind;
   status: TaskStatus;
   progress?: TaskProgress | null;
-  result?: MarcBatchImportReport | MaintenanceResponse | null;
+  result?: MarcBatchImportReport | MaintenanceResponse | InventoryScan[] | null;
   error?: string | null;
   createdAt: string;
   startedAt?: string | null;
@@ -1305,4 +1305,73 @@ export interface OPACAvailability {
   biblioId?: string;
   activeLoans?: number;
   holdCount?: number;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// First setup (GET /health, POST /first_setup)
+// ──────────────────────────────────────────────────────────────────
+
+export interface HealthSetupInfo {
+  needFirstSetup?: boolean;
+  need_first_setup?: boolean;
+}
+
+export interface HealthResponse {
+  status: string;
+  version?: string;
+  database?: { connected?: boolean };
+  setup?: HealthSetupInfo;
+}
+
+/** True when the server requires the initial wizard (no users / no settings yet). */
+export function healthNeedsFirstSetup(h: HealthResponse | undefined | null): boolean {
+  if (!h) return false;
+  if (h.status === 'need_first_setup') return true;
+  const s = h.setup;
+  if (!s) return false;
+  return Boolean(s.needFirstSetup ?? s.need_first_setup);
+}
+
+/** True when the app cannot operate normally (e.g. DB unreachable — GET /health still 200). */
+export function healthIsDegraded(h: HealthResponse | undefined | null): boolean {
+  if (!h) return false;
+  if (h.status === 'degraded') return true;
+  if (h.database?.connected === false) return true;
+  return false;
+}
+
+export interface FirstSetupAdmin {
+  login: string;
+  password: string;
+  firstname: string;
+  lastname: string;
+  sex: 'm' | 'f';
+  birthdate: string;
+  email?: string;
+  language?: string;
+}
+
+export interface FirstSetupEmailOverride {
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpFrom?: string;
+  smtpFromName?: string;
+  smtpUseTls?: boolean;
+  templatesDir?: string;
+}
+
+export interface FirstSetupRequest {
+  admin: FirstSetupAdmin;
+  library: UpdateLibraryInfoRequest;
+  email?: FirstSetupEmailOverride;
+}
+
+export interface FirstSetupResponse {
+  token: string;
+  tokenType: string;
+  expiresIn: number;
+  user: LoginResponse['user'];
+  libraryInfo: LibraryInfo;
 }

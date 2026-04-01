@@ -6,6 +6,8 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LibraryProvider } from '@/contexts/LibraryContext';
 import { Layout } from '@/components/common';
 import {
+  FirstSetupPage,
+  MaintenancePage,
   LoginPage,
   MustChangePasswordPage,
   HomePage,
@@ -30,6 +32,7 @@ import {
   PrivacyPage,
 } from '@/pages';
 import { isLibrarian, isAdmin } from '@/types';
+import { FirstSetupGate } from '@/components/first-setup/FirstSetupGate';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +84,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/first-setup" element={<FirstSetupPage />} />
+      <Route path="/maintenance" element={<MaintenancePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/change-password" element={<MustChangePasswordPage />} />
 
@@ -288,7 +293,9 @@ export default function App() {
           <LibraryProvider>
             <LanguageProvider>
               <BrowserRouter>
-                <AppRoutes />
+                <FirstSetupGate>
+                  <AppRoutes />
+                </FirstSetupGate>
               </BrowserRouter>
             </LanguageProvider>
           </LibraryProvider>

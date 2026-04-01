@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/services/api';
-import type { User, LoginRequest, LoginResponse, TwoFactorMethod } from '@/types';
+import type { User, LoginRequest, LoginResponse, TwoFactorMethod, FirstSetupResponse } from '@/types';
 
 const MUST_CHANGE_PASSWORD_KEY = 'elidune_must_change_password';
 
@@ -35,6 +35,8 @@ interface AuthContextType {
   cancel2FA: () => void;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  /** After successful POST /first_setup — same as login without 2FA. */
+  completeFirstSetup: (response: FirstSetupResponse) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -194,6 +196,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMustChangePasswordFlag(false);
   };
 
+  const completeFirstSetup = async (response: FirstSetupResponse) => {
+    api.setToken(response.token);
+    setMustChangePassword(false);
+    setMustChangePasswordFlag(false);
+    setPending2FA(null);
+    setUser({
+      id: response.user.id,
+      username: response.user.login,
+      login: response.user.login,
+      firstname: response.user.firstname,
+      lastname: response.user.lastname,
+      accountType: response.user.accountType,
+      language: response.user.language,
+    });
+    await refreshProfile();
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -208,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cancel2FA,
         logout,
         refreshProfile,
+        completeFirstSetup,
       }}
     >
       {children}

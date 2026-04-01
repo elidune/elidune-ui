@@ -1098,6 +1098,61 @@
       "title": "Sin transferencia a terceros",
       "description": "Los datos personales no se transmiten a terceros ni se transfieren fuera de la red interna de la biblioteca."
     }
+  },
+  "maintenance": {
+    "title": "Servicio no disponible",
+    "body": "La aplicación está en ejecución, pero no se puede acceder a la base de datos. No puede usarse por ahora. Vuelva a intentarlo tras comprobar PostgreSQL y la configuración.",
+    "retry": "Comprobar de nuevo",
+    "version": "Versión del servidor: {{version}}"
+  },
+  "firstSetup": {
+    "healthError": "No se puede contactar con el servidor o leer su estado. Compruebe la conexión e inténtelo de nuevo.",
+    "retryHealth": "Reintentar",
+    "welcomeBody": "Este servidor Elidune aún no está configurado. Este asistente crea la primera cuenta de administrador y los datos de la biblioteca. Se iniciará sesión automáticamente al finalizar.",
+    "libraryHint": "Indique al menos el nombre de la biblioteca o la ciudad (necesario para la cuenta de administrador).",
+    "smtpIntro": "Opcional: SMTP para el correo saliente (recordatorios, etc.). Puede cambiarlo después en la configuración del servidor. Omítalo si el servidor no permite sobrescrituras SMTP.",
+    "finish": "Finalizar configuración",
+    "footer": "Configuración inicial",
+    "sex": { "m": "Masculino", "f": "Femenino" },
+    "validation": {
+      "libraryIdentity": "Indique el nombre de la biblioteca o la ciudad.",
+      "login": "El identificador es obligatorio.",
+      "passwordMin": "La contraseña debe tener al menos 8 caracteres.",
+      "passwordMatch": "Las contraseñas no coinciden.",
+      "name": "Nombre y apellidos obligatorios.",
+      "birthdate": "La fecha de nacimiento es obligatoria."
+    },
+    "fields": {
+      "libraryName": "Nombre de la biblioteca",
+      "addrCity": "Ciudad",
+      "addrLine1": "Dirección (línea 1)",
+      "addrLine2": "Dirección (línea 2)",
+      "addrPostcode": "Código postal",
+      "addrCountry": "País",
+      "libraryEmail": "Correo de contacto (biblioteca)",
+      "firstname": "Nombre",
+      "lastname": "Apellidos",
+      "sex": "Sexo",
+      "birthdate": "Fecha de nacimiento",
+      "login": "Identificador",
+      "password": "Contraseña",
+      "password2": "Confirmar contraseña",
+      "adminEmail": "Correo (administrador)",
+      "uiLanguage": "Idioma de la cuenta",
+      "smtpHost": "Servidor SMTP",
+      "smtpPort": "Puerto SMTP",
+      "smtpUseTls": "TLS",
+      "smtpUsername": "Usuario SMTP",
+      "smtpPassword": "Contraseña SMTP",
+      "smtpFrom": "Dirección de envío",
+      "smtpFromName": "Nombre del remitente"
+    },
+    "steps": {
+      "0": { "title": "Bienvenida", "description": "Configuración inicial del servidor" },
+      "1": { "title": "Biblioteca", "description": "Nombre y datos de contacto" },
+      "2": { "title": "Administrador", "description": "Primera cuenta de administración" },
+      "3": { "title": "Correo (opcional)", "description": "Servidor SMTP" }
+    }
   }
 }
 

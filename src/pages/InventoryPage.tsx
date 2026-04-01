@@ -87,6 +87,7 @@ export default function InventoryPage() {
   const [batchText, setBatchText] = useState('');
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchSummary, setBatchSummary] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   const sessionsQuery = useQuery({
@@ -202,6 +203,7 @@ export default function InventoryPage() {
     setBatchText('');
     setBatchError(null);
     setBatchSummary(null);
+    setBatchProgress(null);
     setSessionId(id);
   }, []);
 
@@ -237,18 +239,30 @@ export default function InventoryPage() {
       let total = 0;
       for (let i = 0; i < codes.length; i += BATCH_CHUNK) {
         const chunk = codes.slice(i, i + BATCH_CHUNK);
-        await api.batchInventoryScans(id, chunk);
+        setBatchProgress(null);
+        const { taskId } = await api.batchInventoryScans(id, chunk);
+        await api.waitForInventoryBatchScanTask(taskId, (task) => {
+          const p = task.progress;
+          if (p && typeof p.current === 'number' && typeof p.total === 'number') {
+            setBatchProgress({ current: p.current, total: p.total });
+          }
+        });
         total += chunk.length;
       }
       return total;
     },
     onSuccess: (total, { id }) => {
       setBatchError(null);
+      setBatchProgress(null);
       setBatchSummary(t('inventory.batchDone', { count: total }));
       setBatchText('');
       invalidateSessionData(id);
     },
-    onError: () => setBatchError(t('inventory.batchError')),
+    onError: (err: unknown) => {
+      setBatchProgress(null);
+      const msg = err instanceof Error && err.message ? err.message : t('inventory.batchError');
+      setBatchError(msg);
+    },
   });
 
   const closeMutation = useMutation({
@@ -300,6 +314,7 @@ export default function InventoryPage() {
     }
     setBatchError(null);
     setBatchSummary(null);
+    setBatchProgress(null);
     batchMutation.mutate({ id: activeSession.id, codes: lines });
   };
 
@@ -501,6 +516,15 @@ export default function InventoryPage() {
                   <div className="mt-2 flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
                     <CheckCircle className="h-4 w-4 shrink-0" />
                     {batchSummary}
+                  </div>
+                )}
+                {batchProgress && batchMutation.isPending && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    {t('inventory.batchProgress', {
+                      current: batchProgress.current,
+                      total: batchProgress.total,
+                    })}
                   </div>
                 )}
                 <div className="mt-3">

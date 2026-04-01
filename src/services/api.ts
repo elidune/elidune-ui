@@ -69,6 +69,9 @@ import type {
   CreateScheduleClosure,
   LibraryInfo,
   UpdateLibraryInfoRequest,
+  HealthResponse,
+  FirstSetupRequest,
+  FirstSetupResponse,
   CreateHold,
   FinesResponse,
   FineRule,
@@ -707,12 +710,39 @@ class ApiService {
     return response.data;
   }
 
-  async batchInventoryScans(sessionId: string, barcodes: string[]): Promise<InventoryScan[]> {
-    const response = await this.client.post<InventoryScan[]>(
+  async batchInventoryScans(sessionId: string, barcodes: string[]): Promise<TaskStartResponse> {
+    const response = await this.client.post<TaskStartResponse>(
       `/inventory/sessions/${sessionId}/scans/batch`,
       { barcodes }
     );
     return response.data;
+  }
+
+  /**
+   * Polls GET /tasks/:id until the inventory batch scan task completes or fails.
+   * On success, returns scan rows in barcode order (same shape as the former synchronous response body).
+   */
+  async waitForInventoryBatchScanTask(
+    taskId: string,
+    onProgress?: (task: BackgroundTask) => void
+  ): Promise<InventoryScan[]> {
+    const baseMs = 500;
+    const maxMs = 5000;
+    let delay = baseMs;
+    for (;;) {
+      const task = await this.getTask(taskId);
+      onProgress?.(task);
+      if (task.status === 'completed') {
+        const r = task.result;
+        if (Array.isArray(r)) return r;
+        throw new Error('Invalid inventory batch scan task result');
+      }
+      if (task.status === 'failed') {
+        throw new Error(task.error ?? 'Inventory batch scan failed');
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      delay = Math.min(delay * 1.5, maxMs);
+    }
   }
 
   async getInventoryScans(
@@ -1296,11 +1326,21 @@ class ApiService {
     await this.client.delete(`/schedules/closures/${id}`);
   }
 
-  // ─── Health ───────────────────────────────────────────────────────
+  // ─── Health & first setup ────────────────────────────────────────
 
-  async getHealth(): Promise<{ version?: string; [key: string]: unknown }> {
-    const response = await this.client.get('/health');
+  async getHealth(): Promise<HealthResponse> {
+    const response = await this.client.get<HealthResponse>('/health');
     return response.data;
+  }
+
+  /** Initial server configuration (no auth). Same session shape as login on success. */
+  async postFirstSetup(data: FirstSetupRequest): Promise<FirstSetupResponse> {
+    const response = await this.client.post<FirstSetupResponse>('/first_setup', data);
+    const body = response.data;
+    if (body.token) {
+      this.setToken(body.token);
+    }
+    return body;
   }
 }
 

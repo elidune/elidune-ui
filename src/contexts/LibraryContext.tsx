@@ -9,6 +9,7 @@ interface LibraryContextValue {
   libraryInfo: LibraryInfo | null;
   scheduleSlots: ScheduleSlot[];
   refreshSchedule: () => Promise<void>;
+  refreshLibraryInfo: () => Promise<void>;
 }
 
 const LibraryContext = createContext<LibraryContextValue>({
@@ -16,6 +17,7 @@ const LibraryContext = createContext<LibraryContextValue>({
   libraryInfo: null,
   scheduleSlots: [],
   refreshSchedule: async () => {},
+  refreshLibraryInfo: async () => {},
 });
 
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
@@ -25,18 +27,23 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [libraryInfo, setLibraryInfo] = useState<LibraryInfo | null>(null);
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
 
+  const refreshLibraryInfo = useCallback(async () => {
+    try {
+      const info = await api.getLibraryInfo();
+      setLibraryInfo(info);
+      const name = info.name ?? null;
+      setLibraryName(name);
+      if (name) localStorage.setItem(STORAGE_KEY, name);
+      else localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
   // GET /library-info is public — fetch on mount regardless of auth state
   useEffect(() => {
-    api.getLibraryInfo()
-      .then((info) => {
-        setLibraryInfo(info);
-        const name = info.name ?? null;
-        setLibraryName(name);
-        if (name) localStorage.setItem(STORAGE_KEY, name);
-        else localStorage.removeItem(STORAGE_KEY);
-      })
-      .catch(() => {});
-  }, []);
+    void refreshLibraryInfo();
+  }, [refreshLibraryInfo]);
 
   const refreshSchedule = useCallback(async () => {
     try {
@@ -62,7 +69,9 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSchedule]);
 
   return (
-    <LibraryContext.Provider value={{ libraryName, libraryInfo, scheduleSlots, refreshSchedule }}>
+    <LibraryContext.Provider
+      value={{ libraryName, libraryInfo, scheduleSlots, refreshSchedule, refreshLibraryInfo }}
+    >
       {children}
     </LibraryContext.Provider>
   );

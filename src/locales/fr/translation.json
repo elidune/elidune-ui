@@ -1430,6 +1430,7 @@
     "batchSubmit": "Importer les scans",
     "batchEmpty": "Aucun code-barres à importer.",
     "batchDone": "{{count}} scan(s) enregistré(s).",
+    "batchProgress": "Traitement des codes-barres : {{current}} / {{total}}",
     "batchError": "Échec de l'import (session fermée, plus de 500 codes par lot côté serveur, ou erreur réseau).",
     "scansTitle": "Journal des scans",
     "scanColBarcode": "Code-barres",
@@ -1505,6 +1506,76 @@
     "filteredBy": "Filtré par :",
     "clearFilter": "Effacer le filtre",
     "openInCatalog": "Afficher les documents correspondants dans le catalogue"
+  },
+  "maintenance": {
+    "title": "Service indisponible",
+    "body": "Le serveur fonctionne, mais la base de données est inaccessible. L’application ne peut pas être utilisée pour le moment. Réessayez après avoir vérifié PostgreSQL et la configuration.",
+    "retry": "Vérifier à nouveau",
+    "version": "Version serveur : {{version}}"
+  },
+  "firstSetup": {
+    "healthError": "Impossible de joindre le serveur ou de lire son état. Vérifiez la connexion et réessayez.",
+    "retryHealth": "Réessayer",
+    "welcomeBody": "Ce serveur Elidune n'a pas encore été configuré. Ce guide crée le premier compte administrateur et les informations de la bibliothèque. Vous serez connecté automatiquement à la fin.",
+    "libraryHint": "Indiquez au moins le nom de la bibliothèque ou la ville (obligatoire pour créer le compte administrateur).",
+    "smtpIntro": "Facultatif : configuration SMTP pour l'envoi d'e-mails (rappels, etc.). Vous pourrez modifier ces paramètres plus tard dans les réglages serveur. Ignorer cette étape si le serveur n'autorise pas les surcharges SMTP.",
+    "finish": "Terminer la configuration",
+    "footer": "Configuration initiale",
+    "sex": {
+      "m": "Masculin",
+      "f": "Féminin"
+    },
+    "validation": {
+      "libraryIdentity": "Renseignez le nom de la bibliothèque ou la ville.",
+      "login": "Identifiant requis.",
+      "passwordMin": "Le mot de passe doit contenir au moins 8 caractères.",
+      "passwordMatch": "Les mots de passe ne correspondent pas.",
+      "name": "Prénom et nom requis.",
+      "birthdate": "Date de naissance requise."
+    },
+    "fields": {
+      "libraryName": "Nom de la bibliothèque",
+      "addrCity": "Ville",
+      "addrLine1": "Adresse (ligne 1)",
+      "addrLine2": "Adresse (ligne 2)",
+      "addrPostcode": "Code postal",
+      "addrCountry": "Pays",
+      "libraryEmail": "E-mail de contact (bibliothèque)",
+      "firstname": "Prénom",
+      "lastname": "Nom",
+      "sex": "Sexe",
+      "birthdate": "Date de naissance",
+      "login": "Identifiant",
+      "password": "Mot de passe",
+      "password2": "Confirmer le mot de passe",
+      "adminEmail": "E-mail (administrateur)",
+      "uiLanguage": "Langue du compte",
+      "smtpHost": "Serveur SMTP",
+      "smtpPort": "Port SMTP",
+      "smtpUseTls": "TLS",
+      "smtpUsername": "Utilisateur SMTP",
+      "smtpPassword": "Mot de passe SMTP",
+      "smtpFrom": "Adresse d'expédition",
+      "smtpFromName": "Nom d'expéditeur"
+    },
+    "steps": {
+      "0": {
+        "title": "Bienvenue",
+        "description": "Première configuration du serveur"
+      },
+      "1": {
+        "title": "Bibliothèque",
+        "description": "Nom et coordonnées"
+      },
+      "2": {
+        "title": "Administrateur",
+        "description": "Premier compte avec droits d'administration"
+      },
+      "3": {
+        "title": "E-mail (optionnel)",
+        "description": "Serveur SMTP"
+      }
+    }
   },
   "backgroundTask": {
     "status": {

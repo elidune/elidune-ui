@@ -1210,6 +1210,7 @@
     "batchSubmit": "Import scans",
     "batchEmpty": "No barcodes to import.",
     "batchDone": "{{count}} scan(s) recorded.",
+    "batchProgress": "Processing barcodes: {{current}} / {{total}}",
     "batchError": "Import failed (closed session, batch limit, or network).",
     "scansTitle": "Scan log",
     "scanColBarcode": "Barcode",
@@ -1398,6 +1399,76 @@
     "noThirdParty": {
       "title": "No Third-Party Transfer",
       "description": "Personal data is not transmitted to third parties, nor transferred outside the library's internal network."
+    }
+  },
+  "maintenance": {
+    "title": "Service unavailable",
+    "body": "The application is running, but the database cannot be reached. You cannot use the app right now. Retry after checking PostgreSQL and configuration.",
+    "retry": "Check again",
+    "version": "Server version: {{version}}"
+  },
+  "firstSetup": {
+    "healthError": "Could not reach the server or read its status. Check the connection and try again.",
+    "retryHealth": "Retry",
+    "welcomeBody": "This Elidune server has not been configured yet. This wizard creates the first administrator account and library details. You will be signed in automatically when done.",
+    "libraryHint": "Provide at least the library name or the city (required to create the administrator account).",
+    "smtpIntro": "Optional: SMTP settings for outbound email (reminders, etc.). You can change these later in server settings. Skip if your server does not allow SMTP overrides.",
+    "finish": "Finish setup",
+    "footer": "Initial setup",
+    "sex": {
+      "m": "Male",
+      "f": "Female"
+    },
+    "validation": {
+      "libraryIdentity": "Enter the library name or city.",
+      "login": "Username is required.",
+      "passwordMin": "Password must be at least 8 characters.",
+      "passwordMatch": "Passwords do not match.",
+      "name": "First and last name are required.",
+      "birthdate": "Birth date is required."
+    },
+    "fields": {
+      "libraryName": "Library name",
+      "addrCity": "City",
+      "addrLine1": "Address line 1",
+      "addrLine2": "Address line 2",
+      "addrPostcode": "Postal code",
+      "addrCountry": "Country",
+      "libraryEmail": "Contact email (library)",
+      "firstname": "First name",
+      "lastname": "Last name",
+      "sex": "Sex",
+      "birthdate": "Date of birth",
+      "login": "Username",
+      "password": "Password",
+      "password2": "Confirm password",
+      "adminEmail": "Email (administrator)",
+      "uiLanguage": "Account language",
+      "smtpHost": "SMTP host",
+      "smtpPort": "SMTP port",
+      "smtpUseTls": "TLS",
+      "smtpUsername": "SMTP username",
+      "smtpPassword": "SMTP password",
+      "smtpFrom": "From address",
+      "smtpFromName": "From name"
+    },
+    "steps": {
+      "0": {
+        "title": "Welcome",
+        "description": "First-time server setup"
+      },
+      "1": {
+        "title": "Library",
+        "description": "Name and contact details"
+      },
+      "2": {
+        "title": "Administrator",
+        "description": "First admin account"
+      },
+      "3": {
+        "title": "Email (optional)",
+        "description": "SMTP server"
+      }
     }
   }
 }
