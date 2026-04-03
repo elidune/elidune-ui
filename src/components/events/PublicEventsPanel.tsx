@@ -26,8 +26,12 @@ export default function PublicEventsPanel({
 }: PublicEventsPanelProps) {
   const { t } = useTranslation();
 
+  /** One event: show detail full width only (no redundant list). */
+  const singleEventLayout = !isLoading && events.length === 1;
+
   return (
     <>
+      {!singleEventLayout && (
       <div
         className={`flex flex-col overflow-hidden flex-shrink-0 min-h-0 ${
           selectedEventId ? 'w-72 border-r border-gray-100 dark:border-gray-800' : 'flex-1'
@@ -137,10 +141,15 @@ export default function PublicEventsPanel({
           )}
         </div>
       </div>
+      )}
 
       {selectedEventId && (
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
-          <EventDetailPane eventId={selectedEventId} onClose={() => onSelectEvent(null)} />
+          <EventDetailPane
+            eventId={selectedEventId}
+            onClose={() => onSelectEvent(null)}
+            showCloseButton={!singleEventLayout}
+          />
         </div>
       )}
     </>

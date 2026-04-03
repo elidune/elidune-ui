@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -21,6 +22,8 @@ export default function Modal({
   size = 'md',
   stackOnTop = false,
 }: ModalProps) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -61,12 +64,23 @@ export default function Modal({
       <div
         className={`relative w-full ${sizes[size]} max-sm:max-w-none max-sm:min-h-[100dvh] sm:max-h-[90vh] max-h-[100dvh] bg-white dark:bg-gray-900 rounded-none sm:rounded-xl shadow-2xl overflow-hidden flex flex-col pb-[env(safe-area-inset-bottom)]`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+        {/* Header — title centered; chrome LTR so close stays visual right under dir=rtl */}
+        <div
+          className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-6 py-4 dark:border-gray-800"
+          dir="ltr"
+        >
+          <div className="h-9 w-9 shrink-0" aria-hidden />
+          <h2
+            className="min-w-0 flex-1 truncate text-center text-lg font-semibold text-gray-900 dark:text-white"
+            dir="auto"
+          >
+            {title}
+          </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>

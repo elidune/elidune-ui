@@ -6,13 +6,13 @@
   "homepage": "https://elidune.b-612.fr",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jcollonville/elidune-ui.git"
+    "url": "https://github.com/elidune/elidune-ui.git"
   },
   "author": "Jean Collonvillé",
   "email": "jcollonville@b-612.fr",
   "license": "AGPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/jcollonville/elidune-ui/issues"
+    "url": "https://github.com/elidune/elidune-ui/issues"
   },
   "scripts": {
     "dev": "vite",

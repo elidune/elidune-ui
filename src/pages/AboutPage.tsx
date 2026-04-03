@@ -89,10 +89,10 @@ export default function AboutPage() {
     setDepsLoading(true);
 
     Promise.all([
-      fetch('https://raw.githubusercontent.com/jcollonville/elidune-ui/main/package.json')
+      fetch('https://raw.githubusercontent.com/elidune/elidune-ui/main/package.json')
         .then((r) => r.json())
         .catch(() => null),
-      fetch('https://raw.githubusercontent.com/jcollonville/elidune-server/main/Cargo.toml')
+      fetch('https://raw.githubusercontent.com/elidune/elidune-server/main/Cargo.toml')
         .then((r) => r.text())
         .catch(() => null),
     ])
@@ -215,23 +215,23 @@ export default function AboutPage() {
               value={
                 <div className="flex flex-col gap-1">
                   <a
-                    href="https://github.com/jcollonville/elidune-server"
+                    href="https://github.com/elidune/elidune-server"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
                     <Code2 className="h-3.5 w-3.5" />
-                    github.com/jcollonville/elidune-server
+                    github.com/elidune/elidune-server
                     <ExternalLink className="h-3 w-3" />
                   </a>
                   <a
-                    href="https://github.com/jcollonville/elidune-ui"
+                    href="https://github.com/elidune/elidune-ui"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
                     <Code2 className="h-3.5 w-3.5" />
-                    github.com/jcollonville/elidune-ui
+                    github.com/elidune/elidune-ui
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
@@ -302,7 +302,7 @@ export default function AboutPage() {
               {t('about.admin.bugReport')}
             </h3>
             <a
-              href="https://github.com/jcollonville/elidune/issues"
+              href="https://github.com/elidune/elidune/issues"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"

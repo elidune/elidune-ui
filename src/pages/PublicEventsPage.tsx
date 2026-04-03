@@ -22,6 +22,8 @@ export default function PublicEventsPage() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const eventRows = eventsData?.events;
+
   const handleSelectEvent = useCallback((id: string | null) => {
     if (id === null) userDismissedEventSelectionRef.current = true;
     else userDismissedEventSelectionRef.current = false;
@@ -31,15 +33,14 @@ export default function PublicEventsPage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && selectedEventId) {
+        if (eventRows?.length === 1) return;
         userDismissedEventSelectionRef.current = true;
         setSelectedEventId(null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedEventId]);
-
-  const eventRows = eventsData?.events;
+  }, [selectedEventId, eventRows]);
 
   // Keep list selection in sync with fetched events (default first row; respect user dismiss).
   /* eslint-disable react-hooks/set-state-in-effect -- sync selection with fetched list */

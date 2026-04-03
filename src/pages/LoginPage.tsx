@@ -418,25 +418,6 @@ export default function LoginPage() {
   const { scheduleSlots } = useLibrarySchedule();
   const navigate = useNavigate();
 
-  // Ctrl/Cmd+K focuses the search bar
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (e.key === 'Escape') {
-        if (selectedBiblioId) setSelectedBiblioId(null);
-        if (selectedEventId) {
-          userDismissedEventSelectionRef.current = true;
-          setSelectedEventId(null);
-        }
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedBiblioId, selectedEventId]);
-
   const hasQuery = activeSearch.length > 0 || activeMediaType !== '';
 
   const { data: opacData, isLoading: opacLoading } = useQuery({
@@ -468,6 +449,28 @@ export default function LoginPage() {
   }, []);
 
   const eventRows = eventsData?.events;
+
+  // Ctrl/Cmd+K focuses the search bar; Escape clears overlays (events list hidden when only one event)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === 'Escape') {
+        if (selectedBiblioId) setSelectedBiblioId(null);
+        if (selectedEventId) {
+          if (resultsTab === 'events' && eventRows?.length === 1) {
+            return;
+          }
+          userDismissedEventSelectionRef.current = true;
+          setSelectedEventId(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedBiblioId, selectedEventId, resultsTab, eventRows]);
 
   useEffect(() => {
     if (resultsTab !== 'events' || eventsLoading) return;
@@ -746,7 +749,7 @@ export default function LoginPage() {
                     </div>
 
                     {selectedBiblioId && (
-                      <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
+                      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-gray-900">
                         <BiblioDetailPane
                           biblioId={selectedBiblioId}
                           onClose={() => setSelectedBiblioId(null)}
