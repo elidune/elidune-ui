@@ -912,7 +912,7 @@ export default function ImportIsoPage() {
 
   const handleImportAll = async () => {
     if (!selectedSourceId) {
-      setParseError(t('importMarc.sourceRequired'));
+      setParseError(t('z3950.sourceRequired'));
       return;
     }
     if (records.some((r) => r.status === 'pending' && hasMarcValidationErrors(r))) {
@@ -1001,7 +1001,7 @@ export default function ImportIsoPage() {
     options?: { showErrorModal?: boolean; showDuplicateModal?: boolean }
   ) => {
     if (!selectedSourceId) {
-      setParseError(t('importMarc.sourceRequired'));
+      setParseError(t('z3950.sourceRequired'));
       return;
     }
     if (hasMarcValidationErrors(record)) {
@@ -1955,7 +1955,7 @@ export default function ImportIsoPage() {
                                             </div>
                                             <div className="flex gap-2">
                                               <dt className="w-32 whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                                {t('items.placeOfPublication')}
+                                                {t('items.publicationPlace')}
                                               </dt>
                                               <dd className="flex-1 text-gray-900 dark:text-gray-100">
                                                 {itemPayload.edition.placeOfPublication || '-'}

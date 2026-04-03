@@ -261,7 +261,7 @@ export default function EventDetailPane({ eventId, onClose, showCloseButton = tr
             {detail.notes && (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-4 dark:border-gray-600 dark:bg-gray-800/30">
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  {t('profile.notes', { defaultValue: 'Notes' })}
+                  {t('profile.notes')}
                 </p>
                 <p className="mt-2 text-gray-600 dark:text-gray-400">{detail.notes}</p>
               </div>
