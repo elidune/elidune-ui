@@ -64,7 +64,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.accountType) },
     { name: t('nav.z3950Search'), href: '/z3950', icon: Globe, show: isLibrarian(user?.accountType) },
     { name: t('nav.importIso'), href: '/import-iso', icon: Upload, show: isLibrarian(user?.accountType) },
-    { name: t('nav.events'), href: '/events', icon: CalendarDays, show: isLibrarian(user?.accountType) },
+    { name: t('nav.events'), href: '/events', icon: CalendarDays, show: true },
     { name: t('nav.stats'), href: '/stats', icon: BarChart3, show: isLibrarian(user?.accountType) },
     { name: t('nav.library'), href: '/library', icon: LibraryBig, show: isLibrarian(user?.accountType) },
     { name: t('nav.settings'), href: '/settings', icon: Settings, show: isAdmin(user?.accountType) },
@@ -121,7 +121,10 @@ export default function Layout({ children }: LayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+              const isActive =
+                item.href === '/'
+                  ? location.pathname === '/'
+                  : location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}

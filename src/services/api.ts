@@ -173,6 +173,19 @@ class ApiService {
     const method = error.config?.method?.toLowerCase();
     const url = error.config?.url || '';
 
+    // Wrong credentials return 401 — must not redirect or the login form reloads.
+    if (method === 'post' && url.includes('/auth/login')) {
+      return false;
+    }
+
+    // Wrong 2FA / recovery code while verifying — same as login, stay on the page.
+    if (
+      method === 'post' &&
+      (url.includes('/auth/verify-2fa') || url.includes('/auth/verify-recovery'))
+    ) {
+      return false;
+    }
+
     // Wrong current password during profile password update can return 401
     // while the current auth token is still valid.
     if (method === 'put' && url.endsWith('/auth/profile')) {

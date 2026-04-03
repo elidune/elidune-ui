@@ -1357,10 +1357,10 @@ export default function SettingsPage() {
               key={server.id || `new-${index}`}
               className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
             >
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <Server className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium text-gray-900 dark:text-white">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Server className="h-5 w-5 text-gray-400 shrink-0" />
+                  <span className="font-medium text-gray-900 dark:text-white truncate">
                     {server.name || t('z3950.server')}
                   </span>
                   {server.isActive ? (
@@ -1369,67 +1369,95 @@ export default function SettingsPage() {
                     <Badge>{t('items.unavailable')}</Badge>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setSettings({
-                      ...settings,
-                      z3950Servers: settings.z3950Servers.filter((_, i) => i !== index),
-                    });
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
+                <div className="flex items-center justify-end gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      {t('common.active')}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={server.isActive}
+                      aria-label={t('common.active')}
+                      onClick={() => updateZ3950Server(index, 'isActive', !server.isActive)}
+                      className={`relative h-8 w-14 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 ${
+                        server.isActive
+                          ? 'bg-amber-500 dark:bg-amber-600'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none absolute top-1 left-1 block h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ease-out ${
+                          server.isActive ? 'translate-x-6' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={t('common.delete')}
+                    onClick={() => {
+                      setSettings({
+                        ...settings,
+                        z3950Servers: settings.z3950Servers.filter((_, i) => i !== index),
+                      });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity ${
+                  !server.isActive ? 'opacity-70' : ''
+                }`}
+              >
                 <Input
                   label={t('common.name')}
                   value={server.name}
+                  disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'name', e.target.value)}
                 />
                 <Input
                   label={t('z3950.server')}
                   value={server.address}
+                  disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'address', e.target.value)}
                 />
                 <Input
                   label="Port"
                   type="number"
                   value={server.port}
+                  disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'port', parseInt(e.target.value))}
                 />
                 <Input
                   label="Database"
                   value={server.database || ''}
+                  disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'database', e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 transition-opacity ${
+                  !server.isActive ? 'opacity-70' : ''
+                }`}
+              >
                 <Input
                   label={t('z3950.login')}
                   type="text"
                   value={server.login || ''}
+                  disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'login', e.target.value)}
                 />
                 <Input
                   label={t('z3950.password')}
                   type="password"
                   value={server.password || ''}
+                  disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'password', e.target.value)}
                 />
-              </div>
-              <div className="flex items-center gap-2 mt-4">
-                <input
-                  type="checkbox"
-                  id={`active-${index}`}
-                  checked={server.isActive}
-                  onChange={(e) => updateZ3950Server(index, 'isActive', e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-700 text-indigo-600 focus:ring-indigo-500"
-                />
-                <label htmlFor={`active-${index}`} className="text-sm text-gray-700 dark:text-gray-300">
-                  {t('common.active')}
-                </label>
               </div>
             </div>
           ))}

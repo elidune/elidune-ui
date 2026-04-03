@@ -72,6 +72,8 @@
   },
   "home": {
     "welcome": "bienvenue",
+    "upcomingEvents": "Prochains événements",
+    "upcomingEventsSubtitle": "Affiche et flyer de la bibliothèque",
     "libraryInfo": "Informations pratiques",
     "noAddress": "Adresse non renseignée",
     "noContact": "Aucun contact renseigné",
@@ -147,6 +149,8 @@
     "invalidCredentials": "Identifiants incorrects",
     "yourIdentifier": "Votre identifiant",
     "yourPassword": "Votre mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
     "mustChangePasswordTitle": "Changement de mot de passe requis",
     "mustChangePasswordSubtitle": "Vous devez choisir un nouveau mot de passe pour continuer.",
     "mustChangePasswordSubmit": "Enregistrer et se reconnecter",
@@ -1200,6 +1204,8 @@
     "pastEvents": "Événements passés",
     "count": "{{count}} événement(s)",
     "newEvent": "Nouvel événement",
+    "manageEvents": "Gérer les événements",
+    "backToPublic": "Retour aux prochains événements",
     "editEvent": "Modifier l'événement",
     "showPast": "Événements passés",
     "showCurrent": "Événements à venir",
@@ -1239,7 +1245,12 @@
     "announcementSent": "Annonce envoyée !",
     "announcementAlreadySentTitle": "Annonce déjà envoyée",
     "announcementAlreadySentBody": "Un mailing a déjà été envoyé pour « {{name}} » le {{date}}. Voulez-vous en envoyer un nouveau ?",
-    "sendAnywayBtn": "Envoyer quand même"
+    "sendAnywayBtn": "Envoyer quand même",
+    "flyerOrAttachment": "Flyer ou pièce jointe (image ou PDF)",
+    "flyer": "Flyer",
+    "attachment": "Pièce jointe",
+    "removeAttachment": "Supprimer la pièce jointe",
+    "viewAttachmentLarge": "Agrandir l’image"
   },
   "about": {
     "title": "À propos d'Elidune",

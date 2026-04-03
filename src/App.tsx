@@ -27,6 +27,7 @@ import {
   ProfilePage,
   ImportIsoPage,
   EventsPage,
+  PublicEventsPage,
   LibraryPage,
   AboutPage,
   PrivacyPage,
@@ -256,12 +257,21 @@ function AppRoutes() {
       />
 
       <Route
-        path="/events"
+        path="/events/manage"
         element={
           <ProtectedRoute>
             <LibrarianRoute>
               <EventsPage />
             </LibrarianRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/events"
+        element={
+          <ProtectedRoute>
+            <PublicEventsPage />
           </ProtectedRoute>
         }
       />

@@ -156,32 +156,6 @@ export default function HomePage() {
         )}
       </Card>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <QuickActionCard
-          to="/biblios"
-          icon={BookOpen}
-          title={t('nav.catalog')}
-          description={t('items.searchPlaceholder')}
-        />
-        {isLibrarian(user?.accountType) && (
-          <>
-            <QuickActionCard
-              to="/users"
-              icon={Users}
-              title={t('nav.users')}
-              description={t('users.searchPlaceholder')}
-            />
-            <QuickActionCard
-              to="/stats"
-              icon={TrendingUp}
-              title={t('nav.stats')}
-              description={t('stats.subtitle')}
-            />
-          </>
-        )}
-      </div>
-
       {/* Library info — fills remaining space */}
       <div className="flex-1 flex flex-col">
         <LibraryInfoSection
@@ -225,31 +199,4 @@ function StatCard({ icon: Icon, label, value, color }: StatCardProps) {
     </Card>
   );
 }
-
-interface QuickActionCardProps {
-  to: string;
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-}
-
-function QuickActionCard({ to, icon: Icon, title, description }: QuickActionCardProps) {
-  return (
-    <Link
-      to={to}
-      className="block p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-lg transition-all group"
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/50 transition-colors">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="font-medium text-gray-900 dark:text-white">{title}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 

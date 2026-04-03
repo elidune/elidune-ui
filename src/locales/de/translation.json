@@ -65,7 +65,9 @@
     "privacy": "Datenschutz"
   },
   "home": {
-    "welcome": "willkommen"
+    "welcome": "willkommen",
+    "upcomingEvents": "Kommende Veranstaltungen",
+    "upcomingEventsSubtitle": "Programm und Flyer der Bibliothek"
   },
   "library": {
     "title": "Meine Bibliothek",
@@ -136,6 +138,8 @@
     "invalidCredentials": "Ungültige Anmeldedaten",
     "yourIdentifier": "Ihre Kennung",
     "yourPassword": "Ihr Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "2fa": {
       "title": "Zwei-Faktor-Verifizierung",
       "totpMethod": "Geben Sie den Code aus Ihrer Authentifizierungs-App ein",
@@ -1017,6 +1021,8 @@
     "pastEvents": "Vergangene Veranstaltungen",
     "count": "{{count}} Veranstaltung(en)",
     "newEvent": "Neue Veranstaltung",
+    "manageEvents": "Veranstaltungen verwalten",
+    "backToPublic": "Zurück zu bevorstehenden Veranstaltungen",
     "editEvent": "Veranstaltung bearbeiten",
     "showPast": "Vergangene Veranstaltungen",
     "showCurrent": "Bevorstehende Veranstaltungen",
@@ -1056,7 +1062,12 @@
     "announcementSent": "Ankündigung gesendet!",
     "announcementAlreadySentTitle": "Ankündigung bereits gesendet",
     "announcementAlreadySentBody": "Fuer '{{name}}' wurde am {{date}} bereits eine E-Mail gesendet. Soll eine neue gesendet werden?",
-    "sendAnywayBtn": "Trotzdem senden"
+    "sendAnywayBtn": "Trotzdem senden",
+    "flyerOrAttachment": "Flyer oder Anhang (Bild oder PDF)",
+    "flyer": "Flyer",
+    "attachment": "Anhang",
+    "removeAttachment": "Anhang entfernen",
+    "viewAttachmentLarge": "Bild vergrößern"
   },
   "about": {
     "title": "Über Elidune",

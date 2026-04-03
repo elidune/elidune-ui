@@ -11,8 +11,8 @@ import {
 } from '@/utils/userSubscription';
 import { SEX_OPTIONS } from '@/utils/codeLabels';
 
-/** Sex values allowed when the field is required (male / female only). */
-const SEX_REQUIRED_OPTIONS = SEX_OPTIONS.filter((o) => o.value === 'm' || o.value === 'f');
+/** Male / female options for the sex select (empty = not specified). */
+const SEX_M_F_OPTIONS = SEX_OPTIONS.filter((o) => o.value === 'm' || o.value === 'f');
 
 export type UserFormData = {
   login: string;
@@ -39,8 +39,6 @@ type UserRequiredField =
   | 'login'
   | 'firstname'
   | 'lastname'
-  | 'sex'
-  | 'birthdate'
   | 'publicType'
   | 'addrCity';
 
@@ -150,8 +148,6 @@ export default function UserEditorForm({
     if (!fd.login.trim()) err.login = requiredMsg;
     if (!fd.firstname.trim()) err.firstname = requiredMsg;
     if (!fd.lastname.trim()) err.lastname = requiredMsg;
-    if (!fd.sex) err.sex = requiredMsg;
-    if (!fd.birthdate.trim()) err.birthdate = requiredMsg;
     if (!fd.publicType.trim()) err.publicType = requiredMsg;
     if (!fd.addrCity.trim()) err.addrCity = requiredMsg;
     return err;
@@ -304,12 +300,7 @@ export default function UserEditorForm({
             label={t('profile.birthdate')}
             type="date"
             value={formData.birthdate}
-            onChange={(e) => {
-              setFormData({ ...formData, birthdate: e.target.value });
-              clearFieldError('birthdate');
-            }}
-            required
-            error={fieldErrors.birthdate}
+            onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -341,23 +332,16 @@ export default function UserEditorForm({
             </label>
             <select
               value={formData.sex}
-              onChange={(e) => {
-                setFormData({ ...formData, sex: e.target.value });
-                clearFieldError('sex');
-              }}
-              required
-              className={selectClass(!!fieldErrors.sex)}
+              onChange={(e) => setFormData({ ...formData, sex: e.target.value })}
+              className={selectClass(false)}
             >
               <option value="">{t('common.select')}</option>
-              {SEX_REQUIRED_OPTIONS.map((o) => (
+              {SEX_M_F_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {t(o.labelKey)}
                 </option>
               ))}
             </select>
-            {fieldErrors.sex && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.sex}</p>
-            )}
           </div>
         </div>
       </section>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -20,9 +20,8 @@ import {
   Layers,
   Calendar,
   Library,
-  Clock,
-  Tag,
-  Users,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,32 +31,7 @@ import { useLibrarySchedule } from '@/hooks/common/useLibrarySchedule';
 import api from '@/services/api';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import type { MediaType } from '@/types';
-
-// eventType: 0=animation … 6=other (aligned with EventsPage)
-const EVENT_TYPE_COLORS: Record<number, string> = {
-  0: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-  1: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  2: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-  3: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-  4: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-  5: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
-  6: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-};
-
-const EVENT_TYPE_KEYS: Record<number, string> = {
-  0: 'events.types.animation',
-  1: 'events.types.schoolVisit',
-  2: 'events.types.exhibition',
-  3: 'events.types.conference',
-  4: 'events.types.workshop',
-  5: 'events.types.show',
-  6: 'events.types.other',
-};
-
-const TARGET_PUBLIC_KEYS: Record<number, string> = {
-  97: 'events.targetPublic.adult',
-  106: 'events.targetPublic.children',
-};
+import PublicEventsPanel from '@/components/events/PublicEventsPanel';
 
 const MEDIA_FILTERS: Array<{ key: MediaType | ''; labelKey: string }> = [
   { key: '', labelKey: 'opac.filterAll' },
@@ -417,147 +391,6 @@ function BiblioDetailPane({
   );
 }
 
-function formatEventDateOnly(dateStr: string): string {
-  try {
-    return new Date(`${dateStr}T00:00:00`).toLocaleDateString();
-  } catch {
-    return dateStr;
-  }
-}
-
-// ── Event detail — same pane pattern as BiblioDetailPane ─────────────────────
-
-function EventDetailPane({ eventId, onClose }: { eventId: string; onClose: () => void }) {
-  const { t } = useTranslation();
-
-  const { data: detail, isLoading } = useQuery({
-    queryKey: ['public-event', eventId],
-    queryFn: () => api.getEvent(eventId),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const typeLabel = detail
-    ? t(EVENT_TYPE_KEYS[detail.eventType] ?? 'events.types.other', {
-        defaultValue: String(detail.eventType),
-      })
-    : '';
-
-  const targetLabel =
-    detail?.targetPublic != null && TARGET_PUBLIC_KEYS[detail.targetPublic]
-      ? t(TARGET_PUBLIC_KEYS[detail.targetPublic])
-      : detail?.targetPublic != null
-        ? String(detail.targetPublic)
-        : null;
-
-  const metaRows: Array<{ label: string; value: string | null | undefined }> = detail
-    ? [
-        { label: t('events.date'), value: formatEventDateOnly(detail.eventDate) },
-        {
-          label: t('events.startTime'),
-          value:
-            detail.startTime || detail.endTime
-              ? detail.startTime && detail.endTime
-                ? `${detail.startTime}–${detail.endTime}`
-                : detail.startTime || detail.endTime || ''
-              : null,
-        },
-        { label: t('events.partnerName'), value: detail.partnerName },
-        { label: t('events.targetPublicLabel'), value: targetLabel },
-        {
-          label: t('events.attendeesCount'),
-          value: (() => {
-            const a = detail.attendeesCount;
-            const s = detail.studentsCount;
-            if (a != null && s != null) return `${a} + ${s} ${t('events.students')}`;
-            if (a != null) return String(a);
-            if (s != null) return `${s} ${t('events.students')}`;
-            return null;
-          })(),
-        },
-        { label: t('events.schoolName'), value: detail.schoolName },
-        { label: t('events.className'), value: detail.className },
-      ].filter((r) => r.value)
-    : [];
-
-  return (
-    <>
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-start gap-2 flex-shrink-0">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white leading-snug">
-            {isLoading ? (
-              <span className="inline-block h-4 w-2/3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
-            ) : (
-              (detail?.name ?? '—')
-            )}
-          </h3>
-          {detail && (
-            <span
-              className={`inline-flex mt-1 items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                EVENT_TYPE_COLORS[detail.eventType] ?? EVENT_TYPE_COLORS[6]
-              }`}
-            >
-              <Tag className="h-3 w-3" />
-              {typeLabel}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex-shrink-0 transition-colors"
-          aria-label={t('common.close')}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="px-4 py-4 overflow-y-auto flex-1 space-y-4 text-sm">
-        {isLoading ? (
-          <div className="space-y-3 animate-pulse">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex gap-4">
-                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/3" />
-                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : !detail ? null : (
-          <>
-            {metaRows.length > 0 && (
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-                {metaRows.map((row) => (
-                  <div key={row.label} className="contents">
-                    <dt className="text-gray-400 dark:text-gray-500 whitespace-nowrap">{row.label}</dt>
-                    <dd className="text-gray-900 dark:text-white font-medium">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-
-            {detail.description && (
-              <div>
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-                  {t('common.description')}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{detail.description}</p>
-              </div>
-            )}
-
-            {detail.notes && (
-              <div>
-                <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-                  {t('profile.notes', { defaultValue: 'Notes' })}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400">{detail.notes}</p>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </>
-  );
-}
-
 // ── OPAC / Login page ────────────────────────────────────────────────────────
 
 export default function LoginPage() {
@@ -567,6 +400,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
@@ -574,6 +408,8 @@ export default function LoginPage() {
   const [selectedBiblioId, setSelectedBiblioId] = useState<string | null>(null);
   const [resultsTab, setResultsTab] = useState<'events' | 'catalog'>('events');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  /** When true, keep detail pane closed after user cleared selection (click / Escape). */
+  const userDismissedEventSelectionRef = useRef(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -591,7 +427,10 @@ export default function LoginPage() {
       }
       if (e.key === 'Escape') {
         if (selectedBiblioId) setSelectedBiblioId(null);
-        if (selectedEventId) setSelectedEventId(null);
+        if (selectedEventId) {
+          userDismissedEventSelectionRef.current = true;
+          setSelectedEventId(null);
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -621,6 +460,29 @@ export default function LoginPage() {
   });
 
   const events = eventsData?.events ?? [];
+
+  const handleSelectEvent = useCallback((id: string | null) => {
+    if (id === null) userDismissedEventSelectionRef.current = true;
+    else userDismissedEventSelectionRef.current = false;
+    setSelectedEventId(id);
+  }, []);
+
+  const eventRows = eventsData?.events;
+
+  useEffect(() => {
+    if (resultsTab !== 'events' || eventsLoading) return;
+    if (!eventRows || eventRows.length === 0) {
+      setSelectedEventId(null);
+      return;
+    }
+    setSelectedEventId((prev) => {
+      const inList = prev != null && eventRows.some((e) => e.id === prev);
+      if (inList) return prev;
+      if (prev === null && userDismissedEventSelectionRef.current) return null;
+      userDismissedEventSelectionRef.current = false;
+      return eventRows[0].id;
+    });
+  }, [resultsTab, eventRows, eventsLoading]);
 
   if (mustChangePassword) return <Navigate to="/change-password" replace />;
   if (isAuthenticated) return <Navigate to="/" replace />;
@@ -666,14 +528,11 @@ export default function LoginPage() {
             className="absolute -right-4 -top-4 h-48 w-48 sm:h-56 sm:w-56 object-contain opacity-[0.07] dark:opacity-[0.05] select-none pointer-events-none"
           />
           <div className="relative">
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-1">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-5">
               {libraryInfo?.name?.trim() ||
                 libraryName?.trim() ||
                 t('auth.loginTitle')}
             </h1>
-            <p className="text-base text-gray-500 dark:text-gray-400 mb-5">
-              {t('opac.heroTitle')} — {t('opac.heroSub')}
-            </p>
 
             <form onSubmit={handleSearch} className="flex max-w-3xl gap-2 mb-4">
               <Input
@@ -722,6 +581,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
+                  userDismissedEventSelectionRef.current = false;
                   setResultsTab('events');
                   setSelectedBiblioId(null);
                 }}
@@ -750,7 +610,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-              {resultsTab === 'events' && (
+              {resultsTab === 'events' && !selectedEventId && (
                 <Calendar
                   aria-hidden
                   className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92%,20rem)] h-auto text-amber-600/10 dark:text-amber-400/10 pointer-events-none select-none"
@@ -767,135 +627,14 @@ export default function LoginPage() {
 
               <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
                 {resultsTab === 'events' && (
-                  <>
-                    <div
-                      className={`flex flex-col overflow-hidden flex-shrink-0 min-h-0 ${
-                        selectedEventId ? 'w-72 border-r border-gray-100 dark:border-gray-800' : 'flex-1'
-                      }`}
-                    >
-                      <div className="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {eventsData
-                            ? t('events.count', { count: eventsData.total })
-                            : t('events.currentEvents')}
-                        </h3>
-                      </div>
-
-                      <div className="overflow-y-auto flex-1 px-4 py-2 min-h-0">
-                        {eventsLoading ? (
-                          <div className="py-2">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                              <div
-                                key={i}
-                                className="flex gap-3 py-3 border-b border-gray-50 dark:border-gray-800/50 last:border-0 animate-pulse"
-                              >
-                                <div className="w-8 h-11 bg-gray-100 dark:bg-gray-800 rounded flex-shrink-0" />
-                                <div className="flex-1 space-y-2 pt-1">
-                                  <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-3/4" />
-                                  <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded w-1/2" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : events.length === 0 ? (
-                          <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400 leading-relaxed px-2">
-                            {t('opac.eventsEmpty')}
-                          </p>
-                        ) : (
-                          <div>
-                            {events.map((event) => {
-                              const isSelected = selectedEventId === event.id;
-                              const typeKey = EVENT_TYPE_KEYS[event.eventType] ?? 'events.types.other';
-                              const timeLine =
-                                event.startTime && event.endTime
-                                  ? `${event.startTime}–${event.endTime}`
-                                  : event.startTime || event.endTime || null;
-
-                              return (
-                                <button
-                                  key={event.id}
-                                  type="button"
-                                  onClick={() => setSelectedEventId(isSelected ? null : event.id)}
-                                  className={`w-full text-left flex items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800/50 last:border-0 rounded-lg px-2 -mx-2 transition-colors ${
-                                    isSelected
-                                      ? 'bg-amber-50 dark:bg-amber-900/20'
-                                      : 'hover:bg-gray-50 dark:hover:bg-gray-800/40'
-                                  }`}
-                                >
-                                  <div
-                                    className={`w-8 h-11 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${
-                                      isSelected
-                                        ? 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'
-                                        : 'bg-amber-50 dark:bg-amber-900/25 border-transparent'
-                                    }`}
-                                  >
-                                    <Calendar
-                                      className={`h-4 w-4 ${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-amber-700 dark:text-amber-500'}`}
-                                    />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p
-                                      className={`text-sm font-medium truncate ${
-                                        isSelected
-                                          ? 'text-amber-700 dark:text-amber-400'
-                                          : 'text-gray-900 dark:text-white'
-                                      }`}
-                                    >
-                                      {event.name}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                      <span className="inline-flex items-center gap-1">
-                                        <Calendar className="h-3 w-3 flex-shrink-0 opacity-70" />
-                                        {formatEventDateOnly(event.eventDate)}
-                                      </span>
-                                      {timeLine && (
-                                        <span className="inline-flex items-center gap-1 text-gray-400 dark:text-gray-500">
-                                          <Clock className="h-3 w-3" />
-                                          {timeLine}
-                                        </span>
-                                      )}
-                                    </p>
-                                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                      <span
-                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                          EVENT_TYPE_COLORS[event.eventType] ?? EVENT_TYPE_COLORS[6]
-                                        }`}
-                                      >
-                                        <Tag className="h-2.5 w-2.5" />
-                                        {t(typeKey)}
-                                      </span>
-                                      {event.attendeesCount != null && (
-                                        <span className="inline-flex items-center gap-0.5 text-[10px] text-gray-500 dark:text-gray-400">
-                                          <Users className="h-3 w-3" />
-                                          {event.attendeesCount}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <ChevronRight
-                                    className={`h-4 w-4 flex-shrink-0 transition-colors ${
-                                      isSelected
-                                        ? 'text-amber-500 dark:text-amber-400'
-                                        : 'text-gray-300 dark:text-gray-600'
-                                    }`}
-                                  />
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {selectedEventId && (
-                      <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
-                        <EventDetailPane
-                          eventId={selectedEventId}
-                          onClose={() => setSelectedEventId(null)}
-                        />
-                      </div>
-                    )}
-                  </>
+                  <PublicEventsPanel
+                    events={events}
+                    isLoading={eventsLoading}
+                    total={eventsData?.total}
+                    selectedEventId={selectedEventId}
+                    onSelectEvent={handleSelectEvent}
+                    emptyMessage={t('opac.eventsEmpty')}
+                  />
                 )}
 
                 {resultsTab === 'catalog' && (
@@ -1030,24 +769,48 @@ export default function LoginPage() {
               </div>
               <div className="px-4 py-3 space-y-3">
                 <form onSubmit={handleLogin} className="space-y-2">
-                  <Input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder={t('auth.yourIdentifier')}
-                    required
-                    autoComplete="username"
-                  />
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={t('auth.yourPassword')}
-                    required
-                    autoComplete="current-password"
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (loginError) setLoginError('');
+                      }}
+                      placeholder={t('auth.yourIdentifier')}
+                      required
+                      autoComplete="username"
+                    />
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (loginError) setLoginError('');
+                      }}
+                      placeholder={t('auth.yourPassword')}
+                      required
+                      autoComplete="current-password"
+                      rightIcon={
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                          aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                          aria-pressed={showPassword}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      }
+                    />
+                  </div>
                   {loginError && (
-                    <p className="text-xs text-red-600 dark:text-red-400">{loginError}</p>
+                    <div
+                      role="alert"
+                      className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-2.5 py-2 text-sm text-red-700 dark:text-red-300"
+                    >
+                      {loginError}
+                    </div>
                   )}
                   <Button
                     type="submit"

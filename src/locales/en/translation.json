@@ -52,6 +52,7 @@
     "catalog": "Catalog",
     "myLoans": "My Loans",
     "loans": "Loans/Returns",
+    "holds": "Holds",
     "users": "Users",
     "z3950Search": "Z39.50 Search",
     "importIso": "MARC Import",
@@ -65,7 +66,9 @@
     "privacy": "Privacy"
   },
   "home": {
-    "welcome": "welcome"
+    "welcome": "welcome",
+    "upcomingEvents": "Upcoming events",
+    "upcomingEventsSubtitle": "Library programme and flyers"
   },
   "library": {
     "title": "My Library",
@@ -136,6 +139,8 @@
     "invalidCredentials": "Invalid credentials",
     "yourIdentifier": "Your identifier",
     "yourPassword": "Your password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "mustChangePasswordTitle": "Password change required",
     "mustChangePasswordSubtitle": "You must set a new password before continuing.",
     "mustChangePasswordSubmit": "Save and sign in again",
@@ -1284,7 +1289,10 @@
     "featureDigital": "Digital resources",
     "featureSuggestions": "Purchase suggestions",
     "freeAccess": "Free access — no registration required to search",
-    "statsDocs": "documents"
+    "statsDocs": "documents",
+    "tabEvents": "Events",
+    "tabCatalog": "Catalogue",
+    "eventsEmpty": "Upcoming library events will appear here."
   },
   "events": {
     "title": "Events",
@@ -1292,6 +1300,8 @@
     "pastEvents": "Past events",
     "count": "{{count}} event(s)",
     "newEvent": "New event",
+    "manageEvents": "Manage events",
+    "backToPublic": "Back to upcoming events",
     "editEvent": "Edit event",
     "showPast": "Past events",
     "showCurrent": "Upcoming events",
@@ -1331,7 +1341,12 @@
     "announcementSent": "Announcement sent!",
     "announcementAlreadySentTitle": "Announcement already sent",
     "announcementAlreadySentBody": "An email has already been sent for \"{{name}}\" on {{date}}. Do you want to send a new one?",
-    "sendAnywayBtn": "Send anyway"
+    "sendAnywayBtn": "Send anyway",
+    "flyerOrAttachment": "Flyer or attachment (image or PDF)",
+    "flyer": "Flyer",
+    "attachment": "Attachment",
+    "removeAttachment": "Remove attachment",
+    "viewAttachmentLarge": "View larger image"
   },
   "about": {
     "title": "About Elidune",

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
   Calendar,
@@ -16,6 +18,8 @@ import {
 import { Card, Button, Table, Pagination, Modal, Input, ConfirmDialog, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
 import type { Event, CreateEvent, UpdateEvent } from '@/types';
+import { fileToAttachmentInput, base64ToDataUrl, isImageMime } from '@/utils/eventAttachment';
+import EventAttachmentLead from '@/components/events/EventAttachmentLead';
 
 const EVENTS_PER_PAGE = 20;
 
@@ -167,13 +171,16 @@ export default function EventsPage() {
       key: 'name',
       header: t('common.name'),
       render: (event: Event) => (
-        <div>
-          <p className="font-medium text-gray-900 dark:text-white">{event.name}</p>
-          {event.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-              {event.description}
-            </p>
-          )}
+        <div className="flex items-start gap-3 min-w-0">
+          <EventAttachmentLead event={event} isSelected={false} />
+          <div className="min-w-0">
+            <p className="font-medium text-gray-900 dark:text-white">{event.name}</p>
+            {event.description && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                {event.description}
+              </p>
+            )}
+          </div>
         </div>
       ),
     },
@@ -274,6 +281,13 @@ export default function EventsPage() {
 
   return (
     <div className="space-y-4">
+      <Link
+        to="/events"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        {t('events.backToPublic')}
+      </Link>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -456,6 +470,7 @@ interface EventFormProps {
 function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventFormProps) {
   const { t } = useTranslation();
   const isEdit = !!initialValues;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: initialValues?.name ?? '',
@@ -473,11 +488,41 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
     notes: initialValues?.notes ?? '',
   });
 
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [removeAttachment, setRemoveAttachment] = useState(false);
+
+  const { data: fullEvent } = useQuery({
+    queryKey: ['event-edit', initialValues?.id],
+    queryFn: () => api.getEvent(initialValues!.id),
+    enabled: isEdit && !!initialValues?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const attachmentSource = fullEvent ?? initialValues;
+  const previewMime = attachmentFile?.type ?? attachmentSource?.attachmentMimeType ?? '';
+  const previewIsImage = attachmentFile ? isImageMime(attachmentFile.type) : isImageMime(previewMime);
+
+  const attachmentPreviewUrl = useMemo(() => {
+    if (attachmentFile && isImageMime(attachmentFile.type)) return URL.createObjectURL(attachmentFile);
+    return null;
+  }, [attachmentFile]);
+
+  useEffect(() => {
+    return () => {
+      if (attachmentPreviewUrl) URL.revokeObjectURL(attachmentPreviewUrl);
+    };
+  }, [attachmentPreviewUrl]);
+
+  useEffect(() => {
+    setAttachmentFile(null);
+    setRemoveAttachment(false);
+  }, [initialValues?.id]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     onLoadingChange(true);
     try {
-      const payload: CreateEvent | UpdateEvent = {
+      const common = {
         name: formData.name || undefined,
         eventDate: formData.eventDate || undefined,
         eventType: formData.eventType !== '' ? Number(formData.eventType) : undefined,
@@ -494,9 +539,28 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
       };
 
       if (isEdit && initialValues) {
-        await api.updateEvent(initialValues.id, payload as UpdateEvent);
+        const u: UpdateEvent = { ...common };
+        if (removeAttachment) u.removeAttachment = true;
+        else if (attachmentFile) u.attachment = await fileToAttachmentInput(attachmentFile);
+        await api.updateEvent(initialValues.id, u);
       } else {
-        await api.createEvent(payload as CreateEvent);
+        const c: CreateEvent = {
+          name: formData.name,
+          eventDate: formData.eventDate,
+          eventType: common.eventType,
+          startTime: common.startTime,
+          endTime: common.endTime,
+          description: common.description,
+          partnerName: common.partnerName,
+          schoolName: common.schoolName,
+          className: common.className,
+          attendeesCount: common.attendeesCount,
+          studentsCount: common.studentsCount,
+          targetPublic: common.targetPublic,
+          notes: common.notes,
+        };
+        if (attachmentFile) c.attachment = await fileToAttachmentInput(attachmentFile);
+        await api.createEvent(c);
       }
       onSuccess();
     } catch (error) {
@@ -635,6 +699,64 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
           />
         </>
       )}
+
+      {/* Flyer / attachment */}
+      <div className="space-y-2">
+        <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          {t('events.flyerOrAttachment')}
+        </span>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          className="block w-full text-sm text-gray-600 dark:text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-50 file:text-amber-800 dark:file:bg-amber-900/40 dark:file:text-amber-200"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            setAttachmentFile(f ?? null);
+            setRemoveAttachment(false);
+          }}
+        />
+        {isEdit && (attachmentSource?.attachmentFileName || attachmentSource?.attachmentDataBase64) && (
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={removeAttachment}
+              onChange={(e) => {
+                setRemoveAttachment(e.target.checked);
+                if (e.target.checked) {
+                  setAttachmentFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+              }}
+            />
+            {t('events.removeAttachment')}
+          </label>
+        )}
+        {!removeAttachment && previewIsImage && (attachmentPreviewUrl || (attachmentSource?.attachmentDataBase64 && !attachmentFile)) && (
+          <div className="mt-1">
+            <img
+              src={
+                attachmentPreviewUrl ??
+                (attachmentSource?.attachmentDataBase64 && previewMime
+                  ? base64ToDataUrl(attachmentSource.attachmentDataBase64, previewMime)
+                  : '')
+              }
+              alt=""
+              className="max-h-36 rounded-lg border border-gray-200 dark:border-gray-700 object-contain bg-gray-50 dark:bg-gray-950"
+            />
+          </div>
+        )}
+        {!removeAttachment && attachmentFile && !previewIsImage && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">{attachmentFile.name}</p>
+        )}
+        {!removeAttachment &&
+          !attachmentFile &&
+          !previewIsImage &&
+          attachmentSource?.attachmentFileName &&
+          (attachmentSource.attachmentDataBase64 || attachmentSource.attachmentFileName) && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">{attachmentSource.attachmentFileName}</p>
+          )}
+      </div>
 
       {/* Notes */}
       <div>

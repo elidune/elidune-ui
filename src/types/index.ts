@@ -1067,6 +1067,12 @@ export interface ReminderReport {
 }
 
 // Events
+export interface EventAttachmentInput {
+  fileName: string;
+  mimeType: string;
+  dataBase64: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -1085,6 +1091,12 @@ export interface Event {
   announcementSentAt?: string | null;
   createdAt?: string | null;
   updateAt?: string | null;
+  /** Present on list responses when a file is stored (no Base64 on list). */
+  attachmentFileName?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentSize?: number | null;
+  /** Present on GET single / POST / PUT responses when a file is stored. */
+  attachmentDataBase64?: string | null;
 }
 
 export interface CreateEvent {
@@ -1101,6 +1113,7 @@ export interface CreateEvent {
   studentsCount?: number | null;
   targetPublic?: number | null;
   notes?: string | null;
+  attachment?: EventAttachmentInput | null;
 }
 
 export interface UpdateEvent {
@@ -1117,6 +1130,8 @@ export interface UpdateEvent {
   studentsCount?: number | null;
   targetPublic?: number | null;
   notes?: string | null;
+  attachment?: EventAttachmentInput | null;
+  removeAttachment?: boolean | null;
 }
 
 export interface EventsListResponse {
