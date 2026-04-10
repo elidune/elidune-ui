@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -80,8 +80,131 @@ function applyZ3950BiblioToForm(
   };
 }
 
+type CollapsibleSectionId =
+  | 'typeAndPublication'
+  | 'abstractAndIndexing'
+  | 'audienceAndLanguage'
+  | 'edition'
+  | 'authors'
+  | 'collections'
+  | 'series'
+  | 'specimens';
+
+function linkedCollectionsAfterZ3950(item: Biblio, prev: LinkedEntry[]): LinkedEntry[] {
+  const firstColl = item.collections?.[0] ?? item.collection;
+  if (firstColl) {
+    return [
+      {
+        id: firstColl.id ?? undefined,
+        name: firstColl.name ?? '',
+        volumeNumber: firstColl.volumeNumber?.toString() ?? '',
+      },
+    ];
+  }
+  return prev;
+}
+
+function linkedSeriesAfterZ3950(item: Biblio, prev: LinkedEntry[]): LinkedEntry[] {
+  if (item.series && item.series.length > 0) {
+    return item.series.map((s) => ({
+      id: s.id ?? undefined,
+      name: s.name ?? '',
+      volumeNumber: s.volumeNumber?.toString() ?? '',
+    }));
+  }
+  return prev;
+}
+
+function computeZ3950OpenedSections(
+  prevForm: Parameters<typeof applyZ3950BiblioToForm>[1],
+  nextForm: ReturnType<typeof applyZ3950BiblioToForm>,
+  prevColl: LinkedEntry[],
+  nextColl: LinkedEntry[],
+  prevSer: LinkedEntry[],
+  nextSer: LinkedEntry[],
+): CollapsibleSectionId[] {
+  const opened: CollapsibleSectionId[] = [];
+  if (nextForm.publicationDate !== prevForm.publicationDate || nextForm.mediaType !== prevForm.mediaType) {
+    opened.push('typeAndPublication');
+  }
+  if (
+    nextForm.abstract !== prevForm.abstract ||
+    nextForm.keywords !== prevForm.keywords ||
+    nextForm.subject !== prevForm.subject
+  ) {
+    opened.push('abstractAndIndexing');
+  }
+  if (nextForm.audienceType !== prevForm.audienceType || nextForm.lang !== prevForm.lang) {
+    opened.push('audienceAndLanguage');
+  }
+  if (
+    nextForm.editionPublisher !== prevForm.editionPublisher ||
+    nextForm.editionPlace !== prevForm.editionPlace ||
+    nextForm.editionDate !== prevForm.editionDate
+  ) {
+    opened.push('edition');
+  }
+  if (JSON.stringify(nextForm.authors) !== JSON.stringify(prevForm.authors)) {
+    opened.push('authors');
+  }
+  if (JSON.stringify(nextColl) !== JSON.stringify(prevColl)) {
+    opened.push('collections');
+  }
+  if (JSON.stringify(nextSer) !== JSON.stringify(prevSer)) {
+    opened.push('series');
+  }
+  return opened;
+}
+
 const BIBLIO_FORM_SECTION =
   'rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4 bg-gray-100 dark:bg-gray-800/50';
+
+function BiblioFormCollapsibleSection({
+  sectionId,
+  title,
+  open,
+  onToggle,
+  children,
+  headerRight,
+}: {
+  sectionId: CollapsibleSectionId;
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  headerRight?: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const panelId = `biblio-section-${sectionId}`;
+  const triggerId = `biblio-section-trigger-${sectionId}`;
+  return (
+    <section className={BIBLIO_FORM_SECTION}>
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md text-left hover:bg-gray-200/60 dark:hover:bg-gray-700/40 -m-1 p-1"
+          aria-expanded={open}
+          aria-controls={panelId}
+          id={triggerId}
+          title={open ? t('common.collapseSection') : t('common.expandSection')}
+        >
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{title}</h3>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
+            aria-hidden
+          />
+        </button>
+        {headerRight != null ? <div className="shrink-0 flex items-center">{headerRight}</div> : null}
+      </div>
+      {open ? (
+        <div id={panelId} role="region" aria-labelledby={triggerId} className="space-y-4 pt-4">
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
 
 export interface BiblioEditorFormProps {
   mode: 'create' | 'edit';
@@ -190,10 +313,24 @@ export default function BiblioEditorForm({
   const [z3950PickList, setZ3950PickList] = useState<Biblio[] | null>(null);
   const [z3950PickPage, setZ3950PickPage] = useState(0);
 
+  const [openSections, setOpenSections] = useState<Partial<Record<CollapsibleSectionId, boolean>>>({});
+
   const [sources, setSources] = useState<Source[]>([]);
   const [specimens, setSpecimens] = useState<SpecimenFormRow[]>([
     { barcode: '', callNumber: '', sourceId: '' },
   ]);
+
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const linkedCollectionsRef = useRef(linkedCollections);
+  linkedCollectionsRef.current = linkedCollections;
+  const linkedSeriesRef = useRef(linkedSeries);
+  linkedSeriesRef.current = linkedSeries;
+
+  const sectionOpen = (id: CollapsibleSectionId) => openSections[id] === true;
+  const toggleSection = (id: CollapsibleSectionId) => {
+    setOpenSections((s) => ({ ...s, [id]: !s[id] }));
+  };
 
   useEffect(() => {
     const fetchServers = async () => {
@@ -334,25 +471,29 @@ export default function BiblioEditorForm({
   };
 
   const applyZ3950Record = useCallback((item: Biblio) => {
-    setFormData((prev) => applyZ3950BiblioToForm(item, prev));
+    const prevForm = formDataRef.current;
+    const prevColl = linkedCollectionsRef.current;
+    const prevSer = linkedSeriesRef.current;
+    const nextForm = applyZ3950BiblioToForm(item, prevForm);
+    const nextColl = linkedCollectionsAfterZ3950(item, prevColl);
+    const nextSer = linkedSeriesAfterZ3950(item, prevSer);
+    const toOpen = computeZ3950OpenedSections(prevForm, nextForm, prevColl, nextColl, prevSer, nextSer);
+
+    setOpenSections((s) => {
+      const next = { ...s };
+      for (const id of toOpen) {
+        next[id] = true;
+      }
+      return next;
+    });
+
+    setFormData(nextForm);
     if (item.series && item.series.length > 0) {
-      setLinkedSeries(
-        item.series.map((s) => ({
-          id: s.id ?? undefined,
-          name: s.name ?? '',
-          volumeNumber: s.volumeNumber?.toString() ?? '',
-        }))
-      );
+      setLinkedSeries(nextSer);
     }
     const firstColl = item.collections?.[0] ?? item.collection;
     if (firstColl) {
-      setLinkedCollections([
-        {
-          id: firstColl.id ?? undefined,
-          name: firstColl.name ?? '',
-          volumeNumber: firstColl.volumeNumber?.toString() ?? '',
-        },
-      ]);
+      setLinkedCollections(nextColl);
     }
     setZ3950PickList(null);
     setZ3950PickPage(0);
@@ -684,12 +825,31 @@ export default function BiblioEditorForm({
             )}
           </>
         )}
+
+        {z3950Message && (
+          <div
+            className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+              z3950Message.type === 'success'
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+            }`}
+          >
+            {z3950Message.type === 'success' ? (
+              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            )}
+            <span>{z3950Message.text}</span>
+          </div>
+        )}
       </section>
 
-      <section className={BIBLIO_FORM_SECTION}>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          {t('items.formSectionTypeAndPublication')}
-        </h3>
+      <BiblioFormCollapsibleSection
+        sectionId="typeAndPublication"
+        title={t('items.formSectionTypeAndPublication')}
+        open={sectionOpen('typeAndPublication')}
+        onToggle={() => toggleSection('typeAndPublication')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -714,30 +874,27 @@ export default function BiblioEditorForm({
             placeholder="YYYY"
           />
         </div>
+      </BiblioFormCollapsibleSection>
 
-        {z3950Message && (
-          <div
-            className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
-              z3950Message.type === 'success'
-                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
-            }`}
-          >
-            {z3950Message.type === 'success' ? (
-              <CheckCircle className="h-4 w-4 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            )}
-            <span>{z3950Message.text}</span>
-          </div>
-        )}
-      </section>
-
-      <section className={BIBLIO_FORM_SECTION}>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          {t('items.formSectionAbstractAndIndexing')}
-        </h3>
+      <BiblioFormCollapsibleSection
+        sectionId="abstractAndIndexing"
+        title={t('items.formSectionAbstractAndIndexing')}
+        open={sectionOpen('abstractAndIndexing')}
+        onToggle={() => toggleSection('abstractAndIndexing')}
+      >
         <div>
+             <Input
+          label={t('items.subject')}
+          value={formData.subject}
+          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+        />
+        <Input
+          label={t('items.keywords')}
+          value={formData.keywords}
+          onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+          placeholder={t('items.keywordsHint')}
+        />
+
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('items.abstract')}
           </label>
@@ -748,23 +905,15 @@ export default function BiblioEditorForm({
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           />
         </div>
-        <Input
-          label={t('items.keywords')}
-          value={formData.keywords}
-          onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
-          placeholder={t('items.keywordsHint')}
-        />
-        <Input
-          label={t('items.subject')}
-          value={formData.subject}
-          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-        />
-      </section>
+             
+      </BiblioFormCollapsibleSection>
 
-      <section className={BIBLIO_FORM_SECTION}>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          {t('items.formSectionAudienceAndLanguage')}
-        </h3>
+      <BiblioFormCollapsibleSection
+        sectionId="audienceAndLanguage"
+        title={t('items.formSectionAudienceAndLanguage')}
+        open={sectionOpen('audienceAndLanguage')}
+        onToggle={() => toggleSection('audienceAndLanguage')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -801,10 +950,14 @@ export default function BiblioEditorForm({
             </select>
           </div>
         </div>
-      </section>
+      </BiblioFormCollapsibleSection>
 
-      <section className={BIBLIO_FORM_SECTION}>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.editionInfo')}</h3>
+      <BiblioFormCollapsibleSection
+        sectionId="edition"
+        title={t('items.editionInfo')}
+        open={sectionOpen('edition')}
+        onToggle={() => toggleSection('edition')}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Input
             label={t('items.publisher')}
@@ -822,15 +975,21 @@ export default function BiblioEditorForm({
             onChange={(e) => setFormData({ ...formData, editionDate: e.target.value })}
           />
         </div>
-      </section>
+      </BiblioFormCollapsibleSection>
 
-      <section className={BIBLIO_FORM_SECTION}>
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.authors')}</h3>
-          <Button type="button" size="sm" variant="secondary" onClick={addAuthor} leftIcon={<Plus className="h-3 w-3" />}>
-            {t('common.add')}
-          </Button>
-        </div>
+      <BiblioFormCollapsibleSection
+        sectionId="authors"
+        title={t('items.authors')}
+        open={sectionOpen('authors')}
+        onToggle={() => toggleSection('authors')}
+        headerRight={
+          sectionOpen('authors') ? (
+            <Button type="button" size="sm" variant="secondary" onClick={addAuthor} leftIcon={<Plus className="h-3 w-3" />}>
+              {t('common.add')}
+            </Button>
+          ) : null
+        }
+      >
         {formData.authors.length === 0 ? (
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('items.notSpecified')}</p>
         ) : (
@@ -874,9 +1033,14 @@ export default function BiblioEditorForm({
             </div>
           ))
         )}
-      </section>
+      </BiblioFormCollapsibleSection>
 
-      <section className={BIBLIO_FORM_SECTION}>
+      <BiblioFormCollapsibleSection
+        sectionId="collections"
+        title={t('items.collection')}
+        open={sectionOpen('collections')}
+        onToggle={() => toggleSection('collections')}
+      >
         <EntityLinker
           label={t('items.collection')}
           addLabel={t('catalog.searchOrCreateCollection')}
@@ -884,10 +1048,16 @@ export default function BiblioEditorForm({
           onChange={setLinkedCollections}
           onSearch={searchCollections}
           volumeLabel={t('catalog.volumeNumber')}
+          hideLabel
         />
-      </section>
+      </BiblioFormCollapsibleSection>
 
-      <section className={BIBLIO_FORM_SECTION}>
+      <BiblioFormCollapsibleSection
+        sectionId="series"
+        title={t('items.series')}
+        open={sectionOpen('series')}
+        onToggle={() => toggleSection('series')}
+      >
         <EntityLinker
           label={t('items.series')}
           addLabel={t('catalog.searchOrCreateSerie')}
@@ -895,14 +1065,17 @@ export default function BiblioEditorForm({
           onChange={setLinkedSeries}
           onSearch={searchSeries}
           volumeLabel={t('catalog.volumeNumber')}
+          hideLabel
         />
-      </section>
+      </BiblioFormCollapsibleSection>
 
       {showSpecimens && (
-        <section className={BIBLIO_FORM_SECTION}>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('items.specimensOptional')}
-          </label>
+        <BiblioFormCollapsibleSection
+          sectionId="specimens"
+          title={t('items.specimensOptional')}
+          open={sectionOpen('specimens')}
+          onToggle={() => toggleSection('specimens')}
+        >
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('items.specimensOptionalHint')}</p>
           <div className="space-y-3">
             {specimens.map((specimen, index) => (
@@ -956,7 +1129,7 @@ export default function BiblioEditorForm({
           <Button type="button" variant="secondary" size="sm" onClick={handleAddSpecimen} leftIcon={<Plus className="h-4 w-4" />}>
             {t('items.addSpecimen')}
           </Button>
-        </section>
+        </BiblioFormCollapsibleSection>
       )}
     </form>
   );

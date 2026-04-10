@@ -1,31 +1,49 @@
 # Elidune UI
 
-A React single-page application for [Elidune](https://elidune.b-612.fr), a library management system. It provides catalog access, loans, circulation, statistics, and administration in a responsive UI with light/dark themes.
+A Modern React application for [Elidune](https://elidune.b-612.fr), a library management system. It provides catalog access, loans, circulation, statistics, and administration.
 
-**Repository:** [github.com/elidune/elidune-ui](https://github.com/elidune/elidune-ui) · **Issues:** [GitHub Issues](https://github.com/elidune/elidune-ui/issues)
+**Live demo:** [elidune.b-612.fr](https://elidune.b-612.fr/) (credentials: admin/admin)
 
-## Features
+## Features — for library teams
 
-### All authenticated users
+Elidune UI is a **single web application**: after sign-in, each user only sees features allowed by their **account type** (see [Authentication](#authentication)). The **OPAC** (online public access catalogue) is the **reader-facing** part of that same application—it is not a separate product.
 
-- **Catalog**: Search and browse bibliographic records, with specimen (copy) availability
-- **My loans**: Current loans, history, renewals
-- **Events**: Library events calendar
-- **Profile**: Language, theme, password, two-factor authentication (TOTP and email); trusted devices for 2FA
+### OPAC — what readers can do
 
-### Librarians
+**Reader** accounts (and **Guest**, when the API allows it) typically get a public-catalogue experience:
 
-- **Users**: Account management
-- **Loans & holds**: Circulation and reservations
-- **Inventory**: Specimen-level management
-- **Statistics**: Activity and catalog metrics
-- **Cataloguing**: Create/edit bibliographic records, Z39.50 search, ISO import
-- **Events**: Manage library events
-- **Library**: Library information and presentation
+- **Search the catalogue** with free text; refine with filters (material type, audience, and so on) and optional advanced criteria (title, author, ISBN).
+- **Browse discovery entry points**: **collections** and **series**, then filtered result lists.
+- **Open a bibliographic record**: full metadata, links to authors and related entities, a list of **copies** with availability, call numbers, and identifiers as you configure them.
+- **Place a hold** on a borrowable copy when your loan policy allows it.
+- **Track their loans**: current loans, history, and **renewals** within the rules defined on the server.
+- **See the library calendar** (events) and a **home** area with reminders (e.g. overdue items) and, when data is present, **library context** (including opening hours where applicable).
+- **Manage their profile**: interface language, light/dark theme, password, and optionally **two-factor authentication** (authenticator app or e-mail) and trusted devices—depending on what the API exposes.
 
-### Administrators
+Actual permissions (guest vs reader, holds, and so on) always depend on **Elidune**; the UI only displays and triggers what the API authorizes.
 
-- **Settings**: Loan rules and system parameters exposed by the API
+### Professional tools — librarians and administrators
+
+**Librarian** and **Administrator** accounts retain the OPAC above and add back-office capabilities:
+
+- **Circulation**: checkout, check-in, and other desk workflows your API provides.
+- **Holds**: processing queues (pickup, cancellations, and so on, per your processes).
+- **Patrons**: search accounts, patron records, and staff actions the API allows.
+- **Cataloguing**: create and edit bibliographic records, manage **copies** (barcodes, location, availability-related fields); delete records when business rules permit.
+- **Inventory**: **inventory sessions** (optional scope, e.g. by site), **scanner** input or **batch** barcodes, scan history, and **missing** items for the session.
+- **Statistics**: summary indicators, loan/return trends over time, collection metrics (e.g. by year or source), **advanced** tabs when the API supplies them.
+- **Outreach and branding**: update **library information** (copy, contact, data behind hours shown to patrons) and **manage events** that appear on the reader calendar.
+- **Data loading**: **Z39.50** copy-cataloguing from configured targets and **ISO 2709 (MARC)** file import as implemented on the server.
+
+### System administration — administrators only
+
+**Administrator** accounts open **settings** to configure what the API exposes, for example:
+
+- **Loan** rules and **patron / material** categories (loan periods, renewals, quotas as applicable).
+- Cataloguing reference data: **material types**, **sources**, **Z39.50 servers**.
+- **Maintenance** (messages or mode), **audit log**, and other server-level options depending on your deployment.
+
+Business rules (required fields, blocks, hold policy) always follow your **Elidune** configuration; this client is the front end to those rules.
 
 ## Prerequisites
 

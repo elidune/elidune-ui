@@ -37,7 +37,9 @@
     "copied": "Copié",
     "copy": "Copier",
     "active": "Actif",
-    "refresh": "Rafraîchir"
+    "refresh": "Rafraîchir",
+    "expandSection": "Développer la section",
+    "collapseSection": "Réduire la section"
   },
   "nav": {
     "home": "Accueil",

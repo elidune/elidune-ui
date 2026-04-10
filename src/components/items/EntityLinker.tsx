@@ -24,6 +24,8 @@ interface EntityLinkerProps {
   /** Return matching items for the query (max ~10). */
   onSearch: (query: string) => Promise<SuggestedItem[]>;
   volumeLabel?: string;
+  /** When true, the top label line is omitted (e.g. when wrapped in a collapsible section title). */
+  hideLabel?: boolean;
 }
 
 export function EntityLinker({
@@ -33,6 +35,7 @@ export function EntityLinker({
   onChange,
   onSearch,
   volumeLabel,
+  hideLabel = false,
 }: EntityLinkerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -123,7 +126,9 @@ export function EntityLinker({
 
   return (
     <div className="space-y-3">
-      <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+      {!hideLabel ? (
+        <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+      ) : null}
 
       {/* Linked entries */}
       {entries.length > 0 && (
