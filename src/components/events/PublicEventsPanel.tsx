@@ -30,7 +30,7 @@ export default function PublicEventsPanel({
   const singleEventLayout = !isLoading && events.length === 1;
 
   return (
-    <>
+    <div className="flex h-full min-h-0 min-w-0 w-full flex-1">
       {!singleEventLayout && (
       <div
         className={`flex flex-col overflow-hidden flex-shrink-0 min-h-0 ${
@@ -68,7 +68,9 @@ export default function PublicEventsPanel({
             <div>
               {events.map((event) => {
                 const isSelected = selectedEventId === event.id;
-                const typeKey = EVENT_TYPE_KEYS[event.eventType] ?? 'events.types.other';
+                const typeNum = Number(event.eventType);
+                const typeKey =
+                  !Number.isNaN(typeNum) ? (EVENT_TYPE_KEYS[typeNum] ?? 'events.types.other') : 'events.types.other';
                 const timeLine =
                   event.startTime && event.endTime
                     ? `${event.startTime}–${event.endTime}`
@@ -113,7 +115,7 @@ export default function PublicEventsPanel({
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            EVENT_TYPE_COLORS[event.eventType] ?? EVENT_TYPE_COLORS[6]
+                            EVENT_TYPE_COLORS[!Number.isNaN(typeNum) ? typeNum : 6] ?? EVENT_TYPE_COLORS[6]
                           }`}
                         >
                           <Tag className="h-2.5 w-2.5" />
@@ -152,6 +154,6 @@ export default function PublicEventsPanel({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }

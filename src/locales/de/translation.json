@@ -125,6 +125,9 @@
     "students": "Schüler",
     "partnerName": "Partner",
     "targetPublicLabel": "Zielgruppe",
+    "targetPublic": {
+      "all": "Alle Zielgruppen"
+    },
     "attendeesCount": "Anzahl der Teilnehmer",
     "schoolName": "Schule",
     "className": "Klasse",
@@ -158,7 +161,16 @@
     "studentsCount": "Anzahl der Schüler",
     "flyerOrAttachment": "Flyer oder Anhang (Bild oder PDF)",
     "removeAttachment": "Anhang entfernen",
-    "manageEvents": "Veranstaltungen verwalten"
+    "manageEvents": "Veranstaltungen verwalten",
+    "types": {
+      "animation": "Animation",
+      "schoolVisit": "Schulbesuch",
+      "exhibition": "Ausstellung",
+      "conference": "Konferenz",
+      "workshop": "Workshop",
+      "show": "Aufführung",
+      "other": "Sonstige"
+    }
   },
   "profile": {
     "notes": "Anmerkungen",
@@ -1204,12 +1216,14 @@
     "tabEvents": "Events",
     "tabCatalog": "Catalogue",
     "eventsEmpty": "Upcoming library events will appear here.",
-    "resultsCount": "{{count}} document found",
+    "resultsCount_one": "{{count}} Dokument gefunden",
+    "resultsCount_other": "{{count}} Dokumente gefunden",
     "searchResults": "Results",
     "searchPrompt": "Search to explore the catalogue",
-    "moreResults": "… and {{count}} more results",
     "readerSpace": "Reader space",
-    "resultsCount_plural": "{{count}} documents found",
+    "pageOf": "Seite {{page}} von {{pageCount}}",
+    "paginationPrevious": "Vorherige Seite",
+    "paginationNext": "Nächste Seite",
     "featureReserve": "Dokument reservieren",
     "featureRenew": "Ausleihe verlängern",
     "featureHistory": "Ausleihen-Verlauf",

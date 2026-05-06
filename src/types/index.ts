@@ -1086,7 +1086,7 @@ export interface Event {
   className?: string | null;
   attendeesCount?: number | null;
   studentsCount?: number | null;
-  targetPublic?: number | null;
+  publicType?: string | null;
   notes?: string | null;
   announcementSentAt?: string | null;
   createdAt?: string | null;
@@ -1111,7 +1111,7 @@ export interface CreateEvent {
   className?: string | null;
   attendeesCount?: number | null;
   studentsCount?: number | null;
-  targetPublic?: number | null;
+  publicType?: string | null;
   notes?: string | null;
   attachment?: EventAttachmentInput | null;
 }
@@ -1128,7 +1128,7 @@ export interface UpdateEvent {
   className?: string | null;
   attendeesCount?: number | null;
   studentsCount?: number | null;
-  targetPublic?: number | null;
+  publicType?: string | null;
   notes?: string | null;
   attachment?: EventAttachmentInput | null;
   removeAttachment?: boolean | null;

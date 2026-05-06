@@ -18,8 +18,3 @@ export const EVENT_TYPE_KEYS: Record<number, string> = {
   5: 'events.types.show',
   6: 'events.types.other',
 };
-
-export const TARGET_PUBLIC_KEYS: Record<number, string> = {
-  97: 'events.targetPublic.adult',
-  106: 'events.targetPublic.children',
-};

@@ -18,6 +18,8 @@ import {
 import { Card, Button, Table, Pagination, Modal, Input, ConfirmDialog, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
 import type { Event, CreateEvent, UpdateEvent } from '@/types';
+import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
+import { eventPublicTypeDisplayLabel } from '@/utils/eventPublicType';
 import { fileToAttachmentInput, base64ToDataUrl, isImageMime } from '@/utils/eventAttachment';
 import EventAttachmentLead from '@/components/events/EventAttachmentLead';
 
@@ -32,13 +34,6 @@ const EVENT_TYPES = [
   { value: 4, labelKey: 'events.types.workshop' },
   { value: 5, labelKey: 'events.types.show' },
   { value: 6, labelKey: 'events.types.other' },
-];
-
-// targetPublic: 97=adult, 106=children, null=all
-const TARGET_PUBLIC_OPTIONS = [
-  { value: '', labelKey: 'events.targetPublic.all' },
-  { value: '97', labelKey: 'events.targetPublic.adult' },
-  { value: '106', labelKey: 'events.targetPublic.children' },
 ];
 
 const EVENT_TYPE_COLORS: Record<number, string> = {
@@ -63,6 +58,7 @@ function yesterdayStr(): string {
 
 export default function EventsPage() {
   const { t } = useTranslation();
+  const { data: publicTypes = [] } = usePublicTypesQuery();
 
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -233,6 +229,18 @@ export default function EventsPage() {
         ) : (
           <span className="text-gray-400 text-sm">—</span>
         ),
+    },
+    {
+      key: 'publicType',
+      header: t('events.targetPublicLabel'),
+      render: (event: Event) => {
+        const label = eventPublicTypeDisplayLabel(event.publicType, publicTypes);
+        return (
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            {label ?? t('events.targetPublic.all')}
+          </span>
+        );
+      },
     },
     {
       key: 'actions',
@@ -469,6 +477,7 @@ interface EventFormProps {
 
 function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventFormProps) {
   const { t } = useTranslation();
+  const { data: publicTypes = [] } = usePublicTypesQuery();
   const isEdit = !!initialValues;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -484,7 +493,7 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
     className: initialValues?.className ?? '',
     attendeesCount: initialValues?.attendeesCount != null ? String(initialValues.attendeesCount) : '',
     studentsCount: initialValues?.studentsCount != null ? String(initialValues.studentsCount) : '',
-    targetPublic: initialValues?.targetPublic != null ? String(initialValues.targetPublic) : '',
+    publicType: initialValues?.publicType?.trim() ? initialValues.publicType : '',
     notes: initialValues?.notes ?? '',
   });
 
@@ -534,7 +543,7 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
         className: formData.className || null,
         attendeesCount: formData.attendeesCount !== '' ? Number(formData.attendeesCount) : null,
         studentsCount: formData.studentsCount !== '' ? Number(formData.studentsCount) : null,
-        targetPublic: formData.targetPublic !== '' ? Number(formData.targetPublic) : null,
+        publicType: formData.publicType.trim() !== '' ? formData.publicType.trim() : null,
         notes: formData.notes || null,
       };
 
@@ -556,7 +565,7 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
           className: common.className,
           attendeesCount: common.attendeesCount,
           studentsCount: common.studentsCount,
-          targetPublic: common.targetPublic,
+          publicType: common.publicType,
           notes: common.notes,
         };
         if (attachmentFile) c.attachment = await fileToAttachmentInput(attachmentFile);
@@ -647,13 +656,14 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
             {t('events.targetPublicLabel')}
           </label>
           <select
-            value={formData.targetPublic}
-            onChange={(e) => setFormData({ ...formData, targetPublic: e.target.value })}
+            value={formData.publicType}
+            onChange={(e) => setFormData({ ...formData, publicType: e.target.value })}
             className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           >
-            {TARGET_PUBLIC_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
+            <option value="">{t('events.targetPublic.all')}</option>
+            {publicTypes.map((pt) => (
+              <option key={pt.id} value={pt.name}>
+                {pt.label}
               </option>
             ))}
           </select>

@@ -125,6 +125,9 @@
     "students": "alumnos",
     "partnerName": "Socio",
     "targetPublicLabel": "Público objetivo",
+    "targetPublic": {
+      "all": "Todas las audiencias"
+    },
     "attendeesCount": "Número de asistentes",
     "schoolName": "Escuela",
     "className": "Clase",
@@ -158,7 +161,16 @@
     "studentsCount": "Número de alumnos",
     "flyerOrAttachment": "Folleto o adjunto (imagen o PDF)",
     "removeAttachment": "Eliminar adjunto",
-    "manageEvents": "Gestionar eventos"
+    "manageEvents": "Gestionar eventos",
+    "types": {
+      "animation": "Animación",
+      "schoolVisit": "Visita escolar",
+      "exhibition": "Exposición",
+      "conference": "Conferencia",
+      "workshop": "Taller",
+      "show": "Espectáculo",
+      "other": "Otro"
+    }
   },
   "profile": {
     "notes": "Notas",
@@ -1204,12 +1216,14 @@
     "tabEvents": "Events",
     "tabCatalog": "Catalogue",
     "eventsEmpty": "Upcoming library events will appear here.",
-    "resultsCount": "{{count}} document found",
+    "resultsCount_one": "{{count}} documento encontrado",
+    "resultsCount_other": "{{count}} documentos encontrados",
     "searchResults": "Results",
     "searchPrompt": "Search to explore the catalogue",
-    "moreResults": "… and {{count}} more results",
     "readerSpace": "Reader space",
-    "resultsCount_plural": "{{count}} documents found",
+    "pageOf": "Página {{page}} de {{pageCount}}",
+    "paginationPrevious": "Página anterior",
+    "paginationNext": "Página siguiente",
     "featureReserve": "Reservar un documento",
     "featureRenew": "Renovar un préstamo",
     "featureHistory": "Historial de préstamos",

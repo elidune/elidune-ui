@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   KeyRound,
   X,
+  ChevronLeft,
   ChevronRight,
   BookOpen,
   Newspaper,
@@ -278,7 +279,7 @@ function BiblioDetailPane({
     : [];
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {/* Pane header — same height as the list header */}
       <div className="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800 flex items-start gap-2 flex-shrink-0">
         <div className="flex-1 min-w-0">
@@ -387,7 +388,7 @@ function BiblioDetailPane({
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -406,10 +407,12 @@ export default function LoginPage() {
   const [activeSearch, setActiveSearch] = useState('');
   const [activeMediaType, setActiveMediaType] = useState<MediaType | ''>('');
   const [selectedBiblioId, setSelectedBiblioId] = useState<string | null>(null);
+  const [opacPage, setOpacPage] = useState(1);
   const [resultsTab, setResultsTab] = useState<'events' | 'catalog'>('events');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   /** When true, keep detail pane closed after user cleared selection (click / Escape). */
   const userDismissedEventSelectionRef = useRef(false);
+  const userDismissedBiblioSelectionRef = useRef(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -421,18 +424,44 @@ export default function LoginPage() {
   const hasQuery = activeSearch.length > 0 || activeMediaType !== '';
 
   const { data: opacData, isLoading: opacLoading } = useQuery({
-    queryKey: ['opac-biblios', activeSearch, activeMediaType],
+    queryKey: ['opac-biblios', activeSearch, activeMediaType, opacPage],
     queryFn: () =>
       api.getOPACBiblios({
         freesearch: activeSearch || undefined,
         mediaType: (activeMediaType as MediaType) || undefined,
-        perPage: 8,
+        page: opacPage,
+        perPage: 20,
       }),
     enabled: hasQuery,
     staleTime: 2 * 60 * 1000,
   });
 
   const biblios = opacData?.items ?? [];
+  const opacBiblioIds = biblios.map((b) => b.id).join(',');
+
+  useEffect(() => {
+    setOpacPage(1);
+  }, [activeSearch, activeMediaType]);
+
+  useEffect(() => {
+    userDismissedBiblioSelectionRef.current = false;
+  }, [activeSearch, activeMediaType, opacPage]);
+
+  // Default selection: first row of the current page; keep current row if it stays on the page.
+  useEffect(() => {
+    if (resultsTab !== 'catalog' || !hasQuery) return;
+    if (opacLoading) return;
+    if (biblios.length === 0) {
+      setSelectedBiblioId(null);
+      return;
+    }
+    setSelectedBiblioId((prev) => {
+      if (prev && biblios.some((b) => b.id === prev)) return prev;
+      if (prev === null && userDismissedBiblioSelectionRef.current) return null;
+      userDismissedBiblioSelectionRef.current = false;
+      return biblios[0]!.id;
+    });
+  }, [resultsTab, hasQuery, opacLoading, opacBiblioIds, opacPage]);
 
   const { data: eventsData, isLoading: eventsLoading } = useQuery({
     queryKey: ['public-events-login'],
@@ -458,7 +487,10 @@ export default function LoginPage() {
         searchRef.current?.focus();
       }
       if (e.key === 'Escape') {
-        if (selectedBiblioId) setSelectedBiblioId(null);
+        if (selectedBiblioId) {
+          userDismissedBiblioSelectionRef.current = true;
+          setSelectedBiblioId(null);
+        }
         if (selectedEventId) {
           if (resultsTab === 'events' && eventRows?.length === 1) {
             return;
@@ -493,7 +525,6 @@ export default function LoginPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setActiveSearch(searchInput.trim());
-    setSelectedBiblioId(null);
     setResultsTab('catalog');
   };
 
@@ -512,7 +543,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
       {/* 2FA modal overlay */}
       {pending2FA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -520,10 +551,10 @@ export default function LoginPage() {
         </div>
       )}
 
-      <div className="w-[80%] mx-auto py-6 sm:py-8 space-y-4 sm:space-y-6">
+      <div className="mx-auto flex w-[80%] flex-1 flex-col gap-4 py-6 min-h-0 sm:gap-6 sm:py-8">
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 sm:p-8 shadow-sm">
+        <div className="relative shrink-0 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 sm:p-8 shadow-sm">
           <img
             src="/elidune_logo.png"
             alt=""
@@ -575,37 +606,47 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* ── Results + Login ───────────────────────────────────────────── */}
-        <div className="flex gap-4 sm:gap-6 items-start">
+        {/* ── Results + Login (fills space so library info sits at bottom of page) ─ */}
+        <div className="flex min-h-0 flex-1 gap-4 sm:gap-6 items-stretch">
 
           {/* Results card — tabs + list/detail panes */}
-          <Card padding="none" className="flex-1 flex flex-col overflow-hidden min-h-[800px] max-h-[800px]">
-            <div className="flex gap-1 px-2 pt-2 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+          <Card
+            padding="none"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden border-gray-200/80 shadow-md dark:shadow-none dark:border-gray-800"
+          >
+            <div
+              className="flex flex-shrink-0 gap-0 border-b border-gray-200 bg-gray-50/80 px-2 dark:border-gray-800 dark:bg-gray-900/50"
+              role="tablist"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={resultsTab === 'events'}
                 onClick={() => {
                   userDismissedEventSelectionRef.current = false;
                   setResultsTab('events');
                   setSelectedBiblioId(null);
                 }}
-                className={`px-3 py-2 rounded-t-lg text-sm font-semibold transition-colors ${
+                className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
                   resultsTab === 'events'
-                    ? 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                    ? 'text-amber-800 after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-amber-500 dark:text-amber-300 dark:after:bg-amber-400'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 {t('opac.tabEvents')}
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={resultsTab === 'catalog'}
                 onClick={() => {
                   setResultsTab('catalog');
                   setSelectedEventId(null);
                 }}
-                className={`px-3 py-2 rounded-t-lg text-sm font-semibold transition-colors ${
+                className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
                   resultsTab === 'catalog'
-                    ? 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                    ? 'text-amber-800 after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-amber-500 dark:text-amber-300 dark:after:bg-amber-400'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
                 {t('opac.tabCatalog')}
@@ -641,13 +682,19 @@ export default function LoginPage() {
                 )}
 
                 {resultsTab === 'catalog' && (
-                  <>
+                  <div className="flex min-h-0 min-w-0 flex-1 items-stretch">
                     <div
-                      className={`flex flex-col overflow-hidden flex-shrink-0 min-h-0 ${
-                        selectedBiblioId ? 'w-72 border-r border-gray-100 dark:border-gray-800' : 'flex-1'
+                      className={`grid min-h-0 h-full min-w-0 overflow-hidden ${
+                        hasQuery && !opacLoading && opacData != null && (opacData.pageCount ?? 0) > 1
+                          ? 'grid-rows-[auto_minmax(0,1fr)_auto]'
+                          : 'grid-rows-[auto_minmax(0,1fr)]'
+                      } ${
+                        selectedBiblioId
+                          ? 'w-72 flex-shrink-0 border-r border-gray-100 dark:border-gray-800'
+                          : 'min-w-0 flex-1'
                       }`}
                     >
-                      <div className="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
+                      <div className="shrink-0 border-b border-gray-100 px-4 pt-4 pb-3 dark:border-gray-800">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                           {opacData
                             ? t('opac.resultsCount', { count: opacData.total })
@@ -655,7 +702,7 @@ export default function LoginPage() {
                         </h3>
                       </div>
 
-                      <div className="overflow-y-auto flex-1 px-4 py-2 min-h-0">
+                      <div className="min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-2 [scrollbar-gutter:stable]">
                         {!hasQuery ? (
                           <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                             {t('opac.searchPrompt')}
@@ -694,7 +741,10 @@ export default function LoginPage() {
                                 <button
                                   key={biblio.id}
                                   type="button"
-                                  onClick={() => setSelectedBiblioId(isSelected ? null : biblio.id)}
+                                  onClick={() => {
+                                    userDismissedBiblioSelectionRef.current = false;
+                                    setSelectedBiblioId(biblio.id);
+                                  }}
                                   className={`w-full text-left flex items-center gap-3 py-2.5 border-b border-gray-50 dark:border-gray-800/50 last:border-0 rounded-lg px-2 -mx-2 transition-colors ${
                                     isSelected
                                       ? 'bg-amber-50 dark:bg-amber-900/20'
@@ -738,39 +788,75 @@ export default function LoginPage() {
                               );
                             })}
 
-                            {activeSearch && opacData && opacData.total > biblios.length && (
-                              <p className="py-2 text-xs text-gray-400 dark:text-gray-500">
-                                {t('opac.moreResults', { count: opacData.total - biblios.length })}
-                              </p>
-                            )}
                           </div>
                         )}
                       </div>
+
+                      {hasQuery &&
+                        !opacLoading &&
+                        opacData != null &&
+                        (opacData.pageCount ?? 0) > 1 && (
+                          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-100 px-2 py-2 dark:border-gray-800">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="shrink-0 px-2"
+                              disabled={opacPage <= 1}
+                              onClick={() => setOpacPage((p) => Math.max(1, p - 1))}
+                              aria-label={t('opac.paginationPrevious')}
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="min-w-0 flex-1 text-center text-xs text-gray-600 dark:text-gray-400">
+                              {t('opac.pageOf', {
+                                page: opacData.page,
+                                pageCount: opacData.pageCount,
+                              })}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="shrink-0 px-2"
+                              disabled={opacPage >= (opacData.pageCount ?? 1)}
+                              onClick={() =>
+                                setOpacPage((p) => Math.min(opacData.pageCount, p + 1))
+                              }
+                              aria-label={t('opac.paginationNext')}
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                     </div>
 
                     {selectedBiblioId && (
                       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white dark:bg-gray-900">
                         <BiblioDetailPane
                           biblioId={selectedBiblioId}
-                          onClose={() => setSelectedBiblioId(null)}
+                          onClose={() => {
+                            userDismissedBiblioSelectionRef.current = true;
+                            setSelectedBiblioId(null);
+                          }}
                         />
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           </Card>
 
-          {/* Login — fixed width, does not grow */}
-          <div className="w-80 flex-shrink-0">
-            <Card padding="none">
-              <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 dark:border-gray-800">
+          {/* Login — same height as results column */}
+          <div className="flex min-h-0 w-80 flex-shrink-0 flex-col self-stretch">
+            <Card padding="none" className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="shrink-0 border-b border-gray-100 px-4 pt-3 pb-2.5 dark:border-gray-800">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t('opac.readerSpace')}
                 </h3>
               </div>
-              <div className="px-4 py-3 space-y-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
                 <form onSubmit={handleLogin} className="space-y-2">
                   <div className="space-y-2">
                     <Input
@@ -846,14 +932,16 @@ export default function LoginPage() {
 
         </div>
 
-        {/* ── Library info ─────────────────────────────────────────────── */}
-        <LibraryInfoSection
-          info={libraryInfo}
-          slots={scheduleSlots}
-        />
+        {/* ── Library info (stays at bottom of the main column) ────────── */}
+        <div className="shrink-0">
+          <LibraryInfoSection
+            info={libraryInfo}
+            slots={scheduleSlots}
+          />
+        </div>
 
         {/* ── Footer ───────────────────────────────────────────────────── */}
-        <div className="pt-1 pb-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-400 dark:text-gray-500">
+        <div className="shrink-0 border-t border-gray-200 pt-1 pb-2 text-xs text-gray-400 dark:text-gray-500 dark:border-gray-800">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="flex-1" />
             <Link to="/about" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
