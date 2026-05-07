@@ -9,6 +9,8 @@ import {
   FirstSetupPage,
   MaintenancePage,
   LoginPage,
+  ForgotPasswordPage,
+  ResetPasswordPage,
   MustChangePasswordPage,
   HomePage,
   BibliosPage,
@@ -88,6 +90,8 @@ function AppRoutes() {
       <Route path="/first-setup" element={<FirstSetupPage />} />
       <Route path="/maintenance" element={<MaintenancePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/change-password" element={<MustChangePasswordPage />} />
 
       <Route

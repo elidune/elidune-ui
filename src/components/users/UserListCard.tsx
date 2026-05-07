@@ -1,14 +1,16 @@
 import { BookMarked, ChevronRight, Edit, RefreshCw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/common';
-import type { PublicType, UserShort } from '@/types';
+import type { AccountTypeDefinition, PublicType, UserShort } from '@/types';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
 import { formatSubscriptionExpiryLine } from '@/utils/subscriptionDisplay';
 import { LIST_ROW_ICON_BTN, LIST_ROW_ICON_BTN_DANGER, LIST_ROW_ICON_BTN_MUTED } from '@/utils/listRowActionIconClass';
+import { accountTypeDisplayName } from '@/utils/accountTypeDisplay';
 
 interface UserListCardProps {
   user: UserShort;
   publicTypes: PublicType[];
+  accountTypes: AccountTypeDefinition[];
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -22,6 +24,7 @@ interface UserListCardProps {
 export default function UserListCard({
   user,
   publicTypes,
+  accountTypes,
   onOpen,
   onEdit,
   onDelete,
@@ -34,6 +37,7 @@ export default function UserListCard({
   const { t, i18n } = useTranslation();
   const loanCount = user.loans?.length ?? user.nbLoans ?? 0;
   const renewDisabled = !isSubscriptionExpired(user.expiryAt);
+  const accountLabel = accountTypeDisplayName(accountTypes, user.accountType);
   const publicLabel = user.publicType
     ? publicTypes.find((p) => p.id === String(user.publicType))?.label
     : null;
@@ -64,7 +68,7 @@ export default function UserListCard({
             {user.firstname} {user.lastname}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {user.accountType}
+            {accountLabel}
             {publicLabel ? <> · {publicLabel}</> : null}
           </p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">

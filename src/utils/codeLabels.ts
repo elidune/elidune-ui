@@ -52,15 +52,26 @@ export const SEX_OPTIONS: CodeOption[] = [
   { value: '', labelKey: 'codes.sex.unknown' },
 ];
 
-// Account type (tab_accounttype)
-export const ACCOUNT_TYPE_OPTIONS: CodeOption[] = [
-  { value: '0', labelKey: 'codes.accountType.unknown' },
-  { value: '1', labelKey: 'codes.accountType.guest' },
-  { value: '2', labelKey: 'codes.accountType.reader' },
-  { value: '3', labelKey: 'codes.accountType.librarian' },
-  { value: '4', labelKey: 'codes.accountType.admin' },
-  { value: '8', labelKey: 'codes.accountType.group' },
-];
+// Legacy numeric account type codes (stats / old data) → i18n keys
+const ACCOUNT_TYPE_LEGACY_LABEL_KEYS: Record<string, string> = {
+  '0': 'codes.accountType.unknown',
+  '1': 'codes.accountType.guest',
+  '2': 'codes.accountType.reader',
+  '3': 'codes.accountType.librarian',
+  '4': 'codes.accountType.admin',
+  '8': 'codes.accountType.group',
+};
+
+// Slug / text (lowercase) → i18n keys for stats labels
+const ACCOUNT_TYPE_SLUG_LABEL_KEYS: Record<string, string> = {
+  guest: 'codes.accountType.guest',
+  reader: 'codes.accountType.reader',
+  librarian: 'codes.accountType.librarian',
+  admin: 'codes.accountType.admin',
+  administrator: 'codes.accountType.admin',
+  group: 'codes.accountType.group',
+  unknown: 'codes.accountType.unknown',
+};
 
 
 // Author function (Function enum from server, serialized as camelCase)
@@ -186,8 +197,12 @@ export function translateStatLabel(
       return key ? t(key) : label;
     }
     case 'accountType': {
-      const opt = ACCOUNT_TYPE_OPTIONS.find((o) => o.value === label);
-      return opt ? t(opt.labelKey) : label;
+      const normalized = String(label ?? '').trim();
+      const slugKey = ACCOUNT_TYPE_SLUG_LABEL_KEYS[normalized.toLowerCase()];
+      if (slugKey) return t(slugKey);
+      const numKey = ACCOUNT_TYPE_LEGACY_LABEL_KEYS[normalized];
+      if (numKey) return t(numKey);
+      return label;
     }
     case 'publicType': {
       // First try textual labels (adult, children, unknown)

@@ -137,6 +137,19 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+/** POST /auth/request-password-reset (public, no JWT) */
+export interface RequestPasswordResetRequest {
+  identifier: string;
+  /** Full URL template; must contain literal `<token>` if provided. */
+  resetUrl?: string;
+}
+
+/** POST /auth/reset-password (public, no JWT) */
+export interface ResetPasswordFromTokenRequest {
+  token: string;
+  newPassword: string;
+}
+
 export interface UserShort {
   id: string;
   firstname?: string | null;
@@ -913,6 +926,33 @@ export interface Source {
   default?: boolean;
 }
 
+/** Library role with permission flags — GET /account-types (camelCase). */
+export interface AccountTypeDefinition {
+  code: string;
+  name: string;
+  itemsRights: string | null;
+  usersRights: string | null;
+  loansRights: string | null;
+  itemsArchiveRights: string | null;
+  borrowsRights: string | null;
+  settingsRights: string | null;
+  eventsRights: string | null;
+}
+
+export type AccountTypeRightLevel = 'n' | 'r' | 'w';
+
+/** PUT /account-types/:code — partial body; each right must be n, r, w, or null when clearing. */
+export interface UpdateAccountTypeRequest {
+  name?: string;
+  itemsRights?: AccountTypeRightLevel | null;
+  usersRights?: AccountTypeRightLevel | null;
+  loansRights?: AccountTypeRightLevel | null;
+  itemsArchiveRights?: AccountTypeRightLevel | null;
+  borrowsRights?: AccountTypeRightLevel | null;
+  settingsRights?: AccountTypeRightLevel | null;
+  eventsRights?: AccountTypeRightLevel | null;
+}
+
 // Account types for permissions
 export type AccountType = 'Guest' | 'Reader' | 'Librarian' | 'Administrator';
 
@@ -940,6 +980,29 @@ export const canViewStats = (accountType?: string): boolean =>
 
 export const canManageSettings = (accountType?: string): boolean =>
   isAdmin(accountType);
+
+/** PUT /settings/email-templates/:templateId/:language */
+export interface UpdateEmailTemplateRequest {
+  subject: string;
+  bodyPlain: string;
+  bodyHtml: string | null;
+}
+
+/** Row from GET /settings/email-templates */
+export interface EmailTemplateListItem {
+  templateId: string;
+  language: string;
+  subject?: string | null;
+  bodyPlain?: string | null;
+  bodyHtml?: string | null;
+  updatedAt?: string | null;
+}
+
+export type EmailTemplateDetail = EmailTemplateListItem & {
+  subject: string;
+  bodyPlain: string;
+  bodyHtml: string | null;
+};
 
 // Admin dynamic config (GET/PUT/DELETE /admin/config)
 export type AdminConfigSectionKey = 'email' | 'logging' | 'reminders' | 'audit' | 'holds';

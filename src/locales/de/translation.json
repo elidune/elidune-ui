@@ -889,6 +889,50 @@
       "mediaType": "Medientyp",
       "addOverride": "Ausnahme hinzufügen"
     },
+    "accountTypes": {
+      "title": "Kontotypen",
+      "subtitle": "Bibliotheksrollen und Berechtigungen (Dokumente, Benutzer, Ausleihen usw.).",
+      "errorLoad": "Kontotypen konnten nicht geladen werden.",
+      "empty": "Der Server hat keine Kontotypen zurückgegeben.",
+      "code": "Code",
+      "name": "Bezeichnung",
+      "readOnlyHint": "Sie können Kontotypen und Rechte einsehen. Nur Administratoren können sie bearbeiten.",
+      "forbidden": "Sie dürfen Kontotypen nicht ändern.",
+      "reloginHint": "Rechteänderungen gelten für neue Sitzungen. Melden Sie sich ab und wieder an (oder warten Sie auf Token-Ablauf), um aktualisierte Rechte zu nutzen.",
+      "rights": {
+        "itemsRights": "Dokumente",
+        "usersRights": "Benutzer",
+        "loansRights": "Ausleihen",
+        "itemsArchiveRights": "Archiv",
+        "borrowsRights": "Entlehnungen",
+        "settingsRights": "Einstellungen",
+        "eventsRights": "Veranstaltungen"
+      },
+      "level": {
+        "none": "—",
+        "n": "Keine (n)",
+        "r": "Lesen (r)",
+        "w": "Schreiben (w)"
+      }
+    },
+    "emailTemplates": {
+      "title": "E-Mail-Vorlagen",
+      "templates": "Vorlagen",
+      "editorTitle": "Vorlage bearbeiten",
+      "errorLoad": "E-Mail-Vorlagen konnten nicht geladen werden.",
+      "empty": "Der Server hat keine E-Mail-Vorlagen zurückgegeben.",
+      "readOnlyHint": "Sie können die Vorlagen einsehen. Nur Benutzer mit Schreibrechten für die Einstellungen können sie bearbeiten.",
+      "langEnglish": "Englisch",
+      "langFrench": "Französisch",
+      "subject": "Betreff",
+      "bodyPlain": "Nur-Text-Inhalt",
+      "bodyHtml": "HTML-Inhalt (optional)",
+      "bodyHtmlPlaceholder": "Leer lassen, um nur reinen Text zu senden.",
+      "updatedAt": "Zuletzt aktualisiert:",
+      "placeholdersIntro": "Verwenden Sie Platzhalter in doppelten geschweiften Klammern; sie werden beim Versand ersetzt, z. B. {{code}}.",
+      "placeholdersGeneric": "Siehe Serverdokumentation für die Variablen dieser Vorlage.",
+      "htmlTrustedWarning": "HTML wird unverändert gesendet. Nur vertrauenswürdiges Personal sollte HTML bearbeiten."
+    },
     "loanSettings": "Ausleiheinstellungen",
     "z3950Servers": "Z39.50 Server",
     "title": "Einstellungen",
@@ -1065,7 +1109,26 @@
     "newPassword": "Neues Passwort",
     "confirmPassword": "Passwort bestätigen",
     "mustChangePasswordSubmit": "Save and sign in again",
-    "currentPassword": "Aktuelles Passwort"
+    "currentPassword": "Aktuelles Passwort",
+    "passwordReset": {
+      "forgotLink": "Passwort vergessen?",
+      "forgotTitle": "Passwort zurücksetzen",
+      "forgotSubtitle": "Geben Sie Ihre Bibliothekskennung oder die E-Mail-Adresse Ihres Kontos ein.",
+      "identifierLabel": "Kennung oder E-Mail",
+      "identifierRequired": "Bitte Kennung oder E-Mail eingeben.",
+      "submitRequest": "Link zum Zurücksetzen senden",
+      "requestSuccess": "Wenn ein passendes Konto existiert und eine E-Mail hinterlegt ist, erhalten Sie in Kürze eine Anleitung. Prüfen Sie Ihren Posteingang.",
+      "resetTitle": "Neues Passwort wählen",
+      "resetSubtitle": "Legen Sie ein neues Passwort für Ihr Konto fest.",
+      "tokenLabel": "Zurücksetzungscode",
+      "tokenHint": "Fügen Sie den Code aus der E-Mail ein, wenn Sie den Link nicht geöffnet haben.",
+      "tokenFromLink": "Zurücksetzungslink geöffnet. Geben Sie unten Ihr neues Passwort ein.",
+      "tokenRequired": "Bitte fügen Sie den Code aus der E-Mail ein.",
+      "submitNewPassword": "Passwort aktualisieren",
+      "resetSuccess": "Ihr Passwort wurde aktualisiert. Sie können sich jetzt anmelden.",
+      "invalidOrExpiredToken": "Dieser Link oder Code ist ungültig oder abgelaufen. Fordern Sie einen neuen Link an.",
+      "signIn": "Anmelden"
+    }
   },
   "about": {
     "admin": {

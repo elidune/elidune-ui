@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
+import { useAccountTypesQuery } from '@/hooks/useAccountTypesQuery';
 import {
   XAxis,
   YAxis,
@@ -43,7 +44,8 @@ import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
 import LoansMarcExportButton from '@/components/loans/LoansMarcExportButton';
 import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
 import { useAuth } from '@/contexts/AuthContext';
-import { isAdmin, isLibrarian, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type Hold } from '@/types';
+import { isLibrarian, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type Hold } from '@/types';
+import { accountTypeDisplayName } from '@/utils/accountTypeDisplay';
 
 const USER_LOANS_PAGE_SIZE = 20;
 const USER_HOLDS_PAGE_SIZE = 20;
@@ -78,6 +80,7 @@ export default function UserDetailPage() {
   const [cancellingHoldId, setCancellingHoldId] = useState<string | null>(null);
 
   const { data: publicTypes = [] } = usePublicTypesQuery();
+  const { data: accountTypes = [] } = useAccountTypesQuery();
 
   // Stats state
   const [loanStats, setLoanStats] = useState<LoanStatsResponse | null>(null);
@@ -765,7 +768,7 @@ export default function UserDetailPage() {
               {user.firstname} {user.lastname}
             </h1>
             <div className="flex items-center gap-2 mt-1">
-              {isAdmin(user.accountType) && <Badge>{user.accountType}</Badge>}
+              <Badge>{accountTypeDisplayName(accountTypes, user.accountType)}</Badge>
               {user.publicType != null && user.publicType !== '' && (() => {
                 const pt = publicTypes.find((p) => p.id === String(user.publicType));
                 return pt ? <Badge variant="info">{pt.label}</Badge> : null;
@@ -871,6 +874,7 @@ export default function UserDetailPage() {
                   formId="user-detail-edit-form"
                   user={user}
                   publicTypes={publicTypes}
+                  accountTypes={accountTypes}
                   onLoadingChange={setIsEditLoading}
                   onSuccess={(updatedUser) => {
                     if (updatedUser) queryClient.setQueryData<UserType>(['user', id], updatedUser);

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { Input } from '@/components/common';
 import api from '@/services/api';
-import type { PublicType, User } from '@/types';
+import type { AccountTypeDefinition, PublicType, User } from '@/types';
+import { defaultAccountTypeCode } from '@/utils/accountTypeDisplay';
 import {
   defaultExpiryDateInputOneYearFromNow,
   dateInputToIsoEndOfDayUtc,
@@ -42,7 +43,7 @@ type UserRequiredField =
   | 'publicType'
   | 'addrCity';
 
-function emptyFormData(): UserFormData {
+function emptyFormData(accountTypes: AccountTypeDefinition[]): UserFormData {
   return {
     login: '',
     password: '',
@@ -59,7 +60,7 @@ function emptyFormData(): UserFormData {
     notes: '',
     fee: '',
     publicType: '',
-    accountType: 'reader',
+    accountType: defaultAccountTypeCode(accountTypes),
     expiryUnlimited: false,
     expiryAt: defaultExpiryDateInputOneYearFromNow(),
   };
@@ -82,7 +83,7 @@ function formDataFromUser(user: User): UserFormData {
     notes: user.notes || '',
     fee: user.fee || '',
     publicType: user.publicType?.toString() || '',
-    accountType: (user.accountType || 'reader').toLowerCase(),
+    accountType: (user.accountType ?? '').trim().toLowerCase(),
     expiryUnlimited: !user.expiryAt,
     expiryAt: user.expiryAt
       ? toDateInputValue(new Date(user.expiryAt))
@@ -121,6 +122,7 @@ export interface UserEditorFormProps {
   mode: 'create' | 'edit';
   formId: string;
   publicTypes: PublicType[];
+  accountTypes: AccountTypeDefinition[];
   /** Required when mode is `edit` */
   user?: User;
   onLoadingChange: (loading: boolean) => void;
@@ -131,14 +133,29 @@ export default function UserEditorForm({
   mode,
   formId,
   publicTypes,
+  accountTypes,
   user,
   onLoadingChange,
   onSuccess,
 }: UserEditorFormProps) {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<UserFormData>(() =>
-    mode === 'edit' && user ? formDataFromUser(user) : emptyFormData()
+    mode === 'edit' && user ? formDataFromUser(user) : emptyFormData(accountTypes)
   );
+
+  // Sync default account type when the catalog loads (create) or correct invalid selection.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- full `user` would refire on unrelated updates
+  useEffect(() => {
+    if (!accountTypes.length) return;
+    setFormData((fd) => {
+      const listed = accountTypes.some((a) => a.code.toLowerCase() === fd.accountType.toLowerCase());
+      if (listed) return fd;
+      if (mode === 'edit' && user && fd.accountType === (user.accountType ?? '').trim().toLowerCase()) {
+        return fd;
+      }
+      return { ...fd, accountType: defaultAccountTypeCode(accountTypes) };
+    });
+  }, [accountTypes, mode, user?.accountType, user?.id]);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<UserRequiredField, string>>>({});
 
   const requiredMsg = t('validation.required');
@@ -171,13 +188,6 @@ export default function UserEditorForm({
 
   const sectionClass =
     'rounded-xl border p-4 sm:p-5 space-y-4 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60';
-
-  const ACCOUNT_TYPES = [
-    { value: 'reader', label: t('users.reader') },
-    { value: 'librarian', label: t('users.librarian') },
-    { value: 'admin', label: t('users.administrator') },
-    { value: 'guest', label: t('users.guest') },
-  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,9 +299,15 @@ export default function UserEditorForm({
               onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
               className={accountSelectClass}
             >
-              {ACCOUNT_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
+              {formData.accountType &&
+                !accountTypes.some(
+                  (a) => a.code.toLowerCase() === formData.accountType.toLowerCase()
+                ) && (
+                  <option value={formData.accountType}>{formData.accountType}</option>
+                )}
+              {accountTypes.map((at) => (
+                <option key={at.code} value={at.code}>
+                  {at.name}
                 </option>
               ))}
             </select>

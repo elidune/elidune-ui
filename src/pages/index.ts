@@ -1,6 +1,8 @@
 export { default as FirstSetupPage } from './FirstSetupPage';
 export { default as MaintenancePage } from './MaintenancePage';
 export { default as LoginPage } from './LoginPage';
+export { default as ForgotPasswordPage } from './ForgotPasswordPage';
+export { default as ResetPasswordPage } from './ResetPasswordPage';
 export { default as MustChangePasswordPage } from './MustChangePasswordPage';
 export { default as HomePage } from './HomePage';
 export { default as BibliosPage } from './BibliosPage';

@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Wrench } from 'lucide-react';
+import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Wrench, Shield, Mail } from 'lucide-react';
 import AdminServerSettings from '@/components/settings/AdminServerSettings';
+import AccountTypesSettings from '@/components/settings/AccountTypesSettings';
+import EmailTemplatesSettings from '@/components/settings/EmailTemplatesSettings';
 import AuditLogViewer from '@/components/settings/AuditLogViewer';
 import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
 import { Card, CardHeader, Button, Input, Badge, ConfirmDialog } from '@/components/common';
@@ -1050,7 +1052,7 @@ function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePubl
   );
 }
 
-type SettingsTab = 'loans' | 'server' | 'maintenance' | 'audit' | 'sources' | 'publicTypes' | 'z3950';
+type SettingsTab = 'loans' | 'server' | 'maintenance' | 'audit' | 'sources' | 'publicTypes' | 'accountTypes' | 'emailTemplates' | 'z3950';
 
 // ─── Settings Page ─────────────────────────────────────────────────────────────
 export default function SettingsPage() {
@@ -1150,6 +1152,8 @@ export default function SettingsPage() {
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'loans', label: t('settings.loanSettings'), icon: <BookOpen className="h-5 w-5" /> },
     { id: 'publicTypes', label: t('settings.publicTypes.title'), icon: <Users className="h-5 w-5" /> },
+    { id: 'accountTypes', label: t('settings.accountTypes.title'), icon: <Shield className="h-5 w-5" /> },
+    { id: 'emailTemplates', label: t('settings.emailTemplates.title'), icon: <Mail className="h-5 w-5" /> },
     { id: 'sources', label: t('settings.sources.title'), icon: <Package className="h-5 w-5" /> },
     { id: 'z3950', label: t('settings.z3950Servers'), icon: <Server className="h-5 w-5" /> },
     { id: 'server', label: t('settings.server.title'), icon: <Cog className="h-5 w-5" /> },
@@ -1316,6 +1320,12 @@ export default function SettingsPage() {
 
       {/* Public types */}
       {activeTab === 'publicTypes' && <PublicTypesEditor />}
+
+      {/* Account types (library roles) */}
+      {activeTab === 'accountTypes' && <AccountTypesSettings />}
+
+      {/* Email templates */}
+      {activeTab === 'emailTemplates' && <EmailTemplatesSettings />}
 
       {/* Z39.50 servers */}
       {activeTab === 'z3950' && (

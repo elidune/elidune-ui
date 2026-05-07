@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, BookMarked, RefreshCw, Loader2, Edit, Trash2 } from 'lucide-react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
+import { useAccountTypesQuery } from '@/hooks/useAccountTypesQuery';
 import {
   Card,
   Button,
@@ -21,6 +22,7 @@ import { RenewSubscriptionModal, UserEditorForm, UserListCard } from '@/componen
 import api from '@/services/api';
 import type { UserShort } from '@/types';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
+import { accountTypeDisplayName } from '@/utils/accountTypeDisplay';
 const USERS_PER_PAGE = 20;
 
 export default function UsersPage() {
@@ -28,6 +30,7 @@ export default function UsersPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: publicTypes = [] } = usePublicTypesQuery();
+  const { data: accountTypes = [] } = useAccountTypesQuery();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
@@ -144,7 +147,7 @@ export default function UsersPage() {
               {user.firstname} {user.lastname}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {user.accountType}
+              {accountTypeDisplayName(accountTypes, user.accountType)}
               {user.publicType && (() => {
                 const pt = publicTypes.find((p) => p.id === String(user.publicType));
                 return pt ? <> · {pt.label}</> : null;
@@ -328,6 +331,7 @@ export default function UsersPage() {
                           key={user.id}
                           user={user}
                           publicTypes={publicTypes}
+                          accountTypes={accountTypes}
                           onOpen={() => handleRowClick(user)}
                           onEdit={() => navigate(`/users/${user.id}`)}
                           onDelete={() => openDeleteModal(user)}
@@ -432,6 +436,7 @@ export default function UsersPage() {
           mode="create"
           formId="create-user-form"
           publicTypes={publicTypes}
+          accountTypes={accountTypes}
           onLoadingChange={setIsCreateLoading}
           onSuccess={() => {
             setShowCreateModal(false);

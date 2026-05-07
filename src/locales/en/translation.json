@@ -889,6 +889,50 @@
       "mediaType": "Media type",
       "addOverride": "Add override"
     },
+    "accountTypes": {
+      "title": "Account types",
+      "subtitle": "Library staff roles and permission levels (items, users, loans, etc.).",
+      "errorLoad": "Could not load account types.",
+      "empty": "No account types returned by the server.",
+      "code": "Code",
+      "name": "Label",
+      "readOnlyHint": "You can view account types and their permissions. Only administrators can edit them.",
+      "forbidden": "You do not have permission to update account types.",
+      "reloginHint": "Permission changes apply to new sessions. Sign out and sign in again (or wait for your token to expire) to use updated rights.",
+      "rights": {
+        "itemsRights": "Items",
+        "usersRights": "Users",
+        "loansRights": "Loans",
+        "itemsArchiveRights": "Archive",
+        "borrowsRights": "Borrows",
+        "settingsRights": "Settings",
+        "eventsRights": "Events"
+      },
+      "level": {
+        "none": "—",
+        "n": "None (n)",
+        "r": "Read (r)",
+        "w": "Write (w)"
+      }
+    },
+    "emailTemplates": {
+      "title": "Email templates",
+      "templates": "Templates",
+      "editorTitle": "Edit template",
+      "errorLoad": "Could not load email templates.",
+      "empty": "No email templates returned by the server.",
+      "readOnlyHint": "You can view templates. Only users with settings write access can edit them.",
+      "langEnglish": "English",
+      "langFrench": "French",
+      "subject": "Subject",
+      "bodyPlain": "Plain text body",
+      "bodyHtml": "HTML body (optional)",
+      "bodyHtmlPlaceholder": "Leave empty to send plain text only.",
+      "updatedAt": "Last updated:",
+      "placeholdersIntro": "Use double-brace placeholders; they are replaced when the email is sent, e.g. {{code}}.",
+      "placeholdersGeneric": "See server documentation for variables available for this template.",
+      "htmlTrustedWarning": "HTML is sent as-is. Only trusted library staff should edit HTML content."
+    },
     "loanSettings": "Loan Settings",
     "z3950Servers": "Z39.50 Servers",
     "title": "Settings",
@@ -1065,7 +1109,26 @@
     "newPassword": "New password",
     "confirmPassword": "Confirm password",
     "mustChangePasswordSubmit": "Save and sign in again",
-    "currentPassword": "Current password"
+    "currentPassword": "Current password",
+    "passwordReset": {
+      "forgotLink": "Forgot password?",
+      "forgotTitle": "Reset your password",
+      "forgotSubtitle": "Enter your library login or the email address on your account.",
+      "identifierLabel": "Login or email",
+      "identifierRequired": "Please enter your login or email.",
+      "submitRequest": "Send reset link",
+      "requestSuccess": "If an account matches and has an email on file, you will receive instructions shortly. Check your inbox.",
+      "resetTitle": "Choose a new password",
+      "resetSubtitle": "Set a new password for your account.",
+      "tokenLabel": "Reset code",
+      "tokenHint": "Paste the code from your email if you did not open the reset link.",
+      "tokenFromLink": "You opened a reset link. Enter your new password below.",
+      "tokenRequired": "Please paste the reset code from your email.",
+      "submitNewPassword": "Update password",
+      "resetSuccess": "Your password has been updated. You can sign in now.",
+      "invalidOrExpiredToken": "This reset link or code is invalid or has expired. Request a new reset link.",
+      "signIn": "Sign in"
+    }
   },
   "about": {
     "admin": {

@@ -889,6 +889,50 @@
       "mediaType": "Tipo de documento",
       "addOverride": "Añadir excepción"
     },
+    "accountTypes": {
+      "title": "Tipos de cuenta",
+      "subtitle": "Roles del personal y niveles de permisos (documentos, usuarios, préstamos, etc.).",
+      "errorLoad": "No se pudieron cargar los tipos de cuenta.",
+      "empty": "El servidor no devolvió ningún tipo de cuenta.",
+      "code": "Código",
+      "name": "Etiqueta",
+      "readOnlyHint": "Puede ver los tipos de cuenta y sus permisos. Solo los administradores pueden editarlos.",
+      "forbidden": "No tiene permiso para actualizar los tipos de cuenta.",
+      "reloginHint": "Los cambios de permisos se aplican en nuevas sesiones. Cierre sesión y vuelva a entrar (o espere a que caduque el token) para usar los derechos actualizados.",
+      "rights": {
+        "itemsRights": "Documentos",
+        "usersRights": "Usuarios",
+        "loansRights": "Préstamos",
+        "itemsArchiveRights": "Archivo",
+        "borrowsRights": "Préstamos",
+        "settingsRights": "Ajustes",
+        "eventsRights": "Eventos"
+      },
+      "level": {
+        "none": "—",
+        "n": "Ninguno (n)",
+        "r": "Lectura (r)",
+        "w": "Escritura (w)"
+      }
+    },
+    "emailTemplates": {
+      "title": "Plantillas de correo",
+      "templates": "Plantillas",
+      "editorTitle": "Editar plantilla",
+      "errorLoad": "No se pudieron cargar las plantillas de correo.",
+      "empty": "El servidor no devolvió plantillas de correo.",
+      "readOnlyHint": "Puede ver las plantillas. Solo quienes tienen permiso de escritura en los ajustes pueden editarlas.",
+      "langEnglish": "Inglés",
+      "langFrench": "Francés",
+      "subject": "Asunto",
+      "bodyPlain": "Cuerpo en texto plano",
+      "bodyHtml": "Cuerpo HTML (opcional)",
+      "bodyHtmlPlaceholder": "Dejar vacío para enviar solo texto.",
+      "updatedAt": "Última actualización:",
+      "placeholdersIntro": "Use marcadores entre llaves dobles; se sustituyen al enviar, p. ej. {{code}}.",
+      "placeholdersGeneric": "Consulte la documentación del servidor para las variables de esta plantilla.",
+      "htmlTrustedWarning": "El HTML se envía tal cual. Solo el personal autorizado debe editar el HTML."
+    },
     "loanSettings": "Configuración de préstamos",
     "z3950Servers": "Servidores Z39.50",
     "title": "Configuración",
@@ -1065,7 +1109,26 @@
     "newPassword": "Nueva contraseña",
     "confirmPassword": "Confirmar contraseña",
     "mustChangePasswordSubmit": "Save and sign in again",
-    "currentPassword": "Contraseña actual"
+    "currentPassword": "Contraseña actual",
+    "passwordReset": {
+      "forgotLink": "¿Olvidó su contraseña?",
+      "forgotTitle": "Restablecer contraseña",
+      "forgotSubtitle": "Introduzca su usuario de la biblioteca o el correo asociado a su cuenta.",
+      "identifierLabel": "Usuario o correo electrónico",
+      "identifierRequired": "Introduzca su usuario o correo electrónico.",
+      "submitRequest": "Enviar enlace de restablecimiento",
+      "requestSuccess": "Si existe una cuenta coincidente y hay un correo registrado, recibirá instrucciones en breve. Revise su bandeja de entrada.",
+      "resetTitle": "Elija una contraseña nueva",
+      "resetSubtitle": "Establezca una contraseña nueva para su cuenta.",
+      "tokenLabel": "Código de restablecimiento",
+      "tokenHint": "Pegue el código del correo si no abrió el enlace de restablecimiento.",
+      "tokenFromLink": "Enlace de restablecimiento abierto. Introduzca su nueva contraseña abajo.",
+      "tokenRequired": "Pegue el código recibido por correo.",
+      "submitNewPassword": "Actualizar contraseña",
+      "resetSuccess": "Su contraseña se ha actualizado. Ya puede iniciar sesión.",
+      "invalidOrExpiredToken": "Este enlace o código no es válido o ha caducado. Solicite un nuevo enlace.",
+      "signIn": "Iniciar sesión"
+    }
   },
   "about": {
     "admin": {

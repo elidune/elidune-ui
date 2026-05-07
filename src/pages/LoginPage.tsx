@@ -910,6 +910,14 @@ export default function LoginPage() {
                   >
                     {t('auth.loginButton')}
                   </Button>
+                  <div className="text-center">
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
+                    >
+                      {t('auth.passwordReset.forgotLink')}
+                    </Link>
+                  </div>
                 </form>
 
                 <div className="space-y-1.5 border-t border-gray-100 dark:border-gray-800 pt-2.5">

@@ -15,6 +15,8 @@ import type {
   ApiError,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  RequestPasswordResetRequest,
+  ResetPasswordFromTokenRequest,
   Setup2FARequest,
   Setup2FAResponse,
   Verify2FARequest,
@@ -91,6 +93,11 @@ import type {
   Collection,
   CreateCollection,
   UpdateCollection,
+  AccountTypeDefinition,
+  UpdateAccountTypeRequest,
+  EmailTemplateListItem,
+  EmailTemplateDetail,
+  UpdateEmailTemplateRequest,
 } from '@/types';
 import { normalizePaginatedResponse } from '@/utils/serverJson';
 
@@ -198,6 +205,14 @@ class ApiService {
       return false;
     }
 
+    // Public password reset: invalid/expired token returns 401 — must not clear session or redirect.
+    if (method === 'post' && url.includes('/auth/request-password-reset')) {
+      return false;
+    }
+    if (method === 'post' && url.includes('/auth/reset-password')) {
+      return false;
+    }
+
     return true;
   }
 
@@ -286,6 +301,16 @@ class ApiService {
 
   async changePassword(data: ChangePasswordRequest): Promise<void> {
     await this.client.post('/auth/change-password', data);
+  }
+
+  async requestPasswordReset(data: RequestPasswordResetRequest): Promise<{ message: string }> {
+    const response = await this.client.post<{ message: string }>('/auth/request-password-reset', data);
+    return response.data;
+  }
+
+  async resetPasswordFromToken(data: ResetPasswordFromTokenRequest): Promise<{ message: string }> {
+    const response = await this.client.post<{ message: string }>('/auth/reset-password', data);
+    return response.data;
   }
 
   // 2FA
@@ -919,6 +944,34 @@ class ApiService {
     return normalizeLoanSettingsResponse(response.data);
   }
 
+  // ─── Email templates (library settings) ───────────────────────────
+
+  async getEmailTemplates(): Promise<EmailTemplateListItem[]> {
+    const response = await this.client.get<unknown>('/settings/email-templates');
+    const data = response.data;
+    if (Array.isArray(data)) return data as EmailTemplateListItem[];
+    return normalizePaginatedResponse<EmailTemplateListItem>(data).items;
+  }
+
+  async getEmailTemplate(templateId: string, language: string): Promise<EmailTemplateDetail> {
+    const response = await this.client.get<EmailTemplateDetail>(
+      `/settings/email-templates/${encodeURIComponent(templateId)}/${encodeURIComponent(language)}`
+    );
+    return response.data;
+  }
+
+  async updateEmailTemplate(
+    templateId: string,
+    language: string,
+    body: UpdateEmailTemplateRequest
+  ): Promise<EmailTemplateDetail> {
+    const response = await this.client.put<EmailTemplateDetail>(
+      `/settings/email-templates/${encodeURIComponent(templateId)}/${encodeURIComponent(language)}`,
+      body
+    );
+    return response.data;
+  }
+
   async getZ3950Servers(): Promise<Z3950Server[]> {
     const response = await this.client.get<unknown>('/z3950/servers');
     return normalizeZ3950ServersPayload(response.data);
@@ -967,6 +1020,30 @@ class ApiService {
 
   async deletePublicTypeLoanSetting(publicTypeId: string, mediaType: MediaType): Promise<void> {
     await this.client.delete(`/public-types/${publicTypeId}/loan-settings/${mediaType}`);
+  }
+
+  // ─── Account types (library roles / permissions) ─────────────────
+
+  async getAccountTypes(): Promise<AccountTypeDefinition[]> {
+    const response = await this.client.get<unknown>('/account-types');
+    const data = response.data;
+    if (Array.isArray(data)) return data as AccountTypeDefinition[];
+    return normalizePaginatedResponse<AccountTypeDefinition>(data).items;
+  }
+
+  async getAccountType(code: string): Promise<AccountTypeDefinition> {
+    const response = await this.client.get<AccountTypeDefinition>(
+      `/account-types/${encodeURIComponent(code)}`
+    );
+    return response.data;
+  }
+
+  async updateAccountType(code: string, body: UpdateAccountTypeRequest): Promise<AccountTypeDefinition> {
+    const response = await this.client.put<AccountTypeDefinition>(
+      `/account-types/${encodeURIComponent(code)}`,
+      body
+    );
+    return response.data;
   }
 
   // ─── Sources ─────────────────────────────────────────────────────

@@ -891,6 +891,50 @@
       "mediaType": "Type de document",
       "addOverride": "Ajouter une dérogation"
     },
+    "accountTypes": {
+      "title": "Types de compte",
+      "subtitle": "Rôles du personnel et niveaux de droits (documents, usagers, prêts, etc.).",
+      "errorLoad": "Impossible de charger les types de compte.",
+      "empty": "Aucun type de compte renvoyé par le serveur.",
+      "code": "Code",
+      "name": "Libellé",
+      "readOnlyHint": "Vous pouvez consulter les types de compte et leurs droits. Seuls les administrateurs peuvent les modifier.",
+      "forbidden": "Vous n'avez pas la permission de modifier les types de compte.",
+      "reloginHint": "Les changements de droits s'appliquent aux nouvelles sessions. Déconnectez-vous et reconnectez-vous (ou attendez l'expiration du jeton) pour utiliser les droits mis à jour.",
+      "rights": {
+        "itemsRights": "Documents",
+        "usersRights": "Usagers",
+        "loansRights": "Prêts",
+        "itemsArchiveRights": "Archives",
+        "borrowsRights": "Emprunts",
+        "settingsRights": "Paramètres",
+        "eventsRights": "Événements"
+      },
+      "level": {
+        "none": "—",
+        "n": "Aucun (n)",
+        "r": "Lecture (r)",
+        "w": "Écriture (w)"
+      }
+    },
+    "emailTemplates": {
+      "title": "Modèles d'e-mail",
+      "templates": "Modèles",
+      "editorTitle": "Modifier le modèle",
+      "errorLoad": "Impossible de charger les modèles d'e-mail.",
+      "empty": "Aucun modèle renvoyé par le serveur.",
+      "readOnlyHint": "Vous pouvez consulter les modèles. Seuls les comptes avec droit d'écriture sur les réglages peuvent les modifier.",
+      "langEnglish": "Anglais",
+      "langFrench": "Français",
+      "subject": "Objet",
+      "bodyPlain": "Corps texte brut",
+      "bodyHtml": "Corps HTML (optionnel)",
+      "bodyHtmlPlaceholder": "Laisser vide pour n'envoyer qu'un message texte.",
+      "updatedAt": "Dernière mise à jour :",
+      "placeholdersIntro": "Utilisez des espaces réservés entre doubles accolades; ils sont remplacés à l'envoi, ex. {{code}}.",
+      "placeholdersGeneric": "Voir la documentation serveur pour les variables disponibles pour ce modèle.",
+      "htmlTrustedWarning": "Le HTML est envoyé tel quel. Seul le personnel autorisé doit modifier le contenu HTML."
+    },
     "loanSettings": "Paramètres des emprunts",
     "z3950Servers": "Serveurs Z39.50",
     "title": "Paramètres",
@@ -1067,7 +1111,26 @@
     "newPassword": "Nouveau mot de passe",
     "confirmPassword": "Confirmer le mot de passe",
     "mustChangePasswordSubmit": "Enregistrer et se reconnecter",
-    "currentPassword": "Mot de passe actuel"
+    "currentPassword": "Mot de passe actuel",
+    "passwordReset": {
+      "forgotLink": "Mot de passe oublié ?",
+      "forgotTitle": "Réinitialiser votre mot de passe",
+      "forgotSubtitle": "Saisissez votre identifiant de connexion ou l’adresse e-mail associée à votre compte.",
+      "identifierLabel": "Identifiant ou e-mail",
+      "identifierRequired": "Veuillez saisir votre identifiant ou votre e-mail.",
+      "submitRequest": "Envoyer le lien",
+      "requestSuccess": "Si un compte correspond et qu’une adresse e-mail est enregistrée, vous recevrez sous peu les instructions. Vérifiez votre boîte de réception.",
+      "resetTitle": "Nouveau mot de passe",
+      "resetSubtitle": "Choisissez un nouveau mot de passe pour votre compte.",
+      "tokenLabel": "Code de réinitialisation",
+      "tokenHint": "Collez le code reçu par e-mail si vous n’avez pas ouvert le lien de réinitialisation.",
+      "tokenFromLink": "Lien de réinitialisation ouvert. Saisissez votre nouveau mot de passe ci-dessous.",
+      "tokenRequired": "Veuillez coller le code reçu par e-mail.",
+      "submitNewPassword": "Mettre à jour le mot de passe",
+      "resetSuccess": "Votre mot de passe a été mis à jour. Vous pouvez vous connecter.",
+      "invalidOrExpiredToken": "Ce lien ou ce code est invalide ou a expiré. Demandez un nouveau lien de réinitialisation.",
+      "signIn": "Se connecter"
+    }
   },
   "about": {
     "admin": {
