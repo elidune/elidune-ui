@@ -30,11 +30,10 @@ import {
   ImportIsoPage,
   EventsPage,
   PublicEventsPage,
-  LibraryPage,
   AboutPage,
   PrivacyPage,
 } from '@/pages';
-import { isLibrarian, isAdmin } from '@/types';
+import { isLibrarian } from '@/types';
 import { FirstSetupGate } from '@/components/first-setup/FirstSetupGate';
 
 const queryClient = new QueryClient({
@@ -68,16 +67,6 @@ function LibrarianRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   if (!isLibrarian(user?.accountType)) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <>{children}</>;
-}
-
-function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-
-  if (!isAdmin(user?.accountType)) {
     return <Navigate to="/" replace />;
   }
 
@@ -231,9 +220,9 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <AdminRoute>
+            <LibrarianRoute>
               <SettingsPage />
-            </AdminRoute>
+            </LibrarianRoute>
           </ProtectedRoute>
         }
       />
@@ -285,7 +274,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <LibrarianRoute>
-              <LibraryPage />
+              <Navigate to="/settings?tab=library" replace />
             </LibrarianRoute>
           </ProtectedRoute>
         }

@@ -37,7 +37,7 @@ export default function LibraryInfoSection({
         action={
           canManage ? (
             <Link
-              to="/library"
+              to="/settings?tab=library"
               className="text-sm text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
             >
               {t('common.edit')} <ExternalLink className="h-3.5 w-3.5" />

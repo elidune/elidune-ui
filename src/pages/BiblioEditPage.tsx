@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/common';
+import { ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import { Button, Card } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems } from '@/types';
 import api from '@/services/api';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import BiblioEditorForm from '@/components/items/BiblioEditorForm';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export default function BiblioEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,15 +25,13 @@ export default function BiblioEditPage() {
     data: item,
     isPending: isLoading,
     isError: isBiblioQueryError,
+    error: biblioQueryError,
+    refetch: refetchBiblio,
   } = useQuery({
     queryKey: ['biblio', id],
     queryFn: () => api.getBiblio(id!),
     enabled: Boolean(id),
   });
-
-  if (isBiblioQueryError) {
-    return <Navigate to="/biblios" replace />;
-  }
 
   if (!canManageItems(user?.accountType)) {
     return id ? <Navigate to={`/biblios/${id}`} replace /> : <Navigate to="/biblios" replace />;
@@ -42,6 +41,29 @@ export default function BiblioEditPage() {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isBiblioQueryError) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-12">
+        <Card>
+          <div className="flex items-start gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-3">
+              <p className="text-gray-900 dark:text-gray-100 text-sm">{getApiErrorMessage(biblioQueryError, t)}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={() => void refetchBiblio()}>
+                  {t('common.retry')}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => navigate(id ? `/biblios/${id}` : '/biblios')}>
+                  {t('common.back')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }

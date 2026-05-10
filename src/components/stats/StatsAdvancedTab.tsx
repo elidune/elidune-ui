@@ -249,7 +249,7 @@ export default function StatsAdvancedTab() {
     queryFn: () => api.getStatsSchema(),
   });
 
-  const { data: savedList = [], isLoading: listLoading } = useQuery({
+  const { data: savedList = [], isLoading: listLoading, isError: savedListError, error: savedListQueryError, refetch: refetchSavedQueries } = useQuery({
     queryKey: ['stats', 'saved'],
     queryFn: () => api.getSavedStatsQueries(),
   });
@@ -640,6 +640,16 @@ export default function StatsAdvancedTab() {
 
   return (
     <div className="space-y-4">
+      {savedListError && (
+        <Card>
+          <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <p className="text-sm text-red-600 dark:text-red-400 flex-1">{getApiErrorMessage(savedListQueryError, t)}</p>
+            <Button type="button" size="sm" variant="secondary" onClick={() => void refetchSavedQueries()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        </Card>
+      )}
       <Card padding="none" className="flex flex-col min-h-0">
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
           <div className="flex items-center gap-3">

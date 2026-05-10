@@ -21,6 +21,7 @@ import {
   FileText,
   AlertTriangle,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
@@ -107,15 +108,13 @@ export default function UserDetailPage() {
     data: user,
     isPending: isUserLoading,
     isError: isUserError,
+    error: userQueryError,
+    refetch: refetchUser,
   } = useQuery({
     queryKey: ['user', id],
     queryFn: () => api.getUser(id!),
     enabled: !!id,
   });
-
-  useEffect(() => {
-    if (isUserError) navigate('/users');
-  }, [isUserError, navigate]);
 
   const {
     data: activeLoansPages,
@@ -373,16 +372,35 @@ export default function UserDetailPage() {
     }
   };
 
+  if (isUserError && id) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-12">
+        <Card>
+          <div className="flex items-start gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-3">
+              <p className="text-gray-900 dark:text-gray-100 text-sm">{getApiErrorMessage(userQueryError, t)}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" leftIcon={<RefreshCw className="h-4 w-4" />} onClick={() => void refetchUser()}>
+                  {t('common.retry')}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => navigate('/users')}>
+                  {t('common.back')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   if (isUserLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
-  }
-
-  if (isUserError) {
-    return null;
   }
 
   if (!user) {

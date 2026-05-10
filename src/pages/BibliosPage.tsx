@@ -167,6 +167,9 @@ export default function BibliosPage() {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    isError: isCatalogQueryError,
+    error: catalogQueryError,
+    refetch: refetchCatalog,
   } = useInfiniteQuery({
     queryKey: [
       'biblios',
@@ -212,6 +215,7 @@ export default function BibliosPage() {
   const [catalogBiblioToDelete, setCatalogBiblioToDelete] = useState<BiblioShort | null>(null);
   const [catalogDeleteBorrowedError, setCatalogDeleteBorrowedError] = useState(false);
   const [catalogDeleteLoading, setCatalogDeleteLoading] = useState(false);
+  const [catalogDeleteApiError, setCatalogDeleteApiError] = useState<string | null>(null);
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -296,6 +300,7 @@ export default function BibliosPage() {
   const handleCatalogBiblioDelete = async (force: boolean) => {
     if (!catalogBiblioToDelete) return;
     setCatalogDeleteLoading(true);
+    setCatalogDeleteApiError(null);
     try {
       await api.deleteBiblio(catalogBiblioToDelete.id, force);
       setCatalogBiblioToDelete(null);
@@ -313,7 +318,7 @@ export default function BibliosPage() {
       ) {
         setCatalogDeleteBorrowedError(true);
       } else {
-        console.error(error);
+        setCatalogDeleteApiError(getApiErrorMessage(error, t));
       }
     } finally {
       setCatalogDeleteLoading(false);
@@ -555,6 +560,17 @@ export default function BibliosPage() {
 
       {/* Catalog tab content */}
       {activeTab === 'catalog' && (<>
+      {isCatalogQueryError && (
+        <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-start gap-2 flex-1 min-w-0 text-sm text-red-800 dark:text-red-200">
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />
+            <span>{getApiErrorMessage(catalogQueryError, t)}</span>
+          </div>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void refetchCatalog()}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      )}
 
       {/* Active filter chip */}
       {(activeFilterSerieId || activeFilterCollectionId) && (
@@ -784,6 +800,7 @@ export default function BibliosPage() {
           if (catalogDeleteLoading) return;
           setCatalogBiblioToDelete(null);
           setCatalogDeleteBorrowedError(false);
+          setCatalogDeleteApiError(null);
         }}
         title={t('common.confirm')}
         size="sm"
@@ -795,6 +812,7 @@ export default function BibliosPage() {
                 if (catalogDeleteLoading) return;
                 setCatalogBiblioToDelete(null);
                 setCatalogDeleteBorrowedError(false);
+                setCatalogDeleteApiError(null);
               }}
             >
               {t('common.cancel')}
@@ -828,6 +846,9 @@ export default function BibliosPage() {
                 title: catalogBiblioToDelete?.title || t('items.notSpecified'),
               })}
         </p>
+        {catalogDeleteApiError && (
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{catalogDeleteApiError}</p>
+        )}
       </Modal>
 
       </>)}

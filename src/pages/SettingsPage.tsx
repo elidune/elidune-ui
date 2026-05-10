@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Wrench, Shield, Mail } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Wrench, Shield, Mail, Library } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { LibrarySettingsPanel } from '@/pages/LibraryPage';
 import AdminServerSettings from '@/components/settings/AdminServerSettings';
 import AccountTypesSettings from '@/components/settings/AccountTypesSettings';
 import EmailTemplatesSettings from '@/components/settings/EmailTemplatesSettings';
@@ -9,6 +12,7 @@ import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
 import { Card, CardHeader, Button, Input, Badge, ConfirmDialog } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
+import { isAdmin } from '@/types';
 import type {
   Settings,
   LoanSettings,
@@ -1052,17 +1056,78 @@ function PublicTypeCreateModal({ onSave, onCancel }: { onSave: (data: CreatePubl
   );
 }
 
-type SettingsTab = 'loans' | 'server' | 'maintenance' | 'audit' | 'sources' | 'publicTypes' | 'accountTypes' | 'emailTemplates' | 'z3950';
+type SettingsTab =
+  | 'library'
+  | 'loans'
+  | 'server'
+  | 'maintenance'
+  | 'audit'
+  | 'sources'
+  | 'publicTypes'
+  | 'accountTypes'
+  | 'emailTemplates'
+  | 'z3950';
+
+const SETTINGS_TAB_IDS: SettingsTab[] = [
+  'library',
+  'loans',
+  'publicTypes',
+  'accountTypes',
+  'emailTemplates',
+  'sources',
+  'z3950',
+  'server',
+  'maintenance',
+  'audit',
+];
 
 // ─── Settings Page ─────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isAdminUser = isAdmin(user?.accountType);
+
   const [activeTab, setActiveTab] = useState<SettingsTab>('loans');
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  const selectTab = (id: SettingsTab) => {
+    if (!isAdminUser && id !== 'library') return;
+    setActiveTab(id);
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set('tab', id);
+        return n;
+      },
+      { replace: true }
+    );
+  };
+
   useEffect(() => {
+    const p = searchParams.get('tab');
+    const isValid = p && SETTINGS_TAB_IDS.includes(p as SettingsTab);
+    if (isValid) {
+      const id = p as SettingsTab;
+      if (!isAdminUser && id !== 'library') {
+        setActiveTab('library');
+      } else {
+        setActiveTab(id);
+      }
+    } else if (!isAdminUser) {
+      setActiveTab('library');
+    } else if (!p) {
+      setActiveTab('loans');
+    }
+  }, [searchParams, isAdminUser]);
+
+  useEffect(() => {
+    if (!isAdminUser) {
+      setIsLoading(false);
+      return;
+    }
     const fetchSettings = async () => {
       try {
         const [loanResult, z3950Result] = await Promise.allSettled([
@@ -1090,8 +1155,8 @@ export default function SettingsPage() {
       }
     };
 
-    fetchSettings();
-  }, []);
+    void fetchSettings();
+  }, [isAdminUser]);
 
   const handleSave = async () => {
     if (!settings) return;
@@ -1141,7 +1206,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (!settings) {
+  if (isAdminUser && !settings) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400">{t('common.error')}</p>
@@ -1149,7 +1214,8 @@ export default function SettingsPage() {
     );
   }
 
-  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  const allTabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'library', label: t('nav.library'), icon: <Library className="h-5 w-5" /> },
     { id: 'loans', label: t('settings.loanSettings'), icon: <BookOpen className="h-5 w-5" /> },
     { id: 'publicTypes', label: t('settings.publicTypes.title'), icon: <Users className="h-5 w-5" /> },
     { id: 'accountTypes', label: t('settings.accountTypes.title'), icon: <Shield className="h-5 w-5" /> },
@@ -1160,6 +1226,8 @@ export default function SettingsPage() {
     { id: 'maintenance', label: t('settings.maintenance.title'), icon: <Wrench className="h-5 w-5" /> },
     { id: 'audit', label: t('settings.audit.title'), icon: <ScrollText className="h-5 w-5" /> },
   ];
+
+  const tabs = isAdminUser ? allTabs : allTabs.filter((tab) => tab.id === 'library');
 
   return (
     <div className="space-y-6">
@@ -1181,7 +1249,8 @@ export default function SettingsPage() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              type="button"
+              onClick={() => selectTab(tab.id)}
               className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -1195,8 +1264,18 @@ export default function SettingsPage() {
         </nav>
       </div>
 
+      {/* Library (identity, hours) */}
+      {activeTab === 'library' && (
+        <Card>
+          <CardHeader title={t('library.title')} subtitle={t('library.subtitle')} />
+          <div className="px-4 pb-6 sm:px-6">
+            <LibrarySettingsPanel />
+          </div>
+        </Card>
+      )}
+
       {/* Loan settings */}
-      {activeTab === 'loans' && (
+      {activeTab === 'loans' && settings && (
       <Card>
         <CardHeader
           title={t('settings.loanSettings')}
@@ -1328,7 +1407,7 @@ export default function SettingsPage() {
       {activeTab === 'emailTemplates' && <EmailTemplatesSettings />}
 
       {/* Z39.50 servers */}
-      {activeTab === 'z3950' && (
+      {activeTab === 'z3950' && settings && (
       <Card>
         <CardHeader
           title={t('settings.z3950Servers')}

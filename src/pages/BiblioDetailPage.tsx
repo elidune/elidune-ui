@@ -17,6 +17,7 @@ import {
   AlertCircle,
   ExternalLink,
   Bookmark,
+  RefreshCw,
 } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
@@ -28,7 +29,7 @@ import api from '@/services/api';
 import type { Biblio, Item, Author, Source } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS, getCodeLabel } from '@/utils/codeLabels';
-import { getApiErrorCode } from '@/utils/apiError';
+import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 // Helper function to get translation key for media type
 function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
@@ -96,6 +97,8 @@ export default function BiblioDetailPage() {
     data: item,
     isPending: isLoading,
     isError: isBiblioQueryError,
+    error: biblioQueryError,
+    refetch: refetchBiblio,
   } = useQuery({
     queryKey: ['biblio', id],
     queryFn: () => api.getBiblio(id!),
@@ -115,14 +118,9 @@ export default function BiblioDetailPage() {
   const [deleteSpecimenLoading, setDeleteSpecimenLoading] = useState(false);
   const [deleteItemBorrowedError, setDeleteItemBorrowedError] = useState(false);
   const [deleteItemLoading, setDeleteItemLoading] = useState(false);
+  const [deleteBiblioApiError, setDeleteBiblioApiError] = useState<string | null>(null);
+  const [deleteSpecimenApiError, setDeleteSpecimenApiError] = useState<string | null>(null);
   const [reserveSpecimen, setReserveSpecimen] = useState<Item | null>(null);
-
-  useEffect(() => {
-    if (isBiblioQueryError) {
-      console.error('Error fetching biblio');
-      navigate('/biblios');
-    }
-  }, [isBiblioQueryError, navigate]);
 
   const invalidateBiblio = () => {
     if (id) void queryClient.invalidateQueries({ queryKey: ['biblio', id] });
@@ -132,6 +130,7 @@ export default function BiblioDetailPage() {
     if (!item || item.id == null) return;
     if (deleteItemLoading) return;
     setDeleteItemLoading(true);
+    setDeleteBiblioApiError(null);
     try {
       await api.deleteBiblio(item.id, force);
       // Ensure deleted biblio disappears from cached catalog searches immediately.
@@ -165,7 +164,7 @@ export default function BiblioDetailPage() {
       ) {
         setDeleteItemBorrowedError(true);
       } else {
-        console.error('Error deleting item:', error);
+        setDeleteBiblioApiError(getApiErrorMessage(error, t));
       }
     } finally {
       setDeleteItemLoading(false);
@@ -186,6 +185,7 @@ export default function BiblioDetailPage() {
   const handleDeleteSpecimen = async (force: boolean) => {
     if (!selectedSpecimen || !item || item.id == null) return;
     setDeleteSpecimenLoading(true);
+    setDeleteSpecimenApiError(null);
     try {
       await api.deleteItem(selectedSpecimen.id, force);
       setShowDeleteSpecimenModal(false);
@@ -203,10 +203,10 @@ export default function BiblioDetailPage() {
         ) {
           setDeleteSpecimenBorrowedError(true);
         } else {
-          console.error('Error deleting specimen:', error);
+          setDeleteSpecimenApiError(getApiErrorMessage(error, t));
         }
       } else {
-        console.error('Error force-deleting specimen:', error);
+        setDeleteSpecimenApiError(getApiErrorMessage(error, t));
       }
     } finally {
       setDeleteSpecimenLoading(false);
@@ -217,6 +217,33 @@ export default function BiblioDetailPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (isBiblioQueryError) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-12">
+        <Card>
+          <div className="flex items-start gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-3">
+              <p className="text-gray-900 dark:text-gray-100 text-sm">{getApiErrorMessage(biblioQueryError, t)}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  leftIcon={<RefreshCw className="h-4 w-4" />}
+                  onClick={() => void refetchBiblio()}
+                >
+                  {t('common.retry')}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => navigate('/biblios')}>
+                  {t('common.back')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -614,6 +641,7 @@ export default function BiblioDetailPage() {
           if (deleteItemLoading) return;
           setShowDeleteModal(false);
           setDeleteItemBorrowedError(false);
+          setDeleteBiblioApiError(null);
         }}
         title="Confirmer la suppression"
         size="sm"
@@ -625,6 +653,7 @@ export default function BiblioDetailPage() {
                 if (deleteItemLoading) return;
                 setShowDeleteModal(false);
                 setDeleteItemBorrowedError(false);
+                setDeleteBiblioApiError(null);
               }}
             >
               Annuler
@@ -646,6 +675,9 @@ export default function BiblioDetailPage() {
             ? t('items.itemBorrowedForceDelete')
             : t('items.deleteConfirm', { title: item.title || 'Sans titre' })}
         </p>
+        {deleteBiblioApiError && (
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{deleteBiblioApiError}</p>
+        )}
       </Modal>
 
       {/* Add specimen modal */}
@@ -710,6 +742,7 @@ export default function BiblioDetailPage() {
           setShowDeleteSpecimenModal(false);
           setSelectedSpecimen(null);
           setDeleteSpecimenBorrowedError(false);
+          setDeleteSpecimenApiError(null);
         }}
         title={t('common.confirm')}
         size="sm"
@@ -721,6 +754,7 @@ export default function BiblioDetailPage() {
                 setShowDeleteSpecimenModal(false);
                 setSelectedSpecimen(null);
                 setDeleteSpecimenBorrowedError(false);
+                setDeleteSpecimenApiError(null);
               }}
             >
               {t('common.cancel')}
@@ -736,11 +770,16 @@ export default function BiblioDetailPage() {
         }
       >
         {selectedSpecimen && (
-          <p className="text-gray-600 dark:text-gray-300">
-            {deleteSpecimenBorrowedError
-              ? t('items.specimenBorrowedForceDelete')
-              : t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
-          </p>
+          <>
+            <p className="text-gray-600 dark:text-gray-300">
+              {deleteSpecimenBorrowedError
+                ? t('items.specimenBorrowedForceDelete')
+                : t('items.confirmDeleteSpecimen', { identification: selectedSpecimen.barcode || 'Sans code' })}
+            </p>
+            {deleteSpecimenApiError && (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{deleteSpecimenApiError}</p>
+            )}
+          </>
         )}
       </Modal>
 
@@ -918,7 +957,7 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
       });
       onSuccess();
     } catch (error) {
-      console.error('Error adding specimen:', error);
+      setError(getApiErrorMessage(error, t));
     } finally {
       onLoadingChange(false);
     }
@@ -1054,7 +1093,7 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
       });
       onSuccess();
     } catch (error) {
-      console.error('Error updating specimen:', error);
+      setError(getApiErrorMessage(error, t));
     } finally {
       onLoadingChange(false);
     }

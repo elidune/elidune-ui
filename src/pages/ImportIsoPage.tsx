@@ -1282,7 +1282,7 @@ export default function ImportIsoPage() {
           }
         </Badge>
       ),
-      className: 'hidden md:table-cell sticky right-40 z-10 bg-white dark:bg-gray-900 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_8px_rgba(0,0,0,0.3)]',
+      className: 'hidden md:table-cell sticky right-40 z-10 bg-white dark:bg-gray-900',
     },
     {
       key: 'actions',
@@ -1330,7 +1330,7 @@ export default function ImportIsoPage() {
           )}
         </div>
       ),
-      className: 'w-40 sticky right-0 z-10 bg-white dark:bg-gray-900 shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_8px_rgba(0,0,0,0.3)] whitespace-nowrap',
+      className: 'w-40 sticky right-0 z-10 bg-white dark:bg-gray-900  whitespace-nowrap',
     },
   ];
 

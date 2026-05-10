@@ -849,9 +849,10 @@ function HoursTab() {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Panels (used in Settings › Library tab) ──────────────────────────────────
 
-export default function LibraryPage() {
+/** Library identity, address, contact, opening hours — embeddable in Settings. */
+export function LibrarySettingsPanel() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'general' | 'hours'>('general');
 
@@ -861,17 +862,12 @@ export default function LibraryPage() {
   ];
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('library.title')}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('library.subtitle')}</p>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg mb-6 w-fit">
+    <div className="space-y-6">
+      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            type="button"
             onClick={() => setActiveTab(id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === id

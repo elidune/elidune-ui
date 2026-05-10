@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Bookmark, Plus, Search } from 'lucide-react';
+import { Ban, Bookmark, Plus, Search, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Table, Input, Pagination, Modal, ConfirmDialog, ScrollableListRegion, ResponsiveRecordList, ListSkeleton } from '@/components/common';
 import HoldMobileCard from '@/components/holds/HoldMobileCard';
 import api from '@/services/api';
@@ -41,6 +41,7 @@ export default function HoldsPage() {
   const [listPage, setListPage] = useState(1);
   const [listPerPage, setListPerPage] = useState(50);
   const [cancelHoldId, setCancelHoldId] = useState<string | null>(null);
+  const [biblioPickError, setBiblioPickError] = useState<string | null>(null);
 
   useEffect(() => {
     const q = biblioDraft.trim();
@@ -105,17 +106,19 @@ export default function HoldsPage() {
     setCreateUserDraft('');
     setCreateUserResults([]);
     setSelectedUserForCreate(null);
+    setBiblioPickError(null);
   };
 
   const loadBiblio = async (b: BiblioShort) => {
+    setBiblioPickError(null);
     try {
       const full = await api.getBiblio(b.id);
       setSelectedBiblio(full);
       setSelectedItemId(full.items?.[0]?.id ?? null);
       setBiblioDraft('');
       setBiblioResults([]);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      setBiblioPickError(getApiErrorMessage(e, t));
     }
   };
 
@@ -235,6 +238,17 @@ export default function HoldsPage() {
       </div>
 
       <Card padding="none" className="flex flex-col min-h-0">
+        {activeHoldsQuery.isError && (
+          <div className="mx-4 mt-4 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-start gap-2 flex-1 min-w-0 text-sm text-red-800 dark:text-red-200">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />
+              <span>{getApiErrorMessage(activeHoldsQuery.error, t)}</span>
+            </div>
+            <Button type="button" size="sm" variant="secondary" onClick={() => void activeHoldsQuery.refetch()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        )}
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
           <CardHeader
             title={t('holds.activeHoldsTitle')}
@@ -346,6 +360,9 @@ export default function HoldsPage() {
               leftIcon={<Search className="h-4 w-4" />}
             />
             {biblioSearching && <p className="text-xs text-gray-500 mt-1">{t('common.loading')}</p>}
+            {biblioPickError && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-2">{biblioPickError}</p>
+            )}
             {biblioResults.length > 0 && (
               <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
                 {biblioResults.map((b) => (

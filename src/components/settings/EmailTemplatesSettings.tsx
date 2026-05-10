@@ -8,10 +8,15 @@ import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { canManageSettings } from '@/types';
 import type { EmailTemplateListItem, UpdateEmailTemplateRequest } from '@/types';
+import EmailTemplateHtmlEditor from '@/components/settings/EmailTemplateHtmlEditor';
 import {
   EMAIL_TEMPLATE_VARIABLES,
   EMAIL_TEMPLATES_LIST_QUERY_KEY,
   emailTemplateDetailQueryKey,
+  emailTemplateLanguagesAvailableForEdit,
+  filterEmailTemplatesBySupportedLanguages,
+  normalizeEmailTemplateHtmlForApi,
+  type EmailTemplateEditLanguage,
 } from '@/utils/emailTemplatesConstants';
 
 export default function EmailTemplatesSettings() {
@@ -29,13 +34,16 @@ export default function EmailTemplatesSettings() {
   const [isSaving, setIsSaving] = useState(false);
 
   const {
-    data: list = [],
+    data: listRaw = [],
     isLoading: listLoading,
     isError: listError,
+    error: listQueryError,
   } = useQuery({
     queryKey: EMAIL_TEMPLATES_LIST_QUERY_KEY,
     queryFn: () => api.getEmailTemplates(),
   });
+
+  const list = useMemo(() => filterEmailTemplatesBySupportedLanguages(listRaw), [listRaw]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, EmailTemplateListItem[]>();
@@ -50,13 +58,7 @@ export default function EmailTemplatesSettings() {
   const templateIds = useMemo(() => [...grouped.keys()].sort((a, b) => a.localeCompare(b)), [grouped]);
 
   const languagesForTemplate = useCallback(
-    (tid: string): string[] => {
-      const langs = [...new Set((grouped.get(tid) ?? []).map((r) => r.language))];
-      return langs.sort((a, b) => {
-        const order = (lang: string) => (lang === 'french' ? 0 : lang === 'english' ? 1 : 2);
-        return order(a) - order(b);
-      });
-    },
+    (tid: string) => emailTemplateLanguagesAvailableForEdit(grouped.get(tid) ?? []),
     [grouped]
   );
 
@@ -66,10 +68,24 @@ export default function EmailTemplatesSettings() {
     if (!t0) return;
     setSelectedTemplateId(t0);
     const langs = languagesForTemplate(t0);
-    setSelectedLanguage(langs[0] ?? 'english');
-  }, [list, list.length, selectedTemplateId, templateIds, languagesForTemplate]);
+    setSelectedLanguage(langs[0] ?? 'french');
+  }, [list.length, selectedTemplateId, templateIds, languagesForTemplate]);
 
-  const { data: detail, isLoading: detailLoading, isFetching: detailFetching } = useQuery({
+  useEffect(() => {
+    if (!selectedTemplateId) return;
+    const langs = languagesForTemplate(selectedTemplateId);
+    if (!langs.length) return;
+    if (selectedLanguage && langs.includes(selectedLanguage as EmailTemplateEditLanguage)) return;
+    setSelectedLanguage(langs[0] ?? null);
+  }, [selectedTemplateId, selectedLanguage, languagesForTemplate]);
+
+  const {
+    data: detail,
+    isLoading: detailLoading,
+    isFetching: detailFetching,
+    isError: detailError,
+    error: detailQueryError,
+  } = useQuery({
     queryKey:
       selectedTemplateId && selectedLanguage
         ? emailTemplateDetailQueryKey(selectedTemplateId, selectedLanguage)
@@ -86,16 +102,21 @@ export default function EmailTemplatesSettings() {
     setSaveError(null);
   }, [detail]);
 
-  const pickTemplate = (tid: string) => {
-    setSelectedTemplateId(tid);
-    const langs = languagesForTemplate(tid);
-    setSelectedLanguage(langs[0] ?? 'english');
-  };
+  const pickTemplate = useCallback(
+    (tid: string) => {
+      setSelectedTemplateId(tid);
+      const langs = languagesForTemplate(tid);
+      setSelectedLanguage((prev) =>
+        prev && langs.includes(prev as EmailTemplateEditLanguage) ? prev : (langs[0] ?? null)
+      );
+    },
+    [languagesForTemplate]
+  );
 
   const dirty = useMemo(() => {
     if (!detail) return false;
-    const htmlDraft = bodyHtml.trim() === '' ? null : bodyHtml;
-    const htmlOrig = detail.bodyHtml ?? null;
+    const htmlDraft = normalizeEmailTemplateHtmlForApi(bodyHtml);
+    const htmlOrig = normalizeEmailTemplateHtmlForApi(detail.bodyHtml ?? '');
     return (
       subject !== (detail.subject ?? '') ||
       bodyPlain !== (detail.bodyPlain ?? '') ||
@@ -108,7 +129,7 @@ export default function EmailTemplatesSettings() {
     const payload: UpdateEmailTemplateRequest = {
       subject,
       bodyPlain,
-      bodyHtml: bodyHtml.trim() === '' ? null : bodyHtml,
+      bodyHtml: normalizeEmailTemplateHtmlForApi(bodyHtml),
     };
     setIsSaving(true);
     setSaveError(null);
@@ -125,7 +146,7 @@ export default function EmailTemplatesSettings() {
 
   const varsHelp = selectedTemplateId ? EMAIL_TEMPLATE_VARIABLES[selectedTemplateId] : undefined;
 
-  const langLabel = (lang: string) =>
+  const langLabel = (lang: EmailTemplateEditLanguage) =>
     lang === 'french' ? t('settings.emailTemplates.langFrench') : t('settings.emailTemplates.langEnglish');
 
   if (listLoading) {
@@ -139,7 +160,7 @@ export default function EmailTemplatesSettings() {
   if (listError) {
     return (
       <Card>
-        <p className="text-center text-gray-500 dark:text-gray-400 py-8">{t('settings.emailTemplates.errorLoad')}</p>
+        <p className="text-center text-red-600 dark:text-red-400 py-8 px-4">{getApiErrorMessage(listQueryError, t)}</p>
       </Card>
     );
   }
@@ -200,29 +221,37 @@ export default function EmailTemplatesSettings() {
         ) : null}
 
         {selectedTemplateId ? (
-          <div className="px-4 pb-2 flex flex-wrap gap-1 border-b border-gray-100 dark:border-gray-800">
-            {languagesForTemplate(selectedTemplateId).map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                onClick={() => setSelectedLanguage(lang)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  selectedLanguage === lang
-                    ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
-                }`}
-              >
-                {langLabel(lang)}
-              </button>
-            ))}
+          <div className="border-b border-gray-100 dark:border-gray-800 px-4 pb-3">
+            <div className="flex flex-wrap gap-1 pt-1" role="tablist" aria-label={t('settings.emailTemplates.languagesTablist')}>
+              {languagesForTemplate(selectedTemplateId).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedLanguage === lang}
+                  onClick={() => setSelectedLanguage(lang)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    selectedLanguage === lang
+                      ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {langLabel(lang)}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
 
         <div className="p-4 space-y-4">
-          {(detailLoading || detailFetching) && !detail ? (
+          {(detailLoading || detailFetching) && !detail && !detailError ? (
             <div className="flex justify-center py-12">
               <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : detailError ? (
+            <p className="text-center text-sm text-red-600 dark:text-red-400 py-8 px-2">
+              {getApiErrorMessage(detailQueryError, t)}
+            </p>
           ) : detail ? (
             <>
               <div className="flex items-start gap-3 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-2.5 text-sm text-blue-900 dark:text-blue-100">
@@ -264,13 +293,12 @@ export default function EmailTemplatesSettings() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('settings.emailTemplates.bodyHtml')}
                 </label>
-                <textarea
-                  value={bodyHtml}
-                  onChange={(e) => setBodyHtml(e.target.value)}
+                <EmailTemplateHtmlEditor
+                  syncRevision={`${selectedTemplateId}|${selectedLanguage}|${detail.updatedAt ?? ''}`}
+                  initialHtml={detail.bodyHtml ?? ''}
+                  onHtmlChange={setBodyHtml}
                   disabled={!canEdit}
-                  rows={12}
                   placeholder={t('settings.emailTemplates.bodyHtmlPlaceholder')}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm resize-y min-h-[8rem] disabled:opacity-60"
                 />
               </div>
 

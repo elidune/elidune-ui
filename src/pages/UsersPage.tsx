@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, BookMarked, RefreshCw, Loader2, Edit, Trash2 } from 'lucide-react';
+import { Plus, BookMarked, RefreshCw, Loader2, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
 import { useAccountTypesQuery } from '@/hooks/useAccountTypesQuery';
@@ -16,7 +16,7 @@ import {
   ResponsiveRecordList,
   ListSkeleton,
 } from '@/components/common';
-import { getApiErrorCode } from '@/utils/apiError';
+import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { LIST_ROW_ICON_BTN, LIST_ROW_ICON_BTN_DANGER, LIST_ROW_ICON_BTN_MUTED } from '@/utils/listRowActionIconClass';
 import { RenewSubscriptionModal, UserEditorForm, UserListCard } from '@/components/users';
 import api from '@/services/api';
@@ -40,6 +40,7 @@ export default function UsersPage() {
   const [deleteModalUser, setDeleteModalUser] = useState<UserShort | null>(null);
   const [deleteUserForce, setDeleteUserForce] = useState(false);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
+  const [deleteUserError, setDeleteUserError] = useState<string | null>(null);
 
   const {
     data,
@@ -48,6 +49,9 @@ export default function UsersPage() {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    isError: isUsersQueryError,
+    error: usersQueryError,
+    refetch: refetchUsers,
   } = useInfiniteQuery({
     queryKey: ['users', searchQuery],
     queryFn: async ({ pageParam }) =>
@@ -96,12 +100,14 @@ export default function UsersPage() {
 
   const openDeleteModal = (user: UserShort) => {
     setDeleteUserForce(false);
+    setDeleteUserError(null);
     setDeleteModalUser(user);
   };
 
   const confirmDeleteUser = async () => {
     if (!deleteModalUser) return;
     setDeleteUserLoading(true);
+    setDeleteUserError(null);
     try {
       await api.deleteUser(deleteModalUser.id, deleteUserForce);
       setDeleteModalUser(null);
@@ -120,7 +126,7 @@ export default function UsersPage() {
       ) {
         setDeleteUserForce(true);
       } else {
-        console.error(error);
+        setDeleteUserError(getApiErrorMessage(error, t));
       }
     } finally {
       setDeleteUserLoading(false);
@@ -288,6 +294,17 @@ export default function UsersPage() {
       </Card>
 
       <Card padding="none" className="flex flex-col min-h-0">
+        {isUsersQueryError && (
+          <div className="mx-4 mt-4 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-start gap-2 flex-1 min-w-0 text-sm text-red-800 dark:text-red-200">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />
+              <span>{getApiErrorMessage(usersQueryError, t)}</span>
+            </div>
+            <Button type="button" size="sm" variant="secondary" onClick={() => void refetchUsers()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        )}
         <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600 dark:text-gray-300">
           <span>{t('users.count', { count: totalUsers })}</span>
           <Button
@@ -364,6 +381,7 @@ export default function UsersPage() {
           if (deleteUserLoading) return;
           setDeleteModalUser(null);
           setDeleteUserForce(false);
+          setDeleteUserError(null);
         }}
         title={t('common.confirm')}
         size="sm"
@@ -375,6 +393,7 @@ export default function UsersPage() {
                 if (deleteUserLoading) return;
                 setDeleteModalUser(null);
                 setDeleteUserForce(false);
+                setDeleteUserError(null);
               }}
             >
               {t('common.cancel')}
@@ -408,6 +427,9 @@ export default function UsersPage() {
                 name: `${deleteModalUser?.firstname ?? ''} ${deleteModalUser?.lastname ?? ''}`.trim() || '—',
               })}
         </p>
+        {deleteUserError && (
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">{deleteUserError}</p>
+        )}
       </Modal>
 
       <RenewSubscriptionModal
