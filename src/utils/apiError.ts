@@ -14,22 +14,40 @@ function isBlobLike(data: unknown): data is Blob {
   return typeof Blob !== 'undefined' && data instanceof Blob;
 }
 
-/** i18n key for HTTP status when the body has no usable message. */
+/**
+ * i18n key for an HTTP status when the response body has no usable message.
+ * Covers common REST / proxy status codes; unknown 4xx / 5xx fall back to clientError / serverError.
+ */
 function httpStatusToMessageKey(status: number): string | null {
   if (status === 429) return 'errors.tooManyRequests';
   const specific: Record<number, string> = {
     400: 'errors.http.badRequest',
     401: 'errors.http.unauthorized',
+    402: 'errors.http.paymentRequired',
     403: 'errors.http.forbidden',
     404: 'errors.http.notFound',
     405: 'errors.http.methodNotAllowed',
+    406: 'errors.http.notAcceptable',
     408: 'errors.http.requestTimeout',
     409: 'errors.http.conflict',
+    410: 'errors.http.gone',
+    411: 'errors.http.lengthRequired',
+    412: 'errors.http.preconditionFailed',
     413: 'errors.http.payloadTooLarge',
     414: 'errors.http.uriTooLong',
     415: 'errors.http.unsupportedMedia',
+    416: 'errors.http.rangeNotSatisfiable',
+    421: 'errors.http.misdirectedRequest',
     422: 'errors.http.unprocessable',
+    423: 'errors.http.locked',
+    424: 'errors.http.failedDependency',
+    426: 'errors.http.upgradeRequired',
+    428: 'errors.http.preconditionRequired',
+    431: 'errors.http.requestHeaderFieldsTooLarge',
+    451: 'errors.http.unavailableForLegalReasons',
     501: 'errors.http.notImplemented',
+    507: 'errors.http.insufficientStorage',
+    511: 'errors.http.networkAuthRequired',
   };
   if (specific[status]) return specific[status];
   if (status >= 500 && status <= 599) {

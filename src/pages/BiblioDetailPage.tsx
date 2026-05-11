@@ -14,6 +14,7 @@ import {
   FileText,
   Tag,
   Plus,
+  ScanLine,
   AlertCircle,
   ExternalLink,
   Bookmark,
@@ -25,6 +26,7 @@ import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, type MediaType } from '@/types';
 import PlaceHoldDialog from '@/components/holds/PlaceHoldDialog';
+import BatchDeleteSpecimensDialog from '@/components/specimen/BatchDeleteSpecimensDialog';
 import api from '@/services/api';
 import type { Biblio, Item, Author, Source } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -121,6 +123,7 @@ export default function BiblioDetailPage() {
   const [deleteBiblioApiError, setDeleteBiblioApiError] = useState<string | null>(null);
   const [deleteSpecimenApiError, setDeleteSpecimenApiError] = useState<string | null>(null);
   const [reserveSpecimen, setReserveSpecimen] = useState<Item | null>(null);
+  const [showBatchDeleteSpecimens, setShowBatchDeleteSpecimens] = useState(false);
 
   const invalidateBiblio = () => {
     if (id) void queryClient.invalidateQueries({ queryKey: ['biblio', id] });
@@ -444,14 +447,26 @@ export default function BiblioDetailPage() {
               subtitle={t('items.specimenCount', { count: item.items?.length ?? 0 })}
               action={
                 canManageItems(user?.accountType) && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setShowAddSpecimenModal(true)}
-                    leftIcon={<Plus className="h-4 w-4" />}
-                  >
-                    {t('items.addSpecimen')}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(item.items?.length ?? 0) > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowBatchDeleteSpecimens(true)}
+                        leftIcon={<ScanLine className="h-4 w-4" />}
+                      >
+                        {t('items.batchDeleteScan.openButton')}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setShowAddSpecimenModal(true)}
+                      leftIcon={<Plus className="h-4 w-4" />}
+                    >
+                      {t('items.addSpecimen')}
+                    </Button>
+                  </div>
                 )
               }
             />
@@ -794,6 +809,20 @@ export default function BiblioDetailPage() {
           onSuccess={() => {
             invalidateBiblio();
           }}
+        />
+      )}
+
+      {item && item.id != null && (
+        <BatchDeleteSpecimensDialog
+          isOpen={showBatchDeleteSpecimens}
+          onClose={() => setShowBatchDeleteSpecimens(false)}
+          restrictToBiblio={{
+            id: item.id,
+            title: item.title,
+            authorLabel: formatAuthors(item.authors),
+            items: item.items,
+          }}
+          onSpecimenDeleted={() => invalidateBiblio()}
         />
       )}
     </div>

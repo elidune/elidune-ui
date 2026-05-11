@@ -12,7 +12,7 @@ import {
   ChevronDown,
   Import,
 } from 'lucide-react';
-import { Input, Button } from '@/components/common';
+import { Input, Button, ConfirmDialog } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import api from '@/services/api';
@@ -87,8 +87,7 @@ type CollapsibleSectionId =
   | 'edition'
   | 'authors'
   | 'collections'
-  | 'series'
-  | 'specimens';
+  | 'series';
 
 function linkedCollectionsAfterZ3950(item: Biblio, prev: LinkedEntry[]): LinkedEntry[] {
   const firstColl = item.collections?.[0] ?? item.collection;
@@ -158,6 +157,16 @@ function computeZ3950OpenedSections(
 
 const BIBLIO_FORM_SECTION =
   'rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4 bg-gray-100 dark:bg-gray-800/50';
+
+const BIBLIO_SPECIMENS_SECTION =
+  'rounded-lg border border-amber-300/80 dark:border-amber-700/50 p-4 space-y-4 bg-amber-100/90 dark:bg-amber-950/35 shadow-sm';
+
+/** Matches common `Input` control height */
+const BIBLIO_FORM_SELECT =
+  'w-full h-10 min-h-10 shrink-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-0 text-sm text-gray-900 dark:text-gray-100 box-border focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40';
+
+const BIBLIO_FORM_SELECT_COMPACT =
+  'shrink-0 h-10 min-h-10 w-[min(100%,11rem)] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-0 text-sm text-gray-900 dark:text-gray-100 box-border focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40';
 
 function BiblioFormCollapsibleSection({
   sectionId,
@@ -314,6 +323,7 @@ export default function BiblioEditorForm({
   const [z3950PickPage, setZ3950PickPage] = useState(0);
 
   const [openSections, setOpenSections] = useState<Partial<Record<CollapsibleSectionId, boolean>>>({});
+  const [noSpecimensConfirmOpen, setNoSpecimensConfirmOpen] = useState(false);
 
   const [sources, setSources] = useState<Source[]>([]);
   const [specimens, setSpecimens] = useState<SpecimenFormRow[]>([
@@ -454,6 +464,40 @@ export default function BiblioEditorForm({
     }));
   };
 
+  const buildCreatePayload = (specimenItems: CreateBiblioItemInput[] | undefined): CreateBiblioPayload => {
+    const authorsPayload: Author[] = formData.authors.map((a) => ({
+      id: a.id,
+      lastname: a.lastname || undefined,
+      firstname: a.firstname || undefined,
+      function: a.function || undefined,
+    }));
+    const { series, collections } = buildLinkedPayload();
+    return {
+      title: formData.title,
+      isbn: formData.isbn || undefined,
+      mediaType: formData.mediaType,
+      publicationDate: formData.publicationDate || undefined,
+      abstract: formData.abstract || undefined,
+      keywords: formData.keywords || undefined,
+      subject: formData.subject || undefined,
+      audienceType: formData.audienceType || undefined,
+      lang: formData.lang || undefined,
+      edition:
+        formData.editionPublisher || formData.editionPlace || formData.editionDate
+          ? {
+              id: null,
+              publisherName: formData.editionPublisher || undefined,
+              placeOfPublication: formData.editionPlace || undefined,
+              date: formData.editionDate || undefined,
+            }
+          : undefined,
+      authors: authorsPayload,
+      series: series as Serie[],
+      collections: collections as Collection[],
+      ...(specimenItems?.length ? { items: specimenItems } : {}),
+    };
+  };
+
   const handleAddSpecimen = () => {
     const defaultId = sources.find((s) => s.default)?.id ?? sources[0]?.id ?? '';
     setSpecimens([...specimens, { barcode: '', callNumber: '', sourceId: defaultId }]);
@@ -588,37 +632,12 @@ export default function BiblioEditorForm({
       const specimenPayload = buildSpecimensPayload();
       if (specimenPayload?.some((s) => !s.sourceId)) return;
 
-      const authorsPayload: Author[] = formData.authors.map((a) => ({
-        id: a.id,
-        lastname: a.lastname || undefined,
-        firstname: a.firstname || undefined,
-        function: a.function || undefined,
-      }));
-      const { series, collections } = buildLinkedPayload();
-      const payload: CreateBiblioPayload = {
-        title: formData.title,
-        isbn: formData.isbn || undefined,
-        mediaType: formData.mediaType,
-        publicationDate: formData.publicationDate || undefined,
-        abstract: formData.abstract || undefined,
-        keywords: formData.keywords || undefined,
-        subject: formData.subject || undefined,
-        audienceType: formData.audienceType || undefined,
-        lang: formData.lang || undefined,
-        edition:
-          formData.editionPublisher || formData.editionPlace || formData.editionDate
-            ? {
-                id: null,
-                publisherName: formData.editionPublisher || undefined,
-                placeOfPublication: formData.editionPlace || undefined,
-                date: formData.editionDate || undefined,
-              }
-            : undefined,
-        authors: authorsPayload,
-        series: series as Serie[],
-        collections: collections as Collection[],
-        ...(specimenPayload?.length ? { items: specimenPayload } : {}),
-      };
+      if (!specimenPayload?.length) {
+        setNoSpecimensConfirmOpen(true);
+        return;
+      }
+
+      const payload = buildCreatePayload(specimenPayload);
       await onSubmitCreate?.(payload);
       return;
     }
@@ -660,8 +679,21 @@ export default function BiblioEditorForm({
     }
   };
 
+  const handleConfirmCreateWithoutSpecimens = async () => {
+    setNoSpecimensConfirmOpen(false);
+    const invalidCallNumber = specimens.find(
+      (s) => s.barcode.trim() !== '' && s.callNumber.trim() !== '' && !validateCallNumber(s.callNumber)
+    );
+    if (invalidCallNumber) return;
+    const specimenPayload = buildSpecimensPayload();
+    if (specimenPayload?.some((s) => !s.sourceId)) return;
+    const payload = buildCreatePayload(specimenPayload);
+    await onSubmitCreate?.(payload);
+  };
+
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <section className={BIBLIO_FORM_SECTION}>
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.identification')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -858,7 +890,7 @@ export default function BiblioEditorForm({
             <select
               value={formData.mediaType}
               onChange={(e) => setFormData({ ...formData, mediaType: e.target.value as MediaType })}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              className={BIBLIO_FORM_SELECT}
             >
               {MEDIA_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -922,7 +954,7 @@ export default function BiblioEditorForm({
             <select
               value={formData.audienceType}
               onChange={(e) => setFormData({ ...formData, audienceType: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              className={BIBLIO_FORM_SELECT}
             >
               <option value="">{t('items.notSpecified')}</option>
               {PUBLIC_TYPE_OPTIONS.map((opt) => (
@@ -939,7 +971,7 @@ export default function BiblioEditorForm({
             <select
               value={formData.lang}
               onChange={(e) => setFormData({ ...formData, lang: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              className={BIBLIO_FORM_SELECT}
             >
               <option value="">{t('items.notSpecified')}</option>
               {LANG_OPTIONS.map((opt) => (
@@ -1013,7 +1045,7 @@ export default function BiblioEditorForm({
               <select
                 value={author.function}
                 onChange={(e) => updateAuthor(index, 'function', e.target.value)}
-                className="shrink-0 w-[min(100%,11rem)] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                className={BIBLIO_FORM_SELECT_COMPACT}
               >
                 <option value="">{t('items.notSpecified')}</option>
                 {FUNCTION_OPTIONS.map((opt) => (
@@ -1070,16 +1102,12 @@ export default function BiblioEditorForm({
       </BiblioFormCollapsibleSection>
 
       {showSpecimens && (
-        <BiblioFormCollapsibleSection
-          sectionId="specimens"
-          title={t('items.specimensOptional')}
-          open={sectionOpen('specimens')}
-          onToggle={() => toggleSection('specimens')}
-        >
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('items.specimensOptionalHint')}</p>
+        <section className={BIBLIO_SPECIMENS_SECTION}>
+          <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-100">{t('items.specimens')}</h3>
+          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">{t('items.specimensOptionalHint')}</p>
           <div className="space-y-3">
             {specimens.map((specimen, index) => (
-              <div key={index} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div key={index} className="flex items-start gap-2 p-3 rounded-lg border border-amber-200/70 dark:border-amber-800/50 bg-white/70 dark:bg-gray-900/40">
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <Input
                     placeholder={t('items.specimenBarcode')}
@@ -1100,7 +1128,7 @@ export default function BiblioEditorForm({
                     <select
                       value={specimen.sourceId}
                       onChange={(e) => handleSpecimenChange(index, 'sourceId', e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
+                      className={BIBLIO_FORM_SELECT}
                     >
                       <option value="">{t('items.selectSource')}</option>
                       {sources.map((src) => (
@@ -1129,8 +1157,17 @@ export default function BiblioEditorForm({
           <Button type="button" variant="secondary" size="sm" onClick={handleAddSpecimen} leftIcon={<Plus className="h-4 w-4" />}>
             {t('items.addSpecimen')}
           </Button>
-        </BiblioFormCollapsibleSection>
+        </section>
       )}
     </form>
+      <ConfirmDialog
+        isOpen={noSpecimensConfirmOpen}
+        onClose={() => setNoSpecimensConfirmOpen(false)}
+        onConfirm={() => {
+          void handleConfirmCreateWithoutSpecimens();
+        }}
+        message={t('items.createBiblioNoSpecimensConfirm')}
+      />
+    </>
   );
 }

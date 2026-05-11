@@ -349,6 +349,7 @@ class ApiService {
     archive?: boolean;
     serieId?: string;
     collectionId?: string;
+    includeWithoutActiveItems?: boolean;
   }): Promise<PaginatedResponse<BiblioShort>> {
     const response = await this.client.get('/biblios', { params });
     return normalizePaginatedResponse<BiblioShort>(response.data);
@@ -475,6 +476,19 @@ class ApiService {
    */
   async getItem(id: string): Promise<Biblio> {
     const response = await this.client.get<Biblio>(`/items/${id}`);
+    return response.data;
+  }
+
+  /**
+   * `GET /items/barcode/:barcode` — same shape as `GET /items/:id`, but addressed by the
+   * physical copy's barcode. The returned `items` array contains only the matching copy.
+   *
+   * Errors: 404 if no active copy has this barcode; 410 if the bibliographic record is archived.
+   */
+  async getItemByBarcode(barcode: string): Promise<Biblio> {
+    const response = await this.client.get<Biblio>(
+      `/items/barcode/${encodeURIComponent(barcode)}`,
+    );
     return response.data;
   }
 
