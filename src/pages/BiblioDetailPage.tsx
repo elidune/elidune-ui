@@ -24,7 +24,7 @@ import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/comm
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageItems, type MediaType } from '@/types';
+import { canManageItems, canPatronSelfServiceHolds, isLibrarian, type MediaType } from '@/types';
 import PlaceHoldDialog from '@/components/holds/PlaceHoldDialog';
 import BatchDeleteSpecimensDialog from '@/components/specimen/BatchDeleteSpecimensDialog';
 import api from '@/services/api';
@@ -477,7 +477,11 @@ export default function BiblioDetailPage() {
                     key={specimen.id}
                     specimen={specimen}
                     canManage={canManageItems(user?.accountType)}
-                    showReserveButton={!!user?.id && specimen.borrowable !== false}
+                    showReserveButton={
+                      !!user?.id &&
+                      specimen.borrowable !== false &&
+                      (isLibrarian(user.accountType) || canPatronSelfServiceHolds(user, api.getToken()))
+                    }
                     onReserve={() => setReserveSpecimen(specimen)}
                     onEdit={() => {
                       setSelectedSpecimen(specimen);
@@ -808,6 +812,7 @@ export default function BiblioDetailPage() {
           currentUserId={user.id}
           onSuccess={() => {
             invalidateBiblio();
+            void queryClient.invalidateQueries({ queryKey: ['my-holds'] });
           }}
         />
       )}

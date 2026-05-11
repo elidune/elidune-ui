@@ -21,6 +21,7 @@ import {
   UsersPage,
   UserDetailPage,
   MyLoansPage,
+  MyHoldsPage,
   LoansPage,
   HoldsPage,
   StatsPage,
@@ -148,6 +149,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyLoansPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/my-holds"
+        element={
+          <ProtectedRoute>
+            <MyHoldsPage />
           </ProtectedRoute>
         }
       />

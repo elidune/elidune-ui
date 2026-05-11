@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, BookOpen, SlidersHorizontal, Loader2, AlertCircle, Video, Music, Image, FileText, Disc, Newspaper, Trash2, Layers, BookMarked, Edit, ChevronLeft, ChevronRight, ScanLine } from 'lucide-react';
+import { Plus, BookOpen, SlidersHorizontal, Loader2, AlertCircle, Trash2, Layers, BookMarked, Edit, ChevronLeft, ChevronRight, ScanLine } from 'lucide-react';
 import { Card, Button, Table, Badge, SearchInput, Modal, Input, ScrollableListRegion, ResponsiveRecordList, ListSkeleton } from '@/components/common';
 import BiblioCatalogItemCard from '@/components/items/BiblioCatalogItemCard';
 import BatchDeleteSpecimensDialog from '@/components/specimen/BatchDeleteSpecimensDialog';
@@ -13,6 +13,7 @@ import { PUBLIC_TYPE_OPTIONS } from '@/utils/codeLabels';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { LIST_ROW_ICON_BTN, LIST_ROW_ICON_BTN_DANGER } from '@/utils/listRowActionIconClass';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
+import { LoanMediaTypeBadge, mediaTypeIconBadgeBgClass, renderMediaTypeIcon } from '@/utils/mediaTypeIcon';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 type CatalogTab = 'catalog' | 'collections' | 'series';
 
@@ -340,78 +341,13 @@ export default function BibliosPage() {
     return <Badge>{t('items.unavailable')}</Badge>;
   };
 
-  const getMediaTypeIcon = (mediaType?: MediaType) => {
-    const iconClass = "h-5 w-5";
-    const colorClass = "text-amber-600 dark:text-amber-400";
-    
-    switch (mediaType) {
-      case 'printedText':
-      case 'comics':
-        return <BookOpen className={`${iconClass} ${colorClass}`} />;
-      case 'periodic':
-        return <Newspaper className={`${iconClass} ${colorClass}`} />;
-      case 'video':
-      case 'videoTape':
-      case 'videoDvd':
-        return <Video className={`${iconClass} text-red-600 dark:text-red-400`} />;
-      case 'audio':
-      case 'audioMusic':
-      case 'audioMusicTape':
-      case 'audioMusicCd':
-      case 'audioNonMusic':
-      case 'audioNonMusicTape':
-      case 'audioNonMusicCd':
-        return <Music className={`${iconClass} text-blue-600 dark:text-blue-400`} />;
-      case 'cdRom':
-        return <Disc className={`${iconClass} text-purple-600 dark:text-purple-400`} />;
-      case 'images':
-        return <Image className={`${iconClass} text-green-600 dark:text-green-400`} />;
-      case 'multimedia':
-        return <FileText className={`${iconClass} text-indigo-600 dark:text-indigo-400`} />;
-      default:
-        return <BookOpen className={`${iconClass} text-gray-600 dark:text-gray-400`} />;
-    }
-  };
-
-  const getMediaTypeBgColor = (mediaType?: MediaType) => {
-    switch (mediaType) {
-      case 'printedText':
-      case 'comics':
-        return 'bg-amber-50 dark:bg-amber-900/30';
-      case 'periodic':
-        return 'bg-orange-50 dark:bg-orange-900/30';
-      case 'video':
-      case 'videoTape':
-      case 'videoDvd':
-        return 'bg-red-50 dark:bg-red-900/30';
-      case 'audio':
-      case 'audioMusic':
-      case 'audioMusicTape':
-      case 'audioMusicCd':
-      case 'audioNonMusic':
-      case 'audioNonMusicTape':
-      case 'audioNonMusicCd':
-        return 'bg-blue-50 dark:bg-blue-900/30';
-      case 'cdRom':
-        return 'bg-purple-50 dark:bg-purple-900/30';
-      case 'images':
-        return 'bg-green-50 dark:bg-green-900/30';
-      case 'multimedia':
-        return 'bg-indigo-50 dark:bg-indigo-900/30';
-      default:
-        return 'bg-gray-50 dark:bg-gray-900/30';
-    }
-  };
-
   const columns = [
     {
       key: 'title',
       header: t('items.titleField'),
       render: (item: BiblioShort) => (
         <div className="flex items-center gap-3">
-          <div className={`flex-shrink-0 h-10 w-10 rounded-lg ${getMediaTypeBgColor(item.mediaType as MediaType)} flex items-center justify-center`}>
-            {getMediaTypeIcon(item.mediaType as MediaType)}
-          </div>
+          <LoanMediaTypeBadge mediaType={item.mediaType} size="table" />
           <div className="min-w-0">
             <p className="font-medium text-gray-900 dark:text-white truncate">
               {item.title || t('items.notSpecified')}
@@ -753,8 +689,8 @@ export default function BibliosPage() {
                         <BiblioCatalogItemCard
                           key={item.id}
                           item={item}
-                          mediaIcon={getMediaTypeIcon(item.mediaType as MediaType)}
-                          mediaBgClassName={getMediaTypeBgColor(item.mediaType as MediaType)}
+                          mediaIcon={renderMediaTypeIcon(item.mediaType, 'h-5 w-5')}
+                          mediaBgClassName={mediaTypeIconBadgeBgClass(item.mediaType)}
                           formatAuthor={formatAuthor}
                           notSpecified={t('items.notSpecified')}
                           statusBadge={getCatalogRowStatusBadge(item)}

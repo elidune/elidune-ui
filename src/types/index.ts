@@ -1,3 +1,5 @@
+import { readHoldsRightsFromJwt } from '@/utils/jwtRights';
+
 // Library info types
 export interface LibraryInfo {
   name?: string | null;
@@ -74,6 +76,13 @@ export interface CreateScheduleClosure {
   reason?: string | null;
 }
 
+/** Nested permission bag on GET /auth/me (matches JWT `rights` when exposed). */
+export interface AuthMeRights {
+  holdsRights?: string | null;
+  /** Legacy alias on some tokens — prefer holdsRights */
+  borrowsRights?: string | null;
+}
+
 // User types
 export interface User {
   id: string;
@@ -86,6 +95,12 @@ export interface User {
   barcode?: string;
   accountType?: string;
   language?: string;
+  /**
+   * Holds permission from the API (`none` | `own` | `read` | `write`), when exposed.
+   * Patron self-service uses `own`.
+   */
+  holdsRights?: string | null;
+  rights?: AuthMeRights | null;
   // Address fields
   addrStreet?: string;
   addrZipCode?: number;
@@ -839,12 +854,28 @@ export type ApiErrorCode =
   | 'database_error'
   | 'internal_error';
 
-// Settings
+// Settings — renewal anchoring (serialized wire values: now, at_due_date)
+export type LoanSettingsRenewAt = 'now' | 'at_due_date';
+
+/** @deprecated Use LoanSettingsRenewAt */
+export type LoanRenewAt = LoanSettingsRenewAt;
+
 export interface LoanSettings {
-  mediaType: MediaType;
+  /** null = global default row (all media types not overridden) */
+  mediaType: MediaType | null;
+  /**
+   * Default row: max active loans across all media types (after server resolution).
+   * Per–media row: cap for that document type only.
+   */
   maxLoans: number;
   maxRenewals: number;
   durationDays: number;
+  renewAt: LoanSettingsRenewAt;
+}
+
+/** Body for PUT /loans/settings (camelCase). */
+export interface UpdateLoanSettingsRequest {
+  loanSettings: LoanSettings[];
 }
 
 export interface Settings {
@@ -878,13 +909,37 @@ export interface PublicType {
   loanDurationDays?: number | null;
 }
 
-export interface PublicTypeLoanSettings {
-  id: string;
-  publicTypeId: string;
-  mediaType: MediaType;
+/**
+ * One row in PUT /public-types/:id/loan-settings body.settings (camelCase).
+ * Use mediaType: null for the single audience default row; omit empty strings.
+ */
+export interface PublicTypeLoanSettingInput {
+  mediaType?: MediaType | null;
   duration: number;
   nbMax: number;
   nbRenews: number;
+  /** null = inherit global renewAt for this mediaType */
+  renewAt?: LoanSettingsRenewAt | null;
+}
+
+export interface ReplacePublicTypeLoanSettingsRequest {
+  settings: PublicTypeLoanSettingInput[];
+}
+
+export interface PublicTypeLoanSettings {
+  id: string;
+  publicTypeId: string;
+  /** null = audience default row (all media types for this profile) */
+  mediaType: MediaType | null;
+  duration: number;
+  /**
+   * Default row: max active loans across all media types for this profile (after server resolution).
+   * Per–media row: cap for that document type only.
+   */
+  nbMax: number;
+  nbRenews: number;
+  /** null = inherit global loan setting for this mediaType (or global default when mediaType is null) */
+  renewAt: LoanSettingsRenewAt | null;
 }
 
 export interface CreatePublicType {
@@ -907,13 +962,6 @@ export interface UpdatePublicType {
   subscriptionPrice?: number | null;
   maxLoans?: number | null;
   loanDurationDays?: number | null;
-}
-
-export interface UpsertLoanSettingRequest {
-  mediaType: MediaType;
-  duration?: number | null;
-  nbMax?: number | null;
-  nbRenews?: number | null;
 }
 
 // Source type
@@ -974,6 +1022,39 @@ export const canManageUsers = (accountType?: string): boolean =>
 
 export const canManageLoans = (accountType?: string): boolean =>
   isLibrarian(accountType);
+
+/** Normalized holds level from profile only (`none` | `own` | `read` | `write`). */
+export function resolveHoldsRightsFromProfile(
+  user: Pick<User, 'holdsRights' | 'rights'> | null | undefined,
+): string | null {
+  if (!user) return null;
+  const nested = user.rights && typeof user.rights === 'object' ? user.rights : null;
+  const raw = nested?.holdsRights ?? nested?.borrowsRights ?? user.holdsRights;
+  const s = raw != null ? String(raw).trim().toLowerCase() : '';
+  return s || null;
+}
+
+/**
+ * Effective holds permission: JWT `rights.holdsRights` first (available right after login),
+ * then GET /auth/me fields when present.
+ */
+export function resolveHoldsRights(
+  user: Pick<User, 'holdsRights' | 'rights'> | null | undefined,
+  authToken?: string | null,
+): string | null {
+  const fromJwt = authToken ? readHoldsRightsFromJwt(authToken) : null;
+  const fromProfile = resolveHoldsRightsFromProfile(user);
+  return fromJwt ?? fromProfile ?? null;
+}
+
+/** Personal holds UI (Mes réservations, réserver un exemplaire) for `own`, `read`, or `write`. */
+export const canPatronSelfServiceHolds = (
+  user: Pick<User, 'holdsRights' | 'rights'> | null | undefined,
+  authToken?: string | null,
+): boolean => {
+  const r = resolveHoldsRights(user, authToken);
+  return r === 'own' || r === 'read' || r === 'write';
+};
 
 export const canViewStats = (accountType?: string): boolean =>
   isLibrarian(accountType);

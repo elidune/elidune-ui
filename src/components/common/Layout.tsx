@@ -21,11 +21,12 @@ import {
   LibraryBig,
   ClipboardList,
   Bookmark,
+  BookmarkCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLibrary } from '@/contexts/LibraryContext';
-import { isLibrarian, isAdmin } from '@/types';
+import { isLibrarian, isAdmin, canPatronSelfServiceHolds } from '@/types';
 import api from '@/services/api';
 import { version as uiVersion } from '../../../package.json';
 
@@ -59,6 +60,12 @@ export default function Layout({ children }: LayoutProps) {
     { name: t('nav.catalog'), href: '/biblios', icon: BookOpen, show: true },
     { name: t('nav.inventory'), href: '/inventory', icon: ClipboardList, show: isLibrarian(user?.accountType) },
     { name: t('nav.myLoans'), href: '/my-loans', icon: BookMarked, show: true },
+    {
+      name: t('nav.myHolds'),
+      href: '/my-holds',
+      icon: BookmarkCheck,
+      show: canPatronSelfServiceHolds(user, api.getToken()),
+    },
     { name: t('nav.loans'), href: '/loans', icon: ArrowLeftRight, show: isLibrarian(user?.accountType) },
     { name: t('nav.holds'), href: '/holds', icon: Bookmark, show: isLibrarian(user?.accountType) },
     { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.accountType) },

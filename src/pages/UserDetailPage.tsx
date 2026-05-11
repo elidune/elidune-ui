@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,13 +12,6 @@ import {
   Check,
   Filter,
   X,
-  BookOpen,
-  Newspaper,
-  Video,
-  Music,
-  Disc,
-  Image,
-  FileText,
   AlertTriangle,
   Loader2,
   AlertCircle,
@@ -41,12 +34,14 @@ import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
+import { sortLoansByStartDateAsc } from '@/utils/sortLoans';
 import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
 import LoansMarcExportButton from '@/components/loans/LoansMarcExportButton';
 import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
 import { useAuth } from '@/contexts/AuthContext';
-import { isLibrarian, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type MediaType, type Author, type Hold } from '@/types';
+import { isLibrarian, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type Author, type Hold } from '@/types';
 import { accountTypeDisplayName } from '@/utils/accountTypeDisplay';
+import { LoanMediaTypeBadge } from '@/utils/mediaTypeIcon';
 
 const USER_LOANS_PAGE_SIZE = 20;
 const USER_HOLDS_PAGE_SIZE = 20;
@@ -133,7 +128,10 @@ export default function UserDetailPage() {
     },
     enabled: !!id && detailTab === 'activeLoans',
   });
-  const activeLoans = activeLoansPages?.pages.flatMap((p) => p.items) ?? [];
+  const activeLoans = useMemo(
+    () => sortLoansByStartDateAsc(activeLoansPages?.pages.flatMap((p) => p.items) ?? []),
+    [activeLoansPages],
+  );
   const activeLoansTotal = activeLoansPages?.pages[0]?.total ?? 0;
 
   const {
@@ -431,49 +429,16 @@ export default function UserDetailPage() {
     return `${author.firstname || ''} ${author.lastname || ''}`.trim() || '-';
   };
 
-  const getMediaTypeIcon = (mediaType?: MediaType) => {
-    const iconClass = 'h-5 w-5';
-    const colorClass = 'text-amber-600 dark:text-amber-400';
-    switch (mediaType) {
-      case 'printedText':
-      case 'comics':
-        return <BookOpen className={`${iconClass} ${colorClass}`} />;
-      case 'periodic':
-        return <Newspaper className={`${iconClass} ${colorClass}`} />;
-      case 'video':
-      case 'videoTape':
-      case 'videoDvd':
-        return <Video className={`${iconClass} text-red-600 dark:text-red-400`} />;
-      case 'audio':
-      case 'audioMusic':
-      case 'audioMusicTape':
-      case 'audioMusicCd':
-      case 'audioNonMusic':
-      case 'audioNonMusicTape':
-      case 'audioNonMusicCd':
-        return <Music className={`${iconClass} text-blue-600 dark:text-blue-400`} />;
-      case 'cdRom':
-        return <Disc className={`${iconClass} text-purple-600 dark:text-purple-400`} />;
-      case 'images':
-        return <Image className={`${iconClass} text-green-600 dark:text-green-400`} />;
-      case 'multimedia':
-        return <FileText className={`${iconClass} text-indigo-600 dark:text-indigo-400`} />;
-      default:
-        return <BookOpen className={`${iconClass} text-gray-600 dark:text-gray-400`} />;
-    }
-  };
-
   const loanColumnsActive = [
     {
       key: 'title',
       header: 'Document',
-      render: (loan: Loan) => {
-        return (
-          <div>
-            {renderLoanTitle(loan)}
-          </div>
-        );
-      },
+      render: (loan: Loan) => (
+        <div className="flex items-start gap-3 min-w-0">
+          <LoanMediaTypeBadge mediaType={loan.biblio.mediaType} size="table" />
+          <div className="min-w-0">{renderLoanTitle(loan)}</div>
+        </div>
+      ),
     },
     {
       key: 'date',
@@ -532,7 +497,12 @@ export default function UserDetailPage() {
     {
       key: 'title',
       header: 'Document',
-      render: (loan: Loan) => <div>{renderLoanTitle(loan)}</div>,
+      render: (loan: Loan) => (
+        <div className="flex items-start gap-3 min-w-0">
+          <LoanMediaTypeBadge mediaType={loan.biblio.mediaType} size="table" />
+          <div className="min-w-0">{renderLoanTitle(loan)}</div>
+        </div>
+      ),
     },
     {
       key: 'date',
@@ -997,9 +967,7 @@ export default function UserDetailPage() {
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Document</p>
               <div className="flex items-start gap-3 mt-1">
-                <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gray-50 dark:bg-gray-900/30 flex items-center justify-center">
-                  {getMediaTypeIcon(loanDetails.biblio.mediaType as MediaType)}
-                </div>
+                <LoanMediaTypeBadge mediaType={loanDetails.biblio.mediaType} size="table" />
                 <div className="min-w-0">
                   <p className="text-gray-900 dark:text-white font-medium">
                     {loanDetails.biblio.title || 'Sans titre'}

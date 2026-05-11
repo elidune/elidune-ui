@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, Badge } from '@/components/common';
 import type { Loan } from '@/types';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
+import { LoanMediaTypeBadge } from '@/utils/mediaTypeIcon';
 
 interface ActiveLoanCardProps {
   loan: Loan;
@@ -25,17 +26,20 @@ export default function ActiveLoanCard({ loan, onRenew, onReturn }: ActiveLoanCa
 
   return (
     <div className="p-4 border-b border-gray-100 dark:border-gray-800 last:border-b-0 space-y-3">
-      <div>
-        <p className="font-medium text-gray-900 dark:text-white">{loan.biblio.title || t('loans.noTitle')}</p>
-        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5 mt-1">
-          {loan.biblio.isbn && (
+      <div className="flex gap-3">
+        <LoanMediaTypeBadge mediaType={loan.biblio?.mediaType} size="catalog" />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-gray-900 dark:text-white">{loan.biblio.title || t('loans.noTitle')}</p>
+          <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5 mt-1">
+            {loan.biblio.isbn && (
+              <p>
+                {t('items.isbn')}: <span className="font-mono">{formatIsbnDisplay(loan.biblio.isbn)}</span>
+              </p>
+            )}
             <p>
-              {t('items.isbn')}: <span className="font-mono">{formatIsbnDisplay(loan.biblio.isbn)}</span>
+              {t('items.barcode')}: <span className="font-mono">{specimenBarcode ?? '-'}</span>
             </p>
-          )}
-          <p>
-            {t('items.barcode')}: <span className="font-mono">{specimenBarcode ?? '-'}</span>
-          </p>
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Calendar, RotateCcw, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge, Pagination } from '@/components/common';
@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import type { Loan } from '@/types';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { LoanMediaTypeBadge } from '@/utils/mediaTypeIcon';
+import { sortLoansByStartDateAsc } from '@/utils/sortLoans';
 
 const MY_LOANS_PAGE_SIZE = 20;
 
@@ -61,7 +63,7 @@ export default function MyLoansPage() {
     }
   };
 
-  const loansSorted = [...loans].sort((a, b) => Number(b.isOverdue) - Number(a.isOverdue));
+  const loansSorted = useMemo(() => sortLoansByStartDateAsc(loans), [loans]);
 
   if (isLoading) {
     return (
@@ -148,9 +150,7 @@ function LoanCard({ loan, onRenew, isOverdue = false }: LoanCardProps) {
           : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
       }`}
     >
-      <div className="flex-shrink-0 h-14 w-14 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-        <BookOpen className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
-      </div>
+      <LoanMediaTypeBadge mediaType={loan.biblio.mediaType} size="comfortable" />
 
       <div className="flex-1 min-w-0">
         <p className="font-medium text-gray-900 dark:text-white truncate">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Wrench, Shield, Mail, Library } from 'lucide-react';
@@ -16,6 +16,8 @@ import { isAdmin } from '@/types';
 import type {
   Settings,
   LoanSettings,
+  LoanSettingsRenewAt,
+  PublicTypeLoanSettingInput,
   Z3950Server,
   MediaType,
   Source,
@@ -68,6 +70,20 @@ function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undef
     m: 'multimedia',
   };
   return legacyMap[String(mediaType)] ?? String(mediaType);
+}
+
+function globalRenewInheritLabel(
+  globalLoanSettings: LoanSettings[],
+  mediaType: MediaType | null,
+  translate: (key: string) => string,
+): string {
+  const globalRow = globalLoanSettings.find((s) => s.mediaType === mediaType);
+  if (globalRow != null) {
+    return globalRow.renewAt === 'at_due_date'
+      ? translate('settings.renewAtDueDate')
+      : translate('settings.renewAtNow');
+  }
+  return translate('settings.publicTypes.renewAtGlobalFallback');
 }
 
 // ─── Source Editor Component ───────────────────────────────────────────────────
@@ -498,6 +514,7 @@ function PublicTypesEditor() {
   const [detailsTab, setDetailsTab] = useState<'general' | 'overrides'>('general');
   const [loanOverrides, setLoanOverrides] = useState<Record<string, PublicTypeLoanSettings[]>>({});
   const [publicTypeToDelete, setPublicTypeToDelete] = useState<PublicType | null>(null);
+  const [globalLoanSettings, setGlobalLoanSettings] = useState<LoanSettings[]>([]);
 
   const clearMessages = () => {
     setError(null);
@@ -523,6 +540,16 @@ function PublicTypesEditor() {
   useEffect(() => {
     fetchPublicTypes();
   }, [fetchPublicTypes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.getLoanSettings().then((r) => {
+      if (!cancelled) setGlobalLoanSettings(r.loanSettings ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchOverrides = useCallback(async (id: string) => {
     try {
@@ -579,26 +606,15 @@ function PublicTypesEditor() {
     }
   };
 
-  const handleUpsertOverride = async (publicTypeId: string, mediaType: MediaType, duration: number, nbMax: number, nbRenews: number) => {
+  const handleSaveLoanOverrides = async (
+    publicTypeId: string,
+    settings: PublicTypeLoanSettingInput[],
+  ) => {
+    clearMessages();
     try {
-      await api.upsertPublicTypeLoanSetting(publicTypeId, {
-        mediaType: mediaType,
-        duration: duration || null,
-        nbMax: nbMax || null,
-        nbRenews: nbRenews || null,
-      });
+      const list = await api.replacePublicTypeLoanSettings(publicTypeId, { settings });
+      setLoanOverrides((prev) => ({ ...prev, [publicTypeId]: list }));
       showSuccess(t('settings.publicTypes.overrideSuccess'));
-      fetchOverrides(publicTypeId);
-    } catch (err: unknown) {
-      setError(getApiErrorMessage(err, t));
-    }
-  };
-
-  const handleDeleteOverride = async (publicTypeId: string, mediaType: MediaType) => {
-    try {
-      await api.deletePublicTypeLoanSetting(publicTypeId, mediaType);
-      showSuccess(t('settings.publicTypes.overrideDeleted'));
-      fetchOverrides(publicTypeId);
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, t));
     }
@@ -717,8 +733,8 @@ function PublicTypesEditor() {
                     <LoanOverridesForm
                       publicTypeId={pt.id}
                       overrides={loanOverrides[pt.id] || []}
-                      onUpsert={handleUpsertOverride}
-                      onDelete={handleDeleteOverride}
+                      globalLoanSettings={globalLoanSettings}
+                      onSaveAll={handleSaveLoanOverrides}
                       getMediaTypeKey={getMediaTypeTranslationKey}
                     />
                   )}
@@ -889,114 +905,469 @@ function PublicTypeEditForm({
   );
 }
 
+type OverrideUiRow = {
+  key: string;
+  /** Synced from GET — persisted default row cannot be removed without Save. */
+  fromServer: boolean;
+  mediaType: MediaType | null;
+  duration: number;
+  nbMax: number;
+  nbRenews: number;
+  renewMode: 'inherit' | LoanSettingsRenewAt;
+};
+
+function sortOverrideUiRows(rows: OverrideUiRow[]): OverrideUiRow[] {
+  return [...rows].sort((a, b) => {
+    if (a.mediaType == null && b.mediaType != null) return -1;
+    if (a.mediaType != null && b.mediaType == null) return 1;
+    if (a.mediaType == null || b.mediaType == null) return 0;
+    return String(a.mediaType).localeCompare(String(b.mediaType));
+  });
+}
+
+function validateOverrideRowsForReplace(
+  sortedRows: OverrideUiRow[],
+  t: (key: string) => string,
+):
+  | { ok: true; settings: PublicTypeLoanSettingInput[] }
+  | { ok: false; message: string } {
+  if (sortedRows.length === 0) {
+    return { ok: false, message: t('settings.publicTypes.overridesValidationEmpty') };
+  }
+  const defaults = sortedRows.filter((r) => r.mediaType == null);
+  if (defaults.length !== 1) {
+    return { ok: false, message: t('settings.publicTypes.overridesValidationDefaultCount') };
+  }
+  const concrete = sortedRows.map((r) => r.mediaType).filter((m): m is MediaType => m != null);
+  if (new Set(concrete).size !== concrete.length) {
+    return { ok: false, message: t('settings.publicTypes.overridesValidationDuplicateMedia') };
+  }
+  const settings: PublicTypeLoanSettingInput[] = sortedRows.map((r) => ({
+    mediaType: r.mediaType,
+    duration: r.duration,
+    nbMax: r.nbMax,
+    nbRenews: r.nbRenews,
+    renewAt: r.renewMode === 'inherit' ? null : r.renewMode,
+  }));
+  return { ok: true, settings };
+}
+
+function rekeyOverrideRow(row: OverrideUiRow, newMt: MediaType | null): OverrideUiRow {
+  if (row.key.startsWith('pending:')) {
+    return { ...row, mediaType: newMt };
+  }
+  return {
+    ...row,
+    mediaType: newMt,
+    key: newMt == null ? 'row-default' : `row-${newMt}`,
+  };
+}
+
+function computeRowsAfterMediaTypeChange(
+  prev: OverrideUiRow[],
+  rowKey: string,
+  nextMt: MediaType | null,
+  t: (key: string) => string,
+): { next: OverrideUiRow[]; error?: string } {
+  const row = prev.find((r) => r.key === rowKey);
+  if (!row) return { next: prev };
+
+  if (nextMt === null) {
+    const otherDefault = prev.find((r) => r.key !== rowKey && r.mediaType == null);
+    if (!otherDefault) {
+      return {
+        next: prev.map((r) => (r.key === rowKey ? rekeyOverrideRow(r, null) : r)),
+      };
+    }
+    const used = new Set(
+      prev
+        .filter((r) => r.key !== otherDefault.key && r.key !== rowKey)
+        .map((r) => r.mediaType)
+        .filter((m): m is MediaType => m != null),
+    );
+    const free = MEDIA_TYPE_VALUES.find((m) => !used.has(m));
+    if (!free) {
+      return { next: prev, error: t('settings.publicTypes.overridesCannotMoveDefault') };
+    }
+    return {
+      next: prev.map((r) => {
+        if (r.key === rowKey) return rekeyOverrideRow(r, null);
+        if (r.key === otherDefault.key) return rekeyOverrideRow(r, free);
+        return r;
+      }),
+    };
+  }
+
+  if (row.mediaType == null && !prev.some((r) => r.key !== rowKey && r.mediaType == null)) {
+    return { next: prev, error: t('settings.publicTypes.overridesMustKeepOneDefault') };
+  }
+
+  if (prev.some((r) => r.key !== rowKey && r.mediaType === nextMt)) {
+    return { next: prev, error: t('settings.publicTypes.overridesValidationDuplicateMedia') };
+  }
+
+  return {
+    next: prev.map((r) => (r.key === rowKey ? rekeyOverrideRow(r, nextMt) : r)),
+  };
+}
+
+function overrideRowMediaTypeOptions(
+  rows: OverrideUiRow[],
+  rowKey: string,
+  t: (key: string) => string,
+  getMediaTypeKey: (mt: MediaType | string) => string,
+): { value: string; label: string }[] {
+  const row = rows.find((r) => r.key === rowKey);
+  if (!row) return [];
+  const others = rows.filter((r) => r.key !== rowKey);
+  const otherHasDefault = others.some((r) => r.mediaType == null);
+  const otherUsed = new Set(others.map((r) => r.mediaType).filter((m): m is MediaType => m != null));
+
+  const opts: { value: string; label: string }[] = [];
+  if (!otherHasDefault || row.mediaType == null) {
+    opts.push({ value: '', label: t('settings.mediaTypeDefault') });
+  }
+  for (const mt of MEDIA_TYPE_VALUES) {
+    if (mt === row.mediaType || !otherUsed.has(mt)) {
+      opts.push({ value: mt, label: t(`items.mediaType.${getMediaTypeKey(mt)}`) });
+    }
+  }
+  return opts;
+}
+
+function PublicTypeLoanOverrideRow({
+  row,
+  globalLoanSettings,
+  mediaTypeOptions,
+  onFieldChange,
+  onMediaTypeChange,
+  onDeleteRow,
+}: {
+  row: OverrideUiRow;
+  globalLoanSettings: LoanSettings[];
+  mediaTypeOptions: { value: string; label: string }[];
+  onFieldChange: (key: string, patch: Partial<Omit<OverrideUiRow, 'key' | 'fromServer'>>) => void;
+  onMediaTypeChange: (rowKey: string, rawValue: string) => void;
+  onDeleteRow: (row: OverrideUiRow) => void;
+}) {
+  const { t } = useTranslation();
+  const inheritedRenewalLabel = globalRenewInheritLabel(globalLoanSettings, row.mediaType, (k) => t(k));
+  const showDelete = row.mediaType != null || !row.fromServer;
+
+  return (
+    <tr className="border-b border-gray-200 dark:border-gray-700">
+      <td className="px-4 py-3">
+        <select
+          value={row.mediaType ?? ''}
+          onChange={(e) => onMediaTypeChange(row.key, e.target.value)}
+          className="max-w-[min(100%,14rem)] px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm min-w-[140px]"
+          aria-label={t('settings.publicTypes.mediaType')}
+        >
+          {mediaTypeOptions.map((opt) => (
+            <option key={opt.value === '' ? '__default__' : opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="px-4 py-3">
+        <input
+          type="number"
+          value={row.duration}
+          onChange={(e) => onFieldChange(row.key, { duration: parseInt(e.target.value, 10) || 0 })}
+          className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          min={1}
+        />
+      </td>
+      <td className="px-4 py-3">
+        <input
+          type="number"
+          value={row.nbMax}
+          onChange={(e) => onFieldChange(row.key, { nbMax: parseInt(e.target.value, 10) || 0 })}
+          className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          min={1}
+          title={
+            row.mediaType == null
+              ? t('settings.publicTypes.nbMaxDefaultLabel')
+              : t('settings.publicTypes.nbMaxPerMediaLabel')
+          }
+          aria-label={
+            row.mediaType == null
+              ? t('settings.publicTypes.nbMaxDefaultLabel')
+              : t('settings.publicTypes.nbMaxPerMediaLabel')
+          }
+        />
+      </td>
+      <td className="px-4 py-3">
+        <input
+          type="number"
+          value={row.nbRenews}
+          onChange={(e) => onFieldChange(row.key, { nbRenews: parseInt(e.target.value, 10) || 0 })}
+          className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          min={0}
+        />
+      </td>
+      <td className="px-4 py-3 min-w-[200px]">
+        <select
+          value={row.renewMode}
+          onChange={(e) => {
+            const v = e.target.value;
+            onFieldChange(row.key, { renewMode: v === 'inherit' ? 'inherit' : (v as LoanSettingsRenewAt) });
+          }}
+          className="max-w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+          aria-label={t('settings.publicTypes.renewAt')}
+        >
+          <option value="inherit">{t('settings.publicTypes.renewAtInherit')}</option>
+          <option value="now">{t('settings.renewAtNow')}</option>
+          <option value="at_due_date">{t('settings.renewAtDueDate')}</option>
+        </select>
+        {row.renewMode === 'inherit' && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {t('settings.publicTypes.renewAtEffectiveGlobal', { label: inheritedRenewalLabel })}
+          </p>
+        )}
+      </td>
+      <td className="px-4 py-3 text-right">
+        {showDelete ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onDeleteRow(row)}
+              className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+              title={t('common.delete')}
+              aria-label={t('common.delete')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <span
+            className="inline-block text-gray-300 dark:text-gray-600 text-xs tabular-nums"
+            title={t('settings.publicTypes.defaultOverrideRowNotDeletable')}
+            aria-label={t('settings.publicTypes.defaultOverrideRowNotDeletable')}
+          >
+            —
+          </span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 function LoanOverridesForm({
   publicTypeId,
   overrides,
-  onUpsert,
-  onDelete,
+  globalLoanSettings,
+  onSaveAll,
   getMediaTypeKey,
 }: {
   publicTypeId: string;
   overrides: PublicTypeLoanSettings[];
-  onUpsert: (id: string, mt: MediaType, duration: number, nbMax: number, nbRenews: number) => void;
-  onDelete: (id: string, mt: MediaType) => void;
+  globalLoanSettings: LoanSettings[];
+  onSaveAll: (id: string, settings: PublicTypeLoanSettingInput[]) => Promise<void>;
   getMediaTypeKey: (mt: MediaType | string) => string;
 }) {
   const { t } = useTranslation();
-  const [newMediaType, setNewMediaType] = useState<MediaType>('periodic');
-  const [newDuration, setNewDuration] = useState(14);
-  const [newNbMax, setNewNbMax] = useState(3);
-  const [newNbRenews, setNewNbRenews] = useState(1);
-  const usedMediaTypes = new Set(overrides.map((o) => o.mediaType));
-  const availableMediaTypes = MEDIA_TYPE_VALUES.filter((m) => !usedMediaTypes.has(m));
+  const [rows, setRows] = useState<OverrideUiRow[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  const handleAdd = () => {
-    if (!usedMediaTypes.has(newMediaType)) {
-      onUpsert(publicTypeId, newMediaType, newDuration, newNbMax, newNbRenews);
+  const overridesSig = useMemo(
+    () =>
+      JSON.stringify(
+        overrides.map((o) => [o.mediaType, o.duration, o.nbMax, o.nbRenews, o.renewAt]),
+      ),
+    [overrides],
+  );
+
+  useEffect(() => {
+    setRows(
+      overrides.map((o) => ({
+        key: o.mediaType == null ? 'row-default' : `row-${o.mediaType}`,
+        fromServer: true,
+        mediaType: o.mediaType,
+        duration: o.duration,
+        nbMax: o.nbMax,
+        nbRenews: o.nbRenews,
+        renewMode: o.renewAt == null ? 'inherit' : o.renewAt,
+      })),
+    );
+  }, [publicTypeId, overridesSig]);
+
+  const sortedRows = useMemo(() => sortOverrideUiRows(rows), [rows]);
+
+  const addFooterDisabled =
+    sortedRows.some((r) => r.mediaType === null) &&
+    MEDIA_TYPE_VALUES.every((m) => sortedRows.some((r) => r.mediaType === m));
+
+  const handleAddRow = () => {
+    const hasDefault = sortedRows.some((r) => r.mediaType === null);
+    const used = new Set(
+      sortedRows.map((r) => r.mediaType).filter((m): m is MediaType => m != null),
+    );
+    if (!hasDefault) {
+      setRows((rs) => [
+        ...rs,
+        {
+          key: `pending:${crypto.randomUUID()}`,
+          fromServer: false,
+          mediaType: null,
+          duration: 14,
+          nbMax: 3,
+          nbRenews: 1,
+          renewMode: 'inherit',
+        },
+      ]);
+      return;
+    }
+    const firstUnused = MEDIA_TYPE_VALUES.find((m) => !used.has(m));
+    if (firstUnused) {
+      setRows((rs) => [
+        ...rs,
+        {
+          key: `pending:${crypto.randomUUID()}`,
+          fromServer: false,
+          mediaType: firstUnused,
+          duration: 14,
+          nbMax: 3,
+          nbRenews: 1,
+          renewMode: 'inherit',
+        },
+      ]);
+    }
+  };
+
+  const handleMediaTypeChange = (rowKey: string, rawValue: string) => {
+    const nextMt: MediaType | null = rawValue === '' ? null : (rawValue as MediaType);
+    let message: string | undefined;
+    setRows((prev) => {
+      const out = computeRowsAfterMediaTypeChange(prev, rowKey, nextMt, t);
+      if (out.error) {
+        message = out.error;
+        return prev;
+      }
+      return out.next;
+    });
+    if (message) setSaveError(message);
+    else setSaveError('');
+  };
+
+  const handleFieldChange = (key: string, patch: Partial<Omit<OverrideUiRow, 'key' | 'fromServer'>>) => {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  };
+
+  const handleDeleteRow = (row: OverrideUiRow) => {
+    setRows((rs) => rs.filter((r) => r.key !== row.key));
+  };
+
+  const handleSaveAll = async () => {
+    setSaveError('');
+    const v = validateOverrideRowsForReplace(sortedRows, t);
+    if (!v.ok) {
+      setSaveError(v.message);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSaveAll(publicTypeId, v.settings);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.publicTypes.loanOverrides')}</p>
-      {overrides.length > 0 && (
-        <ul className="space-y-1">
-          {overrides.map((o) => (
-            <li key={o.id} className="flex items-start gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => onDelete(publicTypeId, o.mediaType)}
-                className="text-red-500 hover:text-red-700"
-                title={t('common.delete')}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-              <div className="flex-1">
-                <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {t(`items.mediaType.${getMediaTypeKey(o.mediaType)}`)}
-                </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
-                  <span>
-                    {t('settings.publicTypes.duration')}: <span className="font-medium">{o.duration}</span>
-                  </span>
-                  <span>
-                    {t('settings.publicTypes.nbMax')}: <span className="font-medium">{o.nbMax}</span>
-                  </span>
-                  <span>
-                    {t('settings.publicTypes.nbRenews')}: <span className="font-medium">{o.nbRenews}</span>
-                  </span>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.publicTypes.loanOverrides')}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.publicTypes.overrideRenewAtNote')}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('settings.loanLimitsResolutionHint')}</p>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t('common.type')}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t('settings.durationDays')}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t('settings.maxLoans')}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                {t('settings.maxRenewals')}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase min-w-[200px]">
+                {t('settings.renewAt')}
+              </th>
+              <th className="px-4 py-3 w-12 text-right" aria-label={t('common.actions')} />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            {sortedRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  {t('settings.publicTypes.overridesEmptyHint')}
+                </td>
+              </tr>
+            ) : (
+              sortedRows.map((row) => (
+                <PublicTypeLoanOverrideRow
+                  key={row.key}
+                  row={row}
+                  globalLoanSettings={globalLoanSettings}
+                  mediaTypeOptions={overrideRowMediaTypeOptions(
+                    sortedRows,
+                    row.key,
+                    t,
+                    getMediaTypeKey,
+                  )}
+                  onFieldChange={handleFieldChange}
+                  onMediaTypeChange={handleMediaTypeChange}
+                  onDeleteRow={handleDeleteRow}
+                />
+              ))
+            )}
+            <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+              <td className="px-4 py-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  onClick={handleAddRow}
+                  disabled={addFooterDisabled}
+                  aria-label={t('settings.publicTypes.addOverride')}
+                >
+                  {t('common.add')}
+                </Button>
+              </td>
+              <td colSpan={5} className="px-4 py-3" aria-hidden />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {saveError && (
+        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+          {saveError}
+        </p>
       )}
-      {availableMediaTypes.length > 0 && (
-        <div className="flex items-end gap-4 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.mediaType')}</label>
-            <select
-              value={newMediaType}
-              onChange={(e) => setNewMediaType(e.target.value as MediaType)}
-              className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm min-w-[120px]"
-            >
-              {availableMediaTypes.map((mt) => (
-                <option key={mt} value={mt}>{t(`items.mediaType.${getMediaTypeKey(mt)}`)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.duration')}</label>
-            <input
-              type="number"
-              value={newDuration}
-              onChange={(e) => setNewDuration(parseInt(e.target.value) || 0)}
-              className="w-16 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.nbMax')}</label>
-            <input
-              type="number"
-              value={newNbMax}
-              onChange={(e) => setNewNbMax(parseInt(e.target.value) || 0)}
-              className="w-14 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.nbRenews')}</label>
-            <input
-              type="number"
-              value={newNbRenews}
-              onChange={(e) => setNewNbRenews(parseInt(e.target.value) || 0)}
-              className="w-14 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
-            />
-          </div>
-          <Button size="sm" variant="secondary" onClick={handleAdd}>
-            {t('settings.publicTypes.addOverride')}
-          </Button>
-        </div>
-      )}
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => void handleSaveAll()}
+          isLoading={isSaving}
+          disabled={sortedRows.length === 0}
+          leftIcon={<Save className="h-4 w-4" />}
+        >
+          {t('common.save')}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1178,7 +1549,7 @@ export default function SettingsPage() {
     }
   };
 
-  const updateLoanSetting = (index: number, field: keyof LoanSettings, value: string | number) => {
+  const updateLoanSetting = <K extends keyof LoanSettings>(index: number, field: K, value: LoanSettings[K]) => {
     if (!settings) return;
     const newSettings = { ...settings };
     newSettings.loanSettings[index] = {
@@ -1187,6 +1558,50 @@ export default function SettingsPage() {
     };
     setSettings(newSettings);
   };
+
+  const handleAddLoanSettingsRow = () => {
+    if (!settings) return;
+    const rows = settings.loanSettings;
+    const hasDefault = rows.some((s) => s.mediaType === null);
+    const usedConcrete = new Set(
+      rows.map((s) => s.mediaType).filter((m): m is MediaType => m != null),
+    );
+    const firstUnused = MEDIA_TYPE_VALUES.find((m) => !usedConcrete.has(m));
+    if (!hasDefault) {
+      setSettings({
+        ...settings,
+        loanSettings: [
+          ...rows,
+          {
+            mediaType: null,
+            maxLoans: 5,
+            maxRenewals: 2,
+            durationDays: 21,
+            renewAt: 'now',
+          },
+        ],
+      });
+    } else if (firstUnused) {
+      setSettings({
+        ...settings,
+        loanSettings: [
+          ...rows,
+          {
+            mediaType: firstUnused,
+            maxLoans: 5,
+            maxRenewals: 2,
+            durationDays: 21,
+            renewAt: 'now',
+          },
+        ],
+      });
+    }
+  };
+
+  const addLoanSettingsRowDisabled =
+    !settings ||
+    (settings.loanSettings.some((s) => s.mediaType === null) &&
+      MEDIA_TYPE_VALUES.every((m) => settings.loanSettings.some((s) => s.mediaType === m)));
 
   const updateZ3950Server = (index: number, field: keyof Z3950Server, value: string | number | boolean) => {
     if (!settings) return;
@@ -1236,7 +1651,7 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settings.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400">{t('settings.subtitle')}</p>
         </div>
-        {(activeTab === 'loans' || activeTab === 'z3950') && (
+        {activeTab === 'z3950' && (
           <Button onClick={handleSave} isLoading={isSaving} leftIcon={<Save className="h-4 w-4" />}>
             {t('common.save')}
           </Button>
@@ -1282,31 +1697,17 @@ export default function SettingsPage() {
           action={
             <Button
               size="sm"
-              variant="secondary"
-              leftIcon={<Plus className="h-4 w-4" />}
-              onClick={() => {
-                const usedTypes = new Set(settings.loanSettings.map((s) => s.mediaType));
-                const firstUnused = MEDIA_TYPE_VALUES.find((m) => !usedTypes.has(m));
-                if (firstUnused) {
-                  setSettings({
-                    ...settings,
-                    loanSettings: [
-                      ...settings.loanSettings,
-                      {
-                        mediaType: firstUnused,
-                        maxLoans: 5,
-                        maxRenewals: 2,
-                        durationDays: 21,
-                      },
-                    ],
-                  });
-                }
-              }}
+              variant="primary"
+              onClick={handleSave}
+              isLoading={isSaving}
+              leftIcon={<Save className="h-4 w-4" />}
             >
-              {t('common.add')}
+              {t('common.save')}
             </Button>
           }
         />
+        <p className="px-4 sm:px-6 pb-3 text-sm text-gray-500 dark:text-gray-400">{t('settings.renewAtHelp')}</p>
+        <p className="px-4 sm:px-6 pb-3 text-xs text-gray-500 dark:text-gray-400">{t('settings.loanLimitsResolutionHint')}</p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -1323,24 +1724,47 @@ export default function SettingsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                   {t('settings.maxRenewals')}
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase min-w-[200px]">
+                  {t('settings.renewAt')}
+                </th>
                 <th className="px-4 py-3 w-12 text-right" aria-label={t('common.actions')} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {settings.loanSettings.map((setting, index) => (
-                <tr key={`${setting.mediaType}-${index}`}>
+              {settings.loanSettings.map((setting, index) => {
+                const defaultTakenElsewhere = settings.loanSettings.some(
+                  (s, i) => i !== index && s.mediaType === null,
+                );
+                return (
+                <tr key={`${setting.mediaType ?? 'default'}-${index}`}>
                   <td className="px-4 py-3">
-                    <select
-                      value={setting.mediaType}
-                      onChange={(e) => updateLoanSetting(index, 'mediaType', e.target.value as MediaType)}
-                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[140px]"
-                    >
-                      {MEDIA_TYPE_VALUES.map((mt) => (
-                        <option key={mt} value={mt}>
-                          {t(`items.mediaType.${getMediaTypeTranslationKey(mt)}`)}
+                    {setting.mediaType == null ? (
+                      <span className="font-medium text-gray-900 dark:text-gray-100 min-w-[140px] inline-block">
+                        {t('settings.mediaTypeDefault')}
+                      </span>
+                    ) : (
+                      <select
+                        value={setting.mediaType}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          updateLoanSetting(
+                            index,
+                            'mediaType',
+                            v === '' ? null : (v as MediaType),
+                          );
+                        }}
+                        className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[140px]"
+                      >
+                        <option value="" disabled={defaultTakenElsewhere}>
+                          {t('settings.mediaTypeDefault')}
                         </option>
-                      ))}
-                    </select>
+                        {MEDIA_TYPE_VALUES.map((mt) => (
+                          <option key={mt} value={mt}>
+                            {t(`items.mediaType.${getMediaTypeTranslationKey(mt)}`)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <input
@@ -1358,6 +1782,16 @@ export default function SettingsPage() {
                       onChange={(e) => updateLoanSetting(index, 'maxLoans', parseInt(e.target.value) || 0)}
                       className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                       min={1}
+                      title={
+                        setting.mediaType == null
+                          ? t('settings.maxLoansDefaultLabel')
+                          : t('settings.maxLoansPerMediaLabel')
+                      }
+                      aria-label={
+                        setting.mediaType == null
+                          ? t('settings.maxLoansDefaultLabel')
+                          : t('settings.maxLoansPerMediaLabel')
+                      }
                     />
                   </td>
                   <td className="px-4 py-3">
@@ -1369,25 +1803,63 @@ export default function SettingsPage() {
                       min={0}
                     />
                   </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={setting.renewAt}
+                      onChange={(e) =>
+                        updateLoanSetting(index, 'renewAt', e.target.value as LoanSettingsRenewAt)
+                      }
+                      className="max-w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                      aria-label={t('settings.renewAt')}
+                    >
+                      <option value="now">{t('settings.renewAtNow')}</option>
+                      <option value="at_due_date">{t('settings.renewAtDueDate')}</option>
+                    </select>
+                  </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSettings({
-                            ...settings,
-                            loanSettings: settings.loanSettings.filter((_, i) => i !== index),
-                          });
-                        }}
-                        className="p-1 text-gray-400 hover:text-red-600"
-                        title={t('common.delete')}
+                    {setting.mediaType != null ? (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSettings({
+                              ...settings,
+                              loanSettings: settings.loanSettings.filter((_, i) => i !== index),
+                            });
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600"
+                          title={t('common.delete')}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        className="inline-block text-gray-300 dark:text-gray-600 text-xs tabular-nums"
+                        title={t('settings.defaultLoanRowNotDeletable')}
+                        aria-label={t('settings.defaultLoanRowNotDeletable')}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                        —
+                      </span>
+                    )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
+              <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+                <td className="px-4 py-3">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<Plus className="h-4 w-4" />}
+                    onClick={handleAddLoanSettingsRow}
+                    disabled={addLoanSettingsRowDisabled}
+                  >
+                    {t('common.add')}
+                  </Button>
+                </td>
+                <td colSpan={5} className="px-4 py-3" aria-hidden />
+              </tr>
             </tbody>
           </table>
         </div>

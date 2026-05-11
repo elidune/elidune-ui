@@ -10,6 +10,8 @@ import type {
   Loan,
   Stats,
   LoanSettings,
+  LoanSettingsRenewAt,
+  UpdateLoanSettingsRequest,
   Z3950Server,
   PaginatedResponse,
   ApiError,
@@ -46,9 +48,10 @@ import type {
   BackgroundTask,
   PublicType,
   PublicTypeLoanSettings,
+  PublicTypeLoanSettingInput,
+  ReplacePublicTypeLoanSettingsRequest,
   CreatePublicType,
   UpdatePublicType,
-  UpsertLoanSettingRequest,
   AdminConfigSectionKey,
   ConfigSectionInfo,
   AdminConfigResponse,
@@ -111,17 +114,133 @@ function normalizeZ3950ServersPayload(data: unknown): Z3950Server[] {
   return [];
 }
 
+function normalizeLoanMediaType(raw: unknown): MediaType | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  return raw as MediaType;
+}
+
+function sortLoanSettingsDefaultFirst(list: LoanSettings[]): LoanSettings[] {
+  return [...list].sort((a, b) => {
+    if (a.mediaType == null && b.mediaType != null) return -1;
+    if (a.mediaType != null && b.mediaType == null) return 1;
+    if (a.mediaType == null || b.mediaType == null) return 0;
+    return String(a.mediaType).localeCompare(String(b.mediaType));
+  });
+}
+
+function sanitizeLoanSettingForPut(row: LoanSettings): LoanSettings {
+  if (row.mediaType == null) {
+    return {
+      mediaType: null,
+      maxLoans: row.maxLoans,
+      maxRenewals: row.maxRenewals,
+      durationDays: row.durationDays,
+      renewAt: row.renewAt,
+    };
+  }
+  return {
+    mediaType: row.mediaType,
+    maxLoans: row.maxLoans,
+    maxRenewals: row.maxRenewals,
+    durationDays: row.durationDays,
+    renewAt: row.renewAt,
+  };
+}
+
+function normalizeLoanRenewAt(raw: unknown): LoanSettingsRenewAt {
+  return raw === 'at_due_date' ? 'at_due_date' : 'now';
+}
+
+function normalizePublicTypeRenewAt(raw: unknown): LoanSettingsRenewAt | null {
+  if (raw == null || raw === '') return null;
+  if (raw === 'at_due_date') return 'at_due_date';
+  if (raw === 'now') return 'now';
+  return null;
+}
+
+function normalizePublicTypeLoanSetting(raw: unknown): PublicTypeLoanSettings {
+  const o = raw as Record<string, unknown>;
+  const mediaType = normalizeLoanMediaType(o.mediaType ?? o.media_type);
+  return {
+    id: String(o.id ?? ''),
+    publicTypeId: String(o.publicTypeId ?? o.public_type_id ?? ''),
+    mediaType,
+    duration: Number(o.duration ?? 0),
+    nbMax: Number(o.nbMax ?? o.nb_max ?? 0),
+    nbRenews: Number(o.nbRenews ?? o.nb_renews ?? 0),
+    renewAt: normalizePublicTypeRenewAt(o.renewAt ?? o.renew_at),
+  };
+}
+
+function sanitizePublicTypeLoanSettingInput(row: PublicTypeLoanSettingInput): PublicTypeLoanSettingInput {
+  let mediaType: MediaType | null;
+  const mt = row.mediaType;
+  if (mt == null || mt === undefined) {
+    mediaType = null;
+  } else if (typeof mt === 'string' && mt.trim() === '') {
+    mediaType = null;
+  } else {
+    mediaType = mt as MediaType;
+  }
+  return {
+    mediaType,
+    duration: Number(row.duration),
+    nbMax: Number(row.nbMax),
+    nbRenews: Number(row.nbRenews),
+    renewAt: row.renewAt ?? null,
+  };
+}
+
+function normalizePublicTypeLoanSettingsPutResponse(data: unknown): PublicTypeLoanSettings[] {
+  if (Array.isArray(data)) {
+    return sortPublicTypeLoanSettingsDefaultFirst(data.map(normalizePublicTypeLoanSetting));
+  }
+  if (data && typeof data === 'object') {
+    const o = data as Record<string, unknown>;
+    const arr = o.settings ?? o.loanSettings ?? o.loan_settings;
+    if (Array.isArray(arr)) {
+      return sortPublicTypeLoanSettingsDefaultFirst(arr.map(normalizePublicTypeLoanSetting));
+    }
+  }
+  return [];
+}
+
+function sortPublicTypeLoanSettingsDefaultFirst(list: PublicTypeLoanSettings[]): PublicTypeLoanSettings[] {
+  return [...list].sort((a, b) => {
+    if (a.mediaType == null && b.mediaType != null) return -1;
+    if (a.mediaType != null && b.mediaType == null) return 1;
+    if (a.mediaType == null || b.mediaType == null) return 0;
+    return String(a.mediaType).localeCompare(String(b.mediaType));
+  });
+}
+
+function normalizeLoanSettingRow(raw: unknown): LoanSettings {
+  const o = raw as Record<string, unknown>;
+  const mediaType = normalizeLoanMediaType(o.mediaType ?? o.media_type);
+  return {
+    mediaType,
+    maxLoans: Number(o.maxLoans ?? o.max_loans ?? 0),
+    maxRenewals: Number(o.maxRenewals ?? o.max_renewals ?? 0),
+    durationDays: Number(o.durationDays ?? o.duration_days ?? 0),
+    renewAt: normalizeLoanRenewAt(o.renewAt ?? o.renew_at),
+  };
+}
+
+function normalizeLoanSettingsList(list: unknown[]): LoanSettings[] {
+  return sortLoanSettingsDefaultFirst(list.map((item) => normalizeLoanSettingRow(item)));
+}
+
 function normalizeLoanSettingsResponse(data: unknown): { loanSettings: LoanSettings[] } {
   if (Array.isArray(data)) {
-    return { loanSettings: data as LoanSettings[] };
+    return { loanSettings: normalizeLoanSettingsList(data) };
   }
   if (data && typeof data === 'object') {
     const o = data as Record<string, unknown>;
     if (Array.isArray(o.loanSettings)) {
-      return { loanSettings: o.loanSettings as LoanSettings[] };
+      return { loanSettings: normalizeLoanSettingsList(o.loanSettings) };
     }
     if (Array.isArray(o.loan_settings)) {
-      return { loanSettings: o.loan_settings as LoanSettings[] };
+      return { loanSettings: normalizeLoanSettingsList(o.loan_settings) };
     }
   }
   return { loanSettings: [] };
@@ -248,6 +367,11 @@ class ApiService {
   setToken(token: string) {
     this.token = token;
     localStorage.setItem('auth_token', token);
+  }
+
+  /** Current Bearer token (same as sent on API requests), for client-side claim reads only. */
+  getToken(): string | null {
+    return this.token;
   }
 
   setDeviceId(deviceId: string) {
@@ -953,8 +1077,11 @@ class ApiService {
     return normalizeLoanSettingsResponse(response.data);
   }
 
-  async updateLoanSettings(body: { loanSettings: LoanSettings[] }): Promise<{ loanSettings: LoanSettings[] }> {
-    const response = await this.client.put<unknown>('/loans/settings', body);
+  async updateLoanSettings(body: UpdateLoanSettingsRequest): Promise<{ loanSettings: LoanSettings[] }> {
+    const sanitized: UpdateLoanSettingsRequest = {
+      loanSettings: body.loanSettings.map(sanitizeLoanSettingForPut),
+    };
+    const response = await this.client.put<unknown>('/loans/settings', sanitized);
     return normalizeLoanSettingsResponse(response.data);
   }
 
@@ -1007,8 +1134,10 @@ class ApiService {
   }
 
   async getPublicType(id: string): Promise<[PublicType, PublicTypeLoanSettings[]]> {
-    const response = await this.client.get<[PublicType, PublicTypeLoanSettings[]]>(`/public-types/${id}`);
-    return response.data;
+    const response = await this.client.get<[PublicType, unknown]>(`/public-types/${id}`);
+    const [pt, rawList] = response.data;
+    const list = Array.isArray(rawList) ? rawList.map(normalizePublicTypeLoanSetting) : [];
+    return [pt, sortPublicTypeLoanSettingsDefaultFirst(list)];
   }
 
   async createPublicType(data: CreatePublicType): Promise<PublicType> {
@@ -1025,15 +1154,15 @@ class ApiService {
     await this.client.delete(`/public-types/${id}`);
   }
 
-  async upsertPublicTypeLoanSetting(
+  /** Full replace of audience loan rules — PUT body `{ settings: [...] }`, response is the new rows. */
+  async replacePublicTypeLoanSettings(
     publicTypeId: string,
-    data: UpsertLoanSettingRequest
-  ): Promise<void> {
-    await this.client.put(`/public-types/${publicTypeId}/loan-settings`, data);
-  }
-
-  async deletePublicTypeLoanSetting(publicTypeId: string, mediaType: MediaType): Promise<void> {
-    await this.client.delete(`/public-types/${publicTypeId}/loan-settings/${mediaType}`);
+    body: ReplacePublicTypeLoanSettingsRequest,
+  ): Promise<PublicTypeLoanSettings[]> {
+    const response = await this.client.put<unknown>(`/public-types/${publicTypeId}/loan-settings`, {
+      settings: body.settings.map(sanitizePublicTypeLoanSettingInput),
+    });
+    return normalizePublicTypeLoanSettingsPutResponse(response.data);
   }
 
   // ─── Account types (library roles / permissions) ─────────────────

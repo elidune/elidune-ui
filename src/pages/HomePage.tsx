@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Users, BookMarked, TrendingUp, ArrowRight, AlertTriangle } from 'lucide-react';
@@ -9,6 +9,8 @@ import { useLibrarySchedule } from '@/hooks/common/useLibrarySchedule';
 import { isLibrarian } from '@/types';
 import api from '@/services/api';
 import type { Stats, Loan } from '@/types';
+import { sortLoansByStartDateAsc } from '@/utils/sortLoans';
+import { LoanMediaTypeBadge } from '@/utils/mediaTypeIcon';
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -39,6 +41,7 @@ export default function HomePage() {
   }, [user]);
 
 
+  const myLoansSorted = useMemo(() => sortLoansByStartDateAsc(myLoans), [myLoans]);
   const overdueLoans = myLoans.filter((loan) => loan.isOverdue);
 
   return (
@@ -131,14 +134,12 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {myLoans.slice(0, 5).map((loan) => (
+            {myLoansSorted.slice(0, 5).map((loan) => (
               <div
                 key={loan.id}
                 className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50"
               >
-                <div className="flex-shrink-0 h-12 w-12 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                </div>
+                <LoanMediaTypeBadge mediaType={loan.biblio.mediaType} size="catalog" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 dark:text-white truncate">
                     {loan.biblio.title}
