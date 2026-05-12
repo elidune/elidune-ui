@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import api from '@/services/api';
 import type { LibraryInfo, ScheduleSlot } from '@/types';
 
@@ -26,18 +26,29 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   );
   const [libraryInfo, setLibraryInfo] = useState<LibraryInfo | null>(null);
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
+  const refreshLibraryInfoInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshScheduleInFlightRef = useRef<Promise<void> | null>(null);
 
   const refreshLibraryInfo = useCallback(async () => {
-    try {
-      const info = await api.getLibraryInfo();
-      setLibraryInfo(info);
-      const name = info.name ?? null;
-      setLibraryName(name);
-      if (name) localStorage.setItem(STORAGE_KEY, name);
-      else localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // non-fatal
+    if (refreshLibraryInfoInFlightRef.current) {
+      return refreshLibraryInfoInFlightRef.current;
     }
+    const request = (async () => {
+      try {
+        const info = await api.getLibraryInfo();
+        setLibraryInfo(info);
+        const name = info.name ?? null;
+        setLibraryName(name);
+        if (name) localStorage.setItem(STORAGE_KEY, name);
+        else localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // non-fatal
+      } finally {
+        refreshLibraryInfoInFlightRef.current = null;
+      }
+    })();
+    refreshLibraryInfoInFlightRef.current = request;
+    return request;
   }, []);
 
   // GET /library-info is public — fetch on mount regardless of auth state
@@ -46,21 +57,30 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, [refreshLibraryInfo]);
 
   const refreshSchedule = useCallback(async () => {
-    try {
-      const periods = await api.getSchedulePeriods();
-      const today = new Date().toISOString().split('T')[0];
-      const activePeriod = periods.find(
-        (p) => p.startDate <= today && p.endDate >= today
-      );
-      if (activePeriod) {
-        const slots = await api.getScheduleSlots(activePeriod.id);
-        setScheduleSlots(slots);
-      } else {
-        setScheduleSlots([]);
-      }
-    } catch {
-      // silent fail — schedule is non-critical
+    if (refreshScheduleInFlightRef.current) {
+      return refreshScheduleInFlightRef.current;
     }
+    const request = (async () => {
+      try {
+        const periods = await api.getSchedulePeriods();
+        const today = new Date().toISOString().split('T')[0];
+        const activePeriod = periods.find(
+          (p) => p.startDate <= today && p.endDate >= today
+        );
+        if (activePeriod) {
+          const slots = await api.getScheduleSlots(activePeriod.id);
+          setScheduleSlots(slots);
+        } else {
+          setScheduleSlots([]);
+        }
+      } catch {
+        // silent fail — schedule is non-critical
+      } finally {
+        refreshScheduleInFlightRef.current = null;
+      }
+    })();
+    refreshScheduleInFlightRef.current = request;
+    return request;
   }, []);
 
   // Fetch schedule on mount if already authenticated (returning user)

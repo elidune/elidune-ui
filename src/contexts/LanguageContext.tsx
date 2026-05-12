@@ -24,19 +24,20 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, refreshProfile } = useAuth();
   const language = fromI18nLanguage(i18n.resolvedLanguage ?? i18n.language);
 
   // Sync language with user profile when authenticated
   useEffect(() => {
     if (isAuthenticated && user?.language) {
       const userLang = fromServerLanguage(user.language);
+      const currentLang = fromI18nLanguage(i18n.resolvedLanguage ?? i18n.language);
       if (!userLang) return;
-      if (SUPPORTED_LANGUAGES.includes(userLang) && userLang !== language) {
+      if (SUPPORTED_LANGUAGES.includes(userLang) && userLang !== currentLang) {
         i18n.changeLanguage(userLang);
       }
     }
-  }, [isAuthenticated, user?.language, i18n, language]);
+  }, [isAuthenticated, user?.language, i18n]);
 
   const setLanguage = useCallback(async (lang: SupportedLanguage) => {
     if (!SUPPORTED_LANGUAGES.includes(lang)) return;
@@ -48,11 +49,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (isAuthenticated) {
       try {
         await api.updateProfile({ language: toServerLanguage(lang) });
+        await refreshProfile();
       } catch (error) {
         console.error('Failed to save language preference to server:', error);
       }
     }
-  }, [i18n, isAuthenticated]);
+  }, [i18n, isAuthenticated, refreshProfile]);
 
   return (
     <LanguageContext.Provider

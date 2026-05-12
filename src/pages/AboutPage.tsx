@@ -5,7 +5,7 @@ import { Info, ArrowLeft, Code2, Bug, Shield, User, ExternalLink, Package } from
 import { Card } from '@/components/common';
 import { useLibrary } from '@/contexts/LibraryContext';
 import api from '@/services/api';
-import { version as uiVersion, author as devAuthor, email as devEmail, license as uiLicense } from '../../package.json';
+import { version as uiVersion, author as devAuthor, email as devEmail, license as uiLicense, bugs as bugsUrl } from '../../package.json';
 
 interface GithubDep {
   name: string;
@@ -301,8 +301,9 @@ export default function AboutPage() {
               <Bug className="h-4 w-4" />
               {t('about.admin.bugReport')}
             </h3>
+            {/* use the  bugs.url from package.json*/}
             <a
-              href="https://github.com/elidune/elidune/issues"
+              href={bugsUrl.url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"

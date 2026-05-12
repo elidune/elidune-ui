@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
@@ -23,6 +23,7 @@ export default function Modal({
   stackOnTop = false,
 }: ModalProps) {
   const { t } = useTranslation();
+  const titleId = useId();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -52,6 +53,9 @@ export default function Modal({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       className={`fixed inset-0 flex items-stretch sm:items-center justify-center p-0 sm:p-4 ${stackOnTop ? 'z-[100]' : 'z-50'}`}
     >
       {/* Backdrop */}
@@ -71,6 +75,7 @@ export default function Modal({
         >
           <div className="h-9 w-9 shrink-0" aria-hidden />
           <h2
+            id={titleId}
             className="min-w-0 flex-1 truncate text-center text-lg font-semibold text-gray-900 dark:text-white"
             dir="auto"
           >
@@ -79,7 +84,7 @@ export default function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
             aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />

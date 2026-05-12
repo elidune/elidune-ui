@@ -48,7 +48,7 @@ export function FirstSetupGate({ children }: { children: React.ReactNode }) {
   }
 
   if (location.pathname === '/maintenance') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const need = healthNeedsFirstSetup(data);
@@ -61,7 +61,7 @@ export function FirstSetupGate({ children }: { children: React.ReactNode }) {
   }
 
   if (location.pathname === '/first-setup') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -11,12 +11,35 @@
   --color-success: #10b981;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
+  --focus-ring-color: #b45309;
+  --focus-ring-offset: #f9fafb;
 }
 
 /* Base styles */
 body {
   @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.dark {
+  --focus-ring-color: #f59e0b;
+  --focus-ring-offset: #030712;
+}
+
+/* Shared keyboard-focus style */
+:where(
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="tab"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-ring-offset);
 }
 
 /* Scrollbar styling */

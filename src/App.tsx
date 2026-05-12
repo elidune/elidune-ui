@@ -58,17 +58,36 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Layout>{children}</Layout>;
+}
+
+/** `/` = OPAC login when logged out; `/home` = app dashboard when logged in. */
+function RootPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return <LoginPage />;
 }
 
 function LibrarianRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   if (!isLibrarian(user?.accountType)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <>{children}</>;
@@ -79,13 +98,15 @@ function AppRoutes() {
     <Routes>
       <Route path="/first-setup" element={<FirstSetupPage />} />
       <Route path="/maintenance" element={<MaintenancePage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/change-password" element={<MustChangePasswordPage />} />
 
+      <Route path="/" element={<RootPage />} />
+
       <Route
-        path="/"
+        path="/home"
         element={
           <ProtectedRoute>
             <HomePage />

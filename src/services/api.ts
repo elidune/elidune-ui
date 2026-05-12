@@ -360,7 +360,7 @@ class ApiService {
       (error: AxiosError<ApiError>) => {
         if (this.shouldLogoutOnUnauthorized(error)) {
           this.logout();
-          window.location.href = '/login';
+          window.location.href = '/';
         }
         return Promise.reject(error);
       }

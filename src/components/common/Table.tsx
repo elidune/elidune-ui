@@ -66,9 +66,18 @@ export default function Table<T>({
             <tr
               key={keyExtractor(item)}
               onClick={() => onRowClick?.(item)}
+              onKeyDown={(event) => {
+                if (!onRowClick) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onRowClick(item);
+                }
+              }}
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? 'button' : undefined}
               className={`${
                 onRowClick
-                  ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 focus-visible:bg-gray-50 dark:focus-visible:bg-gray-800/50'
                   : ''
               } transition-colors`}
             >

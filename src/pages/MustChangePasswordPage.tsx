@@ -19,7 +19,7 @@ export default function MustChangePasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   if (!mustChangePassword || !api.isAuthenticated()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,7 +40,7 @@ export default function MustChangePasswordPage() {
     try {
       await api.changePassword({ newPassword: newPassword });
       logout();
-      navigate('/login', { replace: true });
+      navigate('/', { replace: true });
     } catch {
       setError(t('profile.updateError'));
     } finally {

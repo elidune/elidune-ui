@@ -7,9 +7,11 @@ interface EventFlyerImageBlockProps {
   dataBase64: string;
   mimeType: string;
   modalTitle: string;
-  /** Small list leading image, or full-height strip in event list rows */
-  variant: 'thumb' | 'listLead' | 'panel';
+  /** Small list leading image, full-height strip, square card poster, or panel */
+  variant: 'thumb' | 'listLead' | 'cardPoster' | 'panel';
   className?: string;
+  /** When variant is `panel`, size image from viewport (does not fill parent height). */
+  fillAvailable?: boolean;
 }
 
 export default function EventFlyerImageBlock({
@@ -18,6 +20,7 @@ export default function EventFlyerImageBlock({
   modalTitle,
   variant,
   className,
+  fillAvailable = false,
 }: EventFlyerImageBlockProps) {
   const { t } = useTranslation();
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -28,12 +31,18 @@ export default function EventFlyerImageBlock({
       ? 'h-11 w-8 rounded object-cover border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
       : variant === 'listLead'
         ? 'h-full w-full object-cover bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700'
-        : 'w-full max-h-52 rounded-lg object-contain border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950';
+        : variant === 'cardPoster'
+          ? 'h-full w-full object-cover bg-white dark:bg-gray-900'
+          : fillAvailable
+          ? 'h-auto w-full max-w-full max-h-[min(32svh,13rem)] object-contain rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 sm:max-h-[min(38svh,16rem)] lg:max-h-[min(44svh,20rem)]'
+          : 'w-full max-h-52 rounded-lg object-contain border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950';
 
   const triggerClass =
-    variant === 'listLead'
+    variant === 'listLead' || variant === 'cardPoster'
       ? `h-full w-full min-h-0 rounded-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-inset ${className ?? ''}`
-      : `rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${className ?? ''}`;
+      : variant === 'panel' && fillAvailable
+        ? `flex w-full max-w-full items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${className ?? ''}`
+        : `rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${className ?? ''}`;
 
   return (
     <>

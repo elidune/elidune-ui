@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
       <Card className="w-full max-w-md relative">
         <div className="mb-6">
           <Link
-            to="/login"
+            to="/"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -93,7 +93,7 @@ export default function ResetPasswordPage() {
         {success ? (
           <div className="space-y-4 text-center">
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{t('auth.passwordReset.resetSuccess')}</p>
-            <Button type="button" variant="primary" className="w-full" size="lg" onClick={() => navigate('/login')}>
+            <Button type="button" variant="primary" className="w-full" size="lg" onClick={() => navigate('/')}>
               {t('auth.passwordReset.signIn')}
             </Button>
           </div>

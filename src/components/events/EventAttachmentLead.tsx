@@ -8,8 +8,8 @@ import EventFlyerImageBlock from './EventFlyerImageBlock';
 interface EventAttachmentLeadProps {
   event: Event;
   isSelected: boolean;
-  /** Full-height strip for public event list rows; default compact table thumb */
-  layout?: 'compact' | 'listRow';
+  /** Full-height strip for public event list rows; compact table thumb; square public card */
+  layout?: 'compact' | 'listRow' | 'card';
 }
 
 export default function EventAttachmentLead({
@@ -29,28 +29,48 @@ export default function EventAttachmentLead({
   const b64 = data?.attachmentDataBase64;
   const mime = data?.attachmentMimeType ?? event.attachmentMimeType;
   const listRow = layout === 'listRow';
+  const card = layout === 'card';
 
-  const placeholderBorder = listRow
+  const placeholderBorder = card
     ? isSelected
-      ? 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'
-      : 'bg-amber-50 dark:bg-amber-900/25 border-gray-200 dark:border-gray-700'
-    : isSelected
-      ? 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'
-      : 'bg-amber-50 dark:bg-amber-900/25 border-transparent';
+      ? 'bg-white dark:bg-gray-900 border-amber-300/90 dark:border-amber-700/60'
+      : 'bg-gray-50 dark:bg-gray-900/50 border-gray-200/90 dark:border-gray-700'
+    : listRow
+      ? isSelected
+        ? 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'
+        : 'bg-amber-50 dark:bg-amber-900/25 border-gray-200 dark:border-gray-700'
+      : isSelected
+        ? 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'
+        : 'bg-amber-50 dark:bg-amber-900/25 border-transparent';
 
   if (imageMime) {
     if (isLoading) {
       return (
         <div
           className={
-            listRow
-              ? 'flex flex-1 min-h-0 h-full w-full flex-shrink-0 bg-gray-100 dark:bg-gray-800 animate-pulse border-r border-transparent'
-              : 'w-8 h-11 rounded flex-shrink-0 bg-gray-100 dark:bg-gray-800 animate-pulse border border-transparent'
+            card
+              ? 'h-28 w-28 sm:h-32 sm:w-32 flex-shrink-0 rounded-xl border border-transparent bg-gray-100 dark:bg-gray-800 animate-pulse'
+              : listRow
+                ? 'flex flex-1 min-h-0 h-full w-full flex-shrink-0 bg-gray-100 dark:bg-gray-800 animate-pulse border-r border-transparent'
+                : 'w-8 h-11 rounded flex-shrink-0 bg-gray-100 dark:bg-gray-800 animate-pulse border border-transparent'
           }
         />
       );
     }
     if (b64 && mime && isImageMime(mime)) {
+      if (card) {
+        return (
+          <div className="h-28 w-28 sm:h-32 sm:w-32 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200/90 dark:border-gray-700 shadow-sm">
+            <EventFlyerImageBlock
+              variant="cardPoster"
+              dataBase64={b64}
+              mimeType={mime}
+              modalTitle={event.name}
+              className="min-h-0 flex-1"
+            />
+          </div>
+        );
+      }
       if (listRow) {
         return (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -81,13 +101,15 @@ export default function EventAttachmentLead({
       <div
         title={event.attachmentFileName}
         className={
-          listRow
-            ? `flex flex-1 min-h-0 h-full w-full items-center justify-center border-r transition-colors ${placeholderBorder}`
-            : `w-8 h-11 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${placeholderBorder}`
+          card
+            ? `h-28 w-28 sm:h-32 sm:w-32 flex-shrink-0 rounded-xl border flex items-center justify-center transition-colors ${placeholderBorder}`
+            : listRow
+              ? `flex flex-1 min-h-0 h-full w-full items-center justify-center border-r transition-colors ${placeholderBorder}`
+              : `w-8 h-11 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${placeholderBorder}`
         }
       >
         <FileText
-          className={`${listRow ? 'h-5 w-5' : 'h-4 w-4'} ${
+          className={`${card ? 'h-7 w-7' : listRow ? 'h-5 w-5' : 'h-4 w-4'} ${
             isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-amber-700 dark:text-amber-500'
           }`}
         />
@@ -98,13 +120,15 @@ export default function EventAttachmentLead({
   return (
     <div
       className={
-        listRow
-          ? `flex flex-1 min-h-0 h-full w-full items-center justify-center border-r transition-colors ${placeholderBorder}`
-          : `w-8 h-11 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${placeholderBorder}`
+        card
+          ? `h-28 w-28 sm:h-32 sm:w-32 flex-shrink-0 rounded-xl border flex items-center justify-center transition-colors ${placeholderBorder}`
+          : listRow
+            ? `flex flex-1 min-h-0 h-full w-full items-center justify-center border-r transition-colors ${placeholderBorder}`
+            : `w-8 h-11 rounded flex-shrink-0 flex items-center justify-center border transition-colors ${placeholderBorder}`
       }
     >
       <Calendar
-        className={`${listRow ? 'h-5 w-5' : 'h-4 w-4'} ${
+        className={`${card ? 'h-7 w-7' : listRow ? 'h-5 w-5' : 'h-4 w-4'} ${
           isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-amber-700 dark:text-amber-500'
         }`}
       />

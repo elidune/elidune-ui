@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -19,7 +19,6 @@ import {
   Image,
   FileText,
   Layers,
-  Calendar,
   Library,
   Eye,
   EyeOff,
@@ -155,7 +154,7 @@ function TwoFactorVerification() {
         if (fullCode.length !== 6) { setError(t('auth.2fa.invalidCode')); setIsLoading(false); return; }
         needPwdChange = (await verify2FA(fullCode, trustDevice)).mustChangePassword ?? false;
       }
-      navigate(needPwdChange ? '/change-password' : '/');
+      navigate(needPwdChange ? '/change-password' : '/home');
     } catch {
       setError(t('auth.2fa.invalidCode'));
       setCode(['', '', '', '', '', '']);
@@ -409,9 +408,6 @@ export default function LoginPage() {
   const [selectedBiblioId, setSelectedBiblioId] = useState<string | null>(null);
   const [opacPage, setOpacPage] = useState(1);
   const [resultsTab, setResultsTab] = useState<'events' | 'catalog'>('events');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  /** When true, keep detail pane closed after user cleared selection (click / Escape). */
-  const userDismissedEventSelectionRef = useRef(false);
   const userDismissedBiblioSelectionRef = useRef(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -471,15 +467,7 @@ export default function LoginPage() {
 
   const events = eventsData?.events ?? [];
 
-  const handleSelectEvent = useCallback((id: string | null) => {
-    if (id === null) userDismissedEventSelectionRef.current = true;
-    else userDismissedEventSelectionRef.current = false;
-    setSelectedEventId(id);
-  }, []);
-
-  const eventRows = eventsData?.events;
-
-  // Ctrl/Cmd+K focuses the search bar; Escape clears overlays (events list hidden when only one event)
+  // Ctrl/Cmd+K focuses the search bar; Escape clears catalog selection overlay
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -491,36 +479,14 @@ export default function LoginPage() {
           userDismissedBiblioSelectionRef.current = true;
           setSelectedBiblioId(null);
         }
-        if (selectedEventId) {
-          if (resultsTab === 'events' && eventRows?.length === 1) {
-            return;
-          }
-          userDismissedEventSelectionRef.current = true;
-          setSelectedEventId(null);
-        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedBiblioId, selectedEventId, resultsTab, eventRows]);
-
-  useEffect(() => {
-    if (resultsTab !== 'events' || eventsLoading) return;
-    if (!eventRows || eventRows.length === 0) {
-      setSelectedEventId(null);
-      return;
-    }
-    setSelectedEventId((prev) => {
-      const inList = prev != null && eventRows.some((e) => e.id === prev);
-      if (inList) return prev;
-      if (prev === null && userDismissedEventSelectionRef.current) return null;
-      userDismissedEventSelectionRef.current = false;
-      return eventRows[0].id;
-    });
-  }, [resultsTab, eventRows, eventsLoading]);
+  }, [selectedBiblioId]);
 
   if (mustChangePassword) return <Navigate to="/change-password" replace />;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthenticated) return <Navigate to="/home" replace />;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -534,7 +500,7 @@ export default function LoginPage() {
     setIsLoggingIn(true);
     try {
       const { requires2FA, mustChangePassword: needPwd } = await login({ username, password });
-      if (!requires2FA) navigate(needPwd ? '/change-password' : '/');
+      if (!requires2FA) navigate(needPwd ? '/change-password' : '/home');
     } catch {
       setLoginError(t('auth.invalidCredentials'));
     } finally {
@@ -623,7 +589,6 @@ export default function LoginPage() {
                 role="tab"
                 aria-selected={resultsTab === 'events'}
                 onClick={() => {
-                  userDismissedEventSelectionRef.current = false;
                   setResultsTab('events');
                   setSelectedBiblioId(null);
                 }}
@@ -641,7 +606,6 @@ export default function LoginPage() {
                 aria-selected={resultsTab === 'catalog'}
                 onClick={() => {
                   setResultsTab('catalog');
-                  setSelectedEventId(null);
                 }}
                 className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
                   resultsTab === 'catalog'
@@ -654,13 +618,6 @@ export default function LoginPage() {
             </div>
 
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-              {resultsTab === 'events' && !selectedEventId && (
-                <Calendar
-                  aria-hidden
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92%,20rem)] h-auto text-amber-600/10 dark:text-amber-400/10 pointer-events-none select-none"
-                  strokeWidth={1}
-                />
-              )}
               {resultsTab === 'catalog' && (
                 <Library
                   aria-hidden
@@ -669,16 +626,16 @@ export default function LoginPage() {
                 />
               )}
 
-              <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
+              <div className="relative z-10 flex flex-1 min-h-0 items-stretch overflow-hidden">
                 {resultsTab === 'events' && (
-                  <PublicEventsPanel
-                    events={events}
-                    isLoading={eventsLoading}
-                    total={eventsData?.total}
-                    selectedEventId={selectedEventId}
-                    onSelectEvent={handleSelectEvent}
-                    emptyMessage={t('opac.eventsEmpty')}
-                  />
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                    <PublicEventsPanel
+                      events={events}
+                      isLoading={eventsLoading}
+                      total={eventsData?.total}
+                      emptyMessage={t('opac.eventsEmpty')}
+                    />
+                  </div>
                 )}
 
                 {resultsTab === 'catalog' && (
@@ -702,7 +659,7 @@ export default function LoginPage() {
                         </h3>
                       </div>
 
-                      <div className="min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain px-4 py-2 [scrollbar-gutter:stable]">
+                      <div className="min-h-0 px-4 py-2 [scrollbar-gutter:stable]">
                         {!hasQuery ? (
                           <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                             {t('opac.searchPrompt')}

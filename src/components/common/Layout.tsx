@@ -52,11 +52,11 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const navigation = [
-    { name: t('nav.home'), href: '/', icon: Home, show: true },
+    { name: t('nav.home'), href: '/home', icon: Home, show: true },
     { name: t('nav.catalog'), href: '/biblios', icon: BookOpen, show: true },
     { name: t('nav.inventory'), href: '/inventory', icon: ClipboardList, show: isLibrarian(user?.accountType) },
     { name: t('nav.myLoans'), href: '/my-loans', icon: BookMarked, show: true },
@@ -89,12 +89,14 @@ export default function Layout({ children }: LayoutProps) {
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          aria-hidden="true"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
+        id="main-sidebar"
         className={`fixed top-0 left-0 z-50 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transform transition-transform duration-300 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -103,7 +105,7 @@ export default function Layout({ children }: LayoutProps) {
           {/* Logo / title */}
           <div className="relative flex flex-col items-center justify-center py-4 px-4 border-b border-gray-200 dark:border-gray-800">
             <Link
-              to="/"
+              to="/home"
               className="flex flex-col items-center gap-1.5 text-center w-full"
               onClick={() => setSidebarOpen(false)}
             >
@@ -119,6 +121,7 @@ export default function Layout({ children }: LayoutProps) {
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
+              aria-label={t('common.close')}
               className="lg:hidden absolute right-3 top-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <X className="h-5 w-5" />
@@ -129,8 +132,8 @@ export default function Layout({ children }: LayoutProps) {
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const isActive =
-                item.href === '/'
-                  ? location.pathname === '/'
+                item.href === '/home'
+                  ? location.pathname === '/home'
                   : item.href.includes('?')
                     ? `${location.pathname}${location.search}` === item.href
                     : location.pathname === item.href ||
@@ -159,7 +162,9 @@ export default function Layout({ children }: LayoutProps) {
               {themeOptions.map((option) => (
                 <button
                   key={option.value}
+                  type="button"
                   onClick={() => setTheme(option.value)}
+                  aria-label={option.label}
                   className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     theme === option.value
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
@@ -197,7 +202,9 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </Link>
               <button
+                type="button"
                 onClick={handleLogout}
+                aria-label={t('nav.logout')}
                 className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300"
                 title={t('nav.logout')}
               >
@@ -209,11 +216,15 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <div className="flex h-svh min-h-0 flex-col lg:pl-64">
         {/* Mobile header */}
         <header className="sticky top-0 z-30 flex items-center h-16 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 lg:hidden">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
+            aria-controls="main-sidebar"
+            aria-expanded={sidebarOpen}
+            aria-label={t('common.actions')}
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <Menu className="h-6 w-6" />
@@ -225,7 +236,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-6 flex-1">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 lg:p-6">{children}</main>
 
         {/* Footer */}
         <footer className="border-t border-gray-200 dark:border-gray-800 py-3 px-4 lg:px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-xs text-gray-400 dark:text-gray-500">

@@ -94,7 +94,7 @@ export default function FirstSetupPage() {
       await completeFirstSetup(response);
       await refreshLibraryInfo();
       await queryClient.invalidateQueries({ queryKey: ['health'] });
-      navigate('/', { replace: true });
+      navigate('/home', { replace: true });
     },
   });
 

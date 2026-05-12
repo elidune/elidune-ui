@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import {
   BookOpen,
   Users,
@@ -68,13 +69,6 @@ export default function StatsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Advanced stats state
-  const [isLoadingAdvancedStats, setIsLoadingAdvancedStats] = useState(false);
-  const [statsParams, setStatsParams] = useState<AdvancedStatsParams | null>(null);
-  
   // Filter states for loan evolution chart
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
@@ -87,10 +81,6 @@ export default function StatsPage() {
   const [interval, setInterval] = useState<StatsInterval>('day');
   const [mediaType, setMediaType] = useState<MediaType | ''>('');
   
-  // Timeline state
-  const [timelineData, setTimelineData] = useState<LoanTimeData[]>([]);
-  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
-
   const currentYear = new Date().getFullYear();
 
   // Catalog stats state (GET /stats/catalog)
@@ -141,8 +131,7 @@ export default function StatsPage() {
     { value: 'year', label: t('stats.interval.year') },
   ];
 
-  // Update statsParams when filters change
-  useEffect(() => {
+  const statsParams = useMemo<AdvancedStatsParams>(() => {
     const startDateTime = new Date(startDate);
     startDateTime.setHours(0, 0, 0, 0);
     const endDateTime = new Date(endDate);
@@ -158,52 +147,28 @@ export default function StatsPage() {
       params.mediaType = mediaType;
     }
 
-    setStatsParams(params);
+    return params;
   }, [startDate, endDate, interval, mediaType]);
 
-  // Fetch main stats
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await api.getStats();
-        setStats(data);
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+  const statsQuery = useQuery<Stats>({
+    queryKey: ['stats', 'main'],
+    queryFn: () => api.getStats(),
+    staleTime: 5 * 60_000,
+  });
 
-  // Fetch advanced stats (loans tab only)
-  useEffect(() => {
-    if (statsDetailTab !== 'loans' || !statsParams) {
-      return;
-    }
-
-    setIsLoadingAdvancedStats(true);
-    setIsLoadingTimeline(true);
-
-    const fetchAdvancedStats = async () => {
-      try {
-        const response = await api.getLoanStats(statsParams);
-        setTimelineData(response.timeSeries.map(item => ({
-          date: item.period,
-          loans: item.loans,
-          returns: item.returns,
-        })));
-      } catch (error) {
-        console.error('Error fetching loan stats:', error);
-        setTimelineData([]);
-      } finally {
-        setIsLoadingAdvancedStats(false);
-        setIsLoadingTimeline(false);
-      }
-    };
-
-    fetchAdvancedStats();
-  }, [statsDetailTab, statsParams]);
+  const loansTimelineQuery = useQuery<LoanTimeData[]>({
+    queryKey: ['stats', 'loans-evolution', statsParams],
+    queryFn: async () => {
+      const response = await api.getLoanStats(statsParams);
+      return response.timeSeries.map((item) => ({
+        date: item.period,
+        loans: item.loans,
+        returns: item.returns,
+      }));
+    },
+    enabled: statsDetailTab === 'loans',
+    staleTime: 60_000,
+  });
 
   // Helper function to convert year to startDate and endDate
   const yearToDateRange = (year: number) => {
@@ -395,7 +360,7 @@ export default function StatsPage() {
     },
   ];
 
-  if (isLoading) {
+  if (statsQuery.isLoading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <div className="h-10 w-10 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -403,6 +368,8 @@ export default function StatsPage() {
       </div>
     );
   }
+
+  const stats = statsQuery.data;
 
   if (!stats) {
     return (
@@ -822,14 +789,14 @@ export default function StatsPage() {
         </div>
 
         <div className="p-4 sm:p-6">
-          {(isLoadingTimeline || isLoadingAdvancedStats) ? (
+          {(loansTimelineQuery.isLoading || loansTimelineQuery.isFetching) ? (
             <div className="flex items-center justify-center h-64">
               <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={loansTimelineQuery.data ?? []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorLoans" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
