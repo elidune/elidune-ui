@@ -1149,11 +1149,16 @@ export interface MaintenanceResponse {
 export interface AuditLogEntry {
   id: number;
   eventType: string;
-  userId: string | null;
+  /** Defaults to success for legacy rows without migration fields */
+  outcome?: 'success' | 'failure';
+  userId: number | null;
   entityType: string | null;
-  entityId: string | null;
+  entityId: number | null;
   ipAddress: string | null;
   payload: Record<string, unknown> | null;
+  httpStatus?: number | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   createdAt: string;
 }
 

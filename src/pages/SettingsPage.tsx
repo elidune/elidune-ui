@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Wrench, Shield, Mail, Library } from 'lucide-react';
+import { Save, Plus, Trash2, Server, Archive, Pencil, Merge, Package, Check, X, AlertTriangle, Users, ChevronDown, BookOpen, Cog, ScrollText, Shield, Mail, Library } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { LibrarySettingsPanel } from '@/pages/LibraryPage';
 import AdminServerSettings from '@/components/settings/AdminServerSettings';
 import AccountTypesSettings from '@/components/settings/AccountTypesSettings';
 import EmailTemplatesSettings from '@/components/settings/EmailTemplatesSettings';
 import AuditLogViewer from '@/components/settings/AuditLogViewer';
-import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
 import { Card, CardHeader, Button, Input, Badge, ConfirmDialog } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
@@ -338,7 +337,7 @@ function SourceEditor() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <CardHeader title={t('settings.sources.title')} />
         <div className="flex items-center justify-center h-24">
           <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -348,7 +347,7 @@ function SourceEditor() {
   }
 
   return (
-    <Card>
+    <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
       <CardHeader
         title={t('settings.sources.title')}
         action={
@@ -622,7 +621,7 @@ function PublicTypesEditor() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <CardHeader title={t('settings.publicTypes.title')} />
         <div className="flex items-center justify-center h-24">
           <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
@@ -632,7 +631,7 @@ function PublicTypesEditor() {
   }
 
   return (
-    <Card>
+    <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
       <CardHeader
         title={t('settings.publicTypes.title')}
         action={
@@ -1431,7 +1430,6 @@ type SettingsTab =
   | 'library'
   | 'loans'
   | 'server'
-  | 'maintenance'
   | 'audit'
   | 'sources'
   | 'publicTypes'
@@ -1448,7 +1446,6 @@ const SETTINGS_TAB_IDS: SettingsTab[] = [
   'sources',
   'z3950',
   'server',
-  'maintenance',
   'audit',
 ];
 
@@ -1479,6 +1476,21 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const p = searchParams.get('tab');
+    if (p === 'maintenance') {
+      setActiveTab('server');
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams(prev);
+          n.set('tab', 'server');
+          if (!n.get('serverSub')) {
+            n.set('serverSub', 'database');
+          }
+          return n;
+        },
+        { replace: true },
+      );
+      return;
+    }
     const isValid = p && SETTINGS_TAB_IDS.includes(p as SettingsTab);
     if (isValid) {
       const id = p as SettingsTab;
@@ -1638,7 +1650,6 @@ export default function SettingsPage() {
     { id: 'sources', label: t('settings.sources.title'), icon: <Package className="h-5 w-5" /> },
     { id: 'z3950', label: t('settings.z3950Servers'), icon: <Server className="h-5 w-5" /> },
     { id: 'server', label: t('settings.server.title'), icon: <Cog className="h-5 w-5" /> },
-    { id: 'maintenance', label: t('settings.maintenance.title'), icon: <Wrench className="h-5 w-5" /> },
     { id: 'audit', label: t('settings.audit.title'), icon: <ScrollText className="h-5 w-5" /> },
   ];
 
@@ -1659,17 +1670,17 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-800">
-        <nav className="-mb-px flex flex-wrap gap-1 sm:gap-4">
+      <div className="rounded-2xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/50 dark:bg-gray-900/30 p-1.5 sm:p-2">
+        <nav className="flex flex-wrap gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => selectTab(tab.id)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-gray-200/70 dark:border-gray-700/70'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-gray-800/40 hover:text-gray-900 dark:hover:text-gray-200 border border-transparent'
               }`}
             >
               {tab.icon}
@@ -1681,7 +1692,7 @@ export default function SettingsPage() {
 
       {/* Library (identity, hours) */}
       {activeTab === 'library' && (
-        <Card>
+        <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
           <CardHeader title={t('library.title')} subtitle={t('library.subtitle')} />
           <div className="px-4 pb-6 sm:px-6">
             <LibrarySettingsPanel />
@@ -1691,7 +1702,7 @@ export default function SettingsPage() {
 
       {/* Loan settings */}
       {activeTab === 'loans' && settings && (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <CardHeader
           title={t('settings.loanSettings')}
           action={
@@ -1708,7 +1719,7 @@ export default function SettingsPage() {
         />
         <p className="px-4 sm:px-6 pb-3 text-sm text-gray-500 dark:text-gray-400">{t('settings.renewAtHelp')}</p>
         <p className="px-4 sm:px-6 pb-3 text-xs text-gray-500 dark:text-gray-400">{t('settings.loanLimitsResolutionHint')}</p>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-b-xl">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -1880,7 +1891,7 @@ export default function SettingsPage() {
 
       {/* Z39.50 servers */}
       {activeTab === 'z3950' && settings && (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <CardHeader
           title={t('settings.z3950Servers')}
           action={
@@ -2027,8 +2038,6 @@ export default function SettingsPage() {
       )}
 
       {activeTab === 'server' && <AdminServerSettings />}
-
-      {activeTab === 'maintenance' && <MaintenanceSettings />}
 
       {activeTab === 'audit' && <AuditLogViewer />}
     </div>

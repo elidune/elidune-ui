@@ -159,7 +159,7 @@ export default function EmailTemplatesSettings() {
 
   if (listError) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <p className="text-center text-red-600 dark:text-red-400 py-8 px-4">{getApiErrorMessage(listQueryError, t)}</p>
       </Card>
     );
@@ -167,7 +167,7 @@ export default function EmailTemplatesSettings() {
 
   if (!list.length) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <p className="text-center text-gray-500 dark:text-gray-400 py-8">{t('settings.emailTemplates.empty')}</p>
       </Card>
     );
@@ -175,7 +175,7 @@ export default function EmailTemplatesSettings() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,15rem)_1fr] gap-4">
-      <Card className="lg:sticky lg:top-4 lg:self-start">
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden lg:sticky lg:top-4 lg:self-start">
         <CardHeader title={t('settings.emailTemplates.templates')} />
         <nav className="px-3 pb-3 space-y-0.5" aria-label={t('settings.emailTemplates.title')}>
           {templateIds.map((tid) => (
@@ -195,7 +195,7 @@ export default function EmailTemplatesSettings() {
         </nav>
       </Card>
 
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <CardHeader
           title={t('settings.emailTemplates.editorTitle')}
           action={

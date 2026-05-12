@@ -287,6 +287,9 @@ function normalizeEnqueueResult(
 
 const API_BASE_URL = '/api/v1';
 
+/** Dump / restore can take a long time (large DB, pg_dump / psql). */
+const MAINTENANCE_DATABASE_TIMEOUT_MS = 30 * 60 * 1000;
+
 class ApiService {
   private client: AxiosInstance;
   private token: string | null = null;
@@ -1405,6 +1408,47 @@ class ApiService {
     return response.data;
   }
 
+  /**
+   * GET /maintenance/database/dump — SQL attachment (admin).
+   * Parses filename from Content-Disposition when present.
+   */
+  async getMaintenanceDatabaseDump(): Promise<{ blob: Blob; filename: string }> {
+    try {
+      const response = await this.client.get('/maintenance/database/dump', {
+        responseType: 'blob',
+        timeout: MAINTENANCE_DATABASE_TIMEOUT_MS,
+      });
+      const cd = response.headers['content-disposition'] as string | undefined;
+      const quoted = cd?.match(/filename="([^"]+)"/);
+      const plain = cd?.match(/filename=([^;\s]+)/);
+      const raw = quoted?.[1] ?? plain?.[1]?.replace(/^"|"$/g, '');
+      const filename = raw?.trim() || 'elidune-database-dump.sql';
+      return { blob: response.data as Blob, filename };
+    } catch (err) {
+      const axiosErr = err as AxiosError<Blob | ApiError>;
+      const data = axiosErr.response?.data;
+      if (data instanceof Blob && axiosErr.response) {
+        const text = await data.text();
+        try {
+          axiosErr.response.data = JSON.parse(text) as ApiError;
+        } catch {
+          axiosErr.response.data = { message: text } as ApiError;
+        }
+      }
+      throw axiosErr;
+    }
+  }
+
+  /**
+   * POST /maintenance/database/restore — raw SQL body (admin). Expects 204 No Content on success.
+   */
+  async postMaintenanceDatabaseRestore(sqlFile: Blob): Promise<void> {
+    await this.client.post('/maintenance/database/restore', sqlFile, {
+      headers: { 'Content-Type': 'application/sql' },
+      timeout: MAINTENANCE_DATABASE_TIMEOUT_MS,
+    });
+  }
+
   // ─── Background tasks ────────────────────────────────────────────
 
   async getTask(id: string): Promise<BackgroundTask> {
@@ -1422,10 +1466,12 @@ class ApiService {
   async getAuditLog(params?: {
     eventType?: string;
     entityType?: string;
-    entityId?: string;
-    userId?: string;
+    entityId?: number;
+    userId?: number;
     fromDate?: string;
     toDate?: string;
+    outcome?: 'success' | 'failure';
+    errorCode?: string;
     page?: number;
     perPage?: number;
   }): Promise<AuditLogPage> {
@@ -1436,8 +1482,13 @@ class ApiService {
   async exportAuditLog(params?: {
     format?: 'json' | 'csv';
     eventType?: string;
+    entityType?: string;
+    entityId?: number;
+    userId?: number;
     fromDate?: string;
     toDate?: string;
+    outcome?: 'success' | 'failure';
+    errorCode?: string;
   }): Promise<Blob> {
     const response = await this.client.get('/audit/export', {
       params,

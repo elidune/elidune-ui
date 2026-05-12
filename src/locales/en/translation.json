@@ -766,7 +766,7 @@
       "testEmailSuccess": "Test email sent",
       "testEmailError": "Test email failed",
       "title": "Elidune server",
-      "subtitle": "SMTP, logging, reminders, and audit retention (runtime overrides)",
+      "subtitle": "Runtime config, catalog indexing, Z39.50 refresh, and database tools",
       "sections": {
         "email": "Email (SMTP)",
         "logging": "Logging",
@@ -799,7 +799,12 @@
       "retentionDays": "Audit retention (days)",
       "readyExpiryDays": "Days to pick up the copy after notification (“ready” hold)",
       "holdsOverridable": "Allow overriding this section in the database",
-      "resetConfirm": "Reset section \"{{section}}\" to values from the config file?"
+      "resetConfirm": "Reset section \"{{section}}\" to values from the config file?",
+      "tabs": {
+        "general": "General",
+        "catalog": "Catalog",
+        "database": "Database"
+      }
     },
     "audit": {
       "loadError": "Could not load audit log",
@@ -815,9 +820,28 @@
       "toDate": "To",
       "exportJson": "Export JSON",
       "exportCsv": "Export CSV",
-      "clickForDetails": "Click to show or hide event payload",
+      "clickForDetails": "Click to show or hide errors and payload",
       "payload": "Payload",
-      "totalEntries": "{{total}} entries (filtered)"
+      "totalEntries": "{{total}} entries (filtered)",
+      "quickFilters": "Quick filters",
+      "quickFailuresOnly": "Failures only",
+      "quickLast24h": "Last 24 hours",
+      "quickLast7d": "Last 7 days",
+      "quickSuccessOnly": "Success only",
+      "commonEvents": "Common events",
+      "commonEventsPlaceholder": "Pick an exact type…",
+      "presetDomainAuth": "Authentication",
+      "presetDomainLoans": "Loans",
+      "presetDomainCatalog": "Catalog",
+      "presetDomainMaintenance": "Maintenance",
+      "outcome": "Outcome",
+      "outcomeAny": "Any",
+      "outcomeSuccess": "Success",
+      "outcomeFailure": "Failure",
+      "errorCode": "Error code",
+      "errorSummary": "Error / HTTP",
+      "errorUnknown": "(unknown code)",
+      "errorDetail": "Error"
     },
     "maintenance": {
       "actionRunError": "Could not run maintenance actions",
@@ -849,6 +873,34 @@
       "actionsGroupIntro": "Run actions one by one, or execute the full group in recommended order.",
       "runAllActions": "Run all",
       "runAction": "Run",
+      "database": {
+        "sectionTitle": "PostgreSQL database",
+        "adminBadge": "Admin",
+        "dangerBadge": "Dangerous",
+        "exportTitle": "Export database",
+        "exportBody": "Downloads a SQL dump generated on the server (application/sql attachment). Large catalogs may take a long time; the client waits up to 30 minutes.",
+        "exportButton": "Download SQL dump",
+        "exportRunning": "Exporting…",
+        "exportError": "Database export failed",
+        "restoreTitle": "Restore database",
+        "restoreBody": "Uploads a raw .sql file (same bytes as an export), not JSON. Maximum size accepted by the server: 512 MiB.",
+        "restoreWarningTitle": "Destructive operation",
+        "restoreWarningDestructive": "The dump includes DROP/CREATE (--clean): current data will be replaced.",
+        "restoreWarningConcurrency": "Avoid concurrent use of the app; schedule a maintenance window.",
+        "restoreWarningAfter": "After success, reload the page or sign out and back in; network errors may appear until connection pools reset.",
+        "formatHint": "Raw SQL file (.sql) or equivalent plain text.",
+        "restorePickFile": "Choose file…",
+        "restoreNoFile": "No file selected",
+        "restoreSelected": "{{name}} · {{size}}",
+        "restoreButton": "Restore from this file",
+        "restoreRunning": "Uploading and restoring…",
+        "restoreConfirm": "Confirm restore? Current data will be replaced by the SQL file. This cannot be undone.",
+        "restoreSuccess": "Restore completed.",
+        "restoreSuccessFollowUp": "Reload the application or log out and log back in. If you see network errors, do a hard reload.",
+        "restoreMeilisearchNote": "If you use Meilisearch, run a full reindex from the Catalog tab under Elidune server, or use dedicated screens.",
+        "restoreFileTooLarge": "The file exceeds the server limit (512 MiB). Choose a smaller dump.",
+        "restoreError": "Restore failed"
+      },
       "actions": {
         "cleanupDanglingBiblioSeries": {
           "label": "Clean up orphan series links",

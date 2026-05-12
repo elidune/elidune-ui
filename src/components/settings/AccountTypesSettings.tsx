@@ -114,7 +114,7 @@ export default function AccountTypesSettings() {
 
   if (isError) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <p className="text-center text-gray-500 dark:text-gray-400 py-8">{t('settings.accountTypes.errorLoad')}</p>
       </Card>
     );
@@ -122,14 +122,14 @@ export default function AccountTypesSettings() {
 
   if (!data?.length) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <p className="text-center text-gray-500 dark:text-gray-400 py-8">{t('settings.accountTypes.empty')}</p>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
       <CardHeader title={t('settings.accountTypes.title')} />
       <p className="text-sm text-gray-600 dark:text-gray-400 px-4 -mt-2 mb-4">{t('settings.accountTypes.subtitle')}</p>
 

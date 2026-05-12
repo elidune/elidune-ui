@@ -13,38 +13,15 @@ import {
   Loader2,
   Server,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Modal, Input, ScrollableListRegion, ResponsiveRecordList } from '@/components/common';
+import { Card, CardHeader, Button, Table, Modal, Input, ScrollableListRegion, ResponsiveRecordList } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
-import type { Biblio, Author, Z3950Server, MediaType, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
+import type { Biblio, Author, Z3950Server, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import type { AxiosError } from 'axios';
 
-// Helper function to get translation key for media type
-function getMediaTypeTranslationKey(mediaType: MediaType | string | null | undefined): string {
-  if (!mediaType) return 'unknown';
-  const legacyMap: Record<string, string> = {
-    u: 'unknown',
-    b: 'printedText',
-    bc: 'comics',
-    p: 'periodic',
-    v: 'video',
-    vt: 'videoTape',
-    vd: 'videoDvd',
-    a: 'audio',
-    am: 'audioMusic',
-    amt: 'audioMusicTape',
-    amc: 'audioMusicCd',
-    an: 'audioNonMusic',
-    ant: 'audioNonMusicTape',
-    anc: 'audioNonMusicCd',
-    c: 'cdRom',
-    i: 'images',
-    m: 'multimedia',
-  };
-  return legacyMap[String(mediaType)] ?? String(mediaType);
-}
+
 
 function getDuplicateConfirmationRequired(error: unknown): DuplicateConfirmationRequired | null {
   const ax = error as AxiosError<any>;
@@ -349,19 +326,6 @@ export default function Z3950SearchPage() {
       className: 'hidden md:table-cell',
     },
     {
-      key: 'mediaType',
-      header: t('common.type'),
-      render: (item: Z3950Result) => (
-        <Badge>
-          {item.mediaType
-            ? t(`items.mediaType.${getMediaTypeTranslationKey(item.mediaType as MediaType)}`)
-            : t('items.document')
-          }
-        </Badge>
-      ),
-      className: 'hidden lg:table-cell',
-    },
-    {
       key: 'actions',
       header: t('common.actions'),
       align: 'right' as const,
@@ -559,11 +523,6 @@ export default function Z3950SearchPage() {
                               </p>
                               <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
                                 <span>{item.publicationDate || '—'}</span>
-                                <Badge>
-                                  {item.mediaType
-                                    ? t(`items.mediaType.${getMediaTypeTranslationKey(item.mediaType as MediaType)}`)
-                                    : t('items.document')}
-                                </Badge>
                               </div>
                             </div>
                           </div>

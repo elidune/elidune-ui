@@ -773,7 +773,7 @@
       "testEmailSuccess": "E-mail de test envoyé",
       "testEmailError": "Échec de l'e-mail de test",
       "title": "Serveur Elidune",
-      "subtitle": "SMTP, journalisation, rappels, réservations et rétention d'audit (surcharges en base)",
+      "subtitle": "Configuration, indexation, actualisation Z39.50 et outils base de données",
       "sections": {
         "email": "E-mail (SMTP)",
         "logging": "Journalisation",
@@ -806,7 +806,12 @@
       "retentionDays": "Rétention de l'audit (jours)",
       "readyExpiryDays": "Jours pour retirer l'exemplaire après notification (réservation « prête »)",
       "holdsOverridable": "Autoriser la surcharge de cette section en base",
-      "resetConfirm": "Réinitialiser la section « {{section}} » aux valeurs du fichier de configuration ?"
+      "resetConfirm": "Réinitialiser la section « {{section}} » aux valeurs du fichier de configuration ?",
+      "tabs": {
+        "general": "Général",
+        "catalog": "Catalogue",
+        "database": "Base de données"
+      }
     },
     "audit": {
       "loadError": "Impossible de charger le journal d'audit",
@@ -822,9 +827,28 @@
       "toDate": "Au",
       "exportJson": "Exporter JSON",
       "exportCsv": "Exporter CSV",
-      "clickForDetails": "Cliquer pour afficher ou masquer le détail (payload)",
+      "clickForDetails": "Cliquer pour afficher ou masquer le détail (erreurs et payload)",
       "payload": "Payload",
-      "totalEntries": "{{total}} entrée(s) (filtré)"
+      "totalEntries": "{{total}} entrée(s) (filtré)",
+      "quickFilters": "Raccourcis",
+      "quickFailuresOnly": "Échecs uniquement",
+      "quickLast24h": "Dernières 24 h",
+      "quickLast7d": "7 derniers jours",
+      "quickSuccessOnly": "Succès uniquement",
+      "commonEvents": "Événements courants",
+      "commonEventsPlaceholder": "Choisir un type exact…",
+      "presetDomainAuth": "Authentification",
+      "presetDomainLoans": "Prêts",
+      "presetDomainCatalog": "Catalogue",
+      "presetDomainMaintenance": "Maintenance",
+      "outcome": "Résultat",
+      "outcomeAny": "Tous",
+      "outcomeSuccess": "Succès",
+      "outcomeFailure": "Échec",
+      "errorCode": "Code d’erreur",
+      "errorSummary": "Erreur / HTTP",
+      "errorUnknown": "(code inconnu)",
+      "errorDetail": "Erreur"
     },
     "maintenance": {
       "actionRunError": "Impossible de lancer les actions de maintenance",
@@ -856,6 +880,34 @@
       "actionsGroupIntro": "Lancez les actions une par une, ou exécutez tout le groupe dans l'ordre recommandé.",
       "runAllActions": "Tout lancer",
       "runAction": "Lancer",
+      "database": {
+        "sectionTitle": "Base de données PostgreSQL",
+        "adminBadge": "Admin",
+        "dangerBadge": "Dangereux",
+        "exportTitle": "Exporter la base",
+        "exportBody": "Télécharge un dump SQL généré sur le serveur (pièce jointe application/sql). Les gros catalogues peuvent prendre longtemps ; le client attend jusqu’à 30 minutes.",
+        "exportButton": "Télécharger le dump SQL",
+        "exportRunning": "Export en cours…",
+        "exportError": "Échec de l’export de la base",
+        "restoreTitle": "Restaurer la base",
+        "restoreBody": "Envoie un fichier .sql brut (mêmes octets qu’un export), sans encapsulation JSON. Taille maximale côté serveur : 512 Mo.",
+        "restoreWarningTitle": "Opération destructive",
+        "restoreWarningDestructive": "Le dump contient des DROP/CREATE (--clean) : les données actuelles sont remplacées.",
+        "restoreWarningConcurrency": "Évitez toute utilisation concurrente de l’application ; prévoyez une fenêtre de maintenance.",
+        "restoreWarningAfter": "Après succès, rechargez la page ou reconnectez-vous ; des erreurs réseau peuvent survenir tant que les pools de connexions ne sont pas réinitialisés.",
+        "formatHint": "Fichier SQL brut (.sql) ou texte équivalent.",
+        "restorePickFile": "Choisir un fichier…",
+        "restoreNoFile": "Aucun fichier sélectionné",
+        "restoreSelected": "{{name}} · {{size}}",
+        "restoreButton": "Restaurer depuis ce fichier",
+        "restoreRunning": "Envoi et restauration en cours…",
+        "restoreConfirm": "Confirmer la restauration ? Les données actuelles seront remplacées par le fichier SQL. Cette action est irréversible.",
+        "restoreSuccess": "Restauration terminée.",
+        "restoreSuccessFollowUp": "Rechargez l’application ou déconnectez-vous puis reconnectez-vous. Si des erreurs réseau apparaissent, forcez un rechargement complet.",
+        "restoreMeilisearchNote": "Si vous utilisez Meilisearch, lancez une réindexation complète depuis l’onglet Catalogue du serveur Elidune, ou via les écrans prévus.",
+        "restoreFileTooLarge": "Le fichier dépasse la limite serveur (512 Mo). Choisissez un dump plus petit.",
+        "restoreError": "Échec de la restauration"
+      },
       "actions": {
         "cleanupDanglingBiblioSeries": {
           "label": "Nettoyer les liens série orphelins",
