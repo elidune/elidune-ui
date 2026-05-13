@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LibraryProvider } from '@/contexts/LibraryContext';
+import { isReaderAssistantFeatureEnabled } from '@/config/appEnv';
 import { Layout } from '@/components/common';
 import {
   FirstSetupPage,
@@ -33,6 +34,7 @@ import {
   PublicEventsPage,
   AboutPage,
   PrivacyPage,
+  ReaderAssistantPage,
 } from '@/pages';
 import { isLibrarian } from '@/types';
 import { FirstSetupGate } from '@/components/first-setup/FirstSetupGate';
@@ -308,6 +310,19 @@ function AppRoutes() {
               <Navigate to="/settings?tab=library" replace />
             </LibrarianRoute>
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/reader-assistant"
+        element={
+          !isReaderAssistantFeatureEnabled() ? (
+            <Navigate to="/home" replace />
+          ) : (
+            <ProtectedRoute>
+              <ReaderAssistantPage />
+            </ProtectedRoute>
+          )
         }
       />
 

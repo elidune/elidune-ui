@@ -1539,3 +1539,67 @@ export interface FirstSetupResponse {
   user: LoginResponse['user'];
   libraryInfo: LibraryInfo;
 }
+
+// ─── Reader assistant (AI reading advisory) ────────────────────────
+
+export interface ReaderAssistantSession {
+  id: string;
+  userId: string;
+  title?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface ReaderAssistantSessionCreateBody {
+  title?: string | null;
+}
+
+export interface ReaderAssistantUserMessageBody {
+  content: string;
+  includeExternal?: boolean;
+}
+
+/** Shortcut endpoint: optional session binding for multi-turn shortcuts. */
+export interface ReaderAssistantAskBody {
+  content: string;
+  includeExternal?: boolean;
+  sessionId?: string | null;
+}
+
+export type ReaderRecommendationKind = 'in_catalog' | 'external';
+
+export interface ReaderRecommendation {
+  id: string;
+  kind: ReaderRecommendationKind;
+  biblioId?: string | null;
+  biblio?: BiblioShort | null;
+  externalRef?: string | null;
+  score: number;
+  rationale: string;
+}
+
+export interface ReaderAssistantMessageResponse {
+  sessionId: string;
+  assistantMessageId: string;
+  answer: string;
+  provider?: string | null;
+  model?: string | null;
+  fallbackUsed: boolean;
+  recommendations: ReaderRecommendation[];
+}
+
+export interface ReaderAssistantChatTurn {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt?: string | null;
+  recommendations?: ReaderRecommendation[];
+  fallbackUsed?: boolean;
+  provider?: string | null;
+  model?: string | null;
+}
+
+export interface ReaderAssistantSessionDetail extends ReaderAssistantSession {
+  messages?: ReaderAssistantChatTurn[];
+}

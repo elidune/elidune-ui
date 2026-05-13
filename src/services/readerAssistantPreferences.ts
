@@ -1,0 +1,25 @@
+/** User preferences for reader assistant (no tokens or sensitive content). */
+
+const KEY_INCLUDE_EXTERNAL = 'reader_assistant_include_external_default';
+const KEY_LAST_SESSION = 'reader_assistant_last_session_id';
+const KEY_LOCAL_TITLES = 'reader_assistant_local_session_titles';
+
+function readJsonTitles(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(KEY_LOCAL_TITLES);
+    if (!raw) return {};
+    const v = JSON.parse(raw) as unknown;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof val === 'string' && val.trim()) out[k] = val.trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function saveJsonTitles titles: Record<string, string>): void {
+  localStorage.setItem(KEY_LOCAL_TITLES, JSON.stringify(titles));
+}

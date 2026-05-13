@@ -60,7 +60,8 @@
     "profile": "Mon Profil",
     "logout": "Déconnexion",
     "about": "À propos",
-    "privacy": "Confidentialité"
+    "privacy": "Confidentialité",
+    "readerAssistant": "Assistant lecture"
   },
   "theme": {
     "light": "Clair",
@@ -75,6 +76,50 @@
     "welcome": "bienvenue",
     "upcomingEvents": "Prochains événements",
     "upcomingEventsSubtitle": "Affiche et flyer de la bibliothèque"
+  },
+  "readerAssistant": {
+    "pageTitle": "Assistant lecture",
+    "subtitle": "Conseils de lecture adaptés à vos goûts — dans le catalogue ou au-delà.",
+    "newSession": "Nouvelle conversation",
+    "pickSession": "Sélectionnez une conversation ou créez-en une nouvelle.",
+    "noSessionSelected": "Aucune conversation",
+    "noSessions": "Pas encore de conversation.",
+    "sessionListError": "Impossible de charger la liste des conversations.",
+    "loadMoreSessions": "Charger plus",
+    "sessionFallbackTitle": "Sans titre",
+    "backToSessions": "Retour aux conversations",
+    "includeExternal": "Inclure suggestions hors catalogue",
+    "messageInput": "Message à l’assistant",
+    "placeholder": "Décrivez ce que vous recherchez, vos goûts ou un contexte…",
+    "keyboardHint": "Entrée envoie le message — Maj+Entrée insère un saut de ligne.",
+    "send": "Envoyer",
+    "renameAction": "Renommer la conversation",
+    "renameField": "Titre local de la conversation",
+    "deleteAction": "Supprimer la conversation",
+    "deleteConfirmTitle": "Supprimer la conversation",
+    "deleteConfirmBody": "Cette conversation sera supprimée définitivement.",
+    "probeErrorTitle": "Connexion impossible au service",
+    "probeErrorBody": "Vérifiez la connexion réseau ou réessayez dans un instant.",
+    "deniedTitle": "Accès refusé",
+    "deniedBody": "Votre compte n’est pas autorisé à utiliser l’assistant lecture.",
+    "featureUnavailableTitle": "Fonctionnalité non disponible",
+    "featureUnavailableBody": "Le service d’assistant lecture n’est pas configuré sur ce serveur ou est temporairement indisponible.",
+    "banner": {
+      "quotaExceeded": "Quota journalier atteint ou règle métier appliquée. Réessayez demain ou contactez la bibliothèque.",
+      "dismiss": "Fermer"
+    },
+    "emptyThread": "Commencez par un message — l’assistant proposera des titres et pistes de lecture.",
+    "roleUser": "Vous",
+    "roleAssistant": "Assistant",
+    "degradedMode": "Mode dégradé",
+    "recommendationsTitle": "Recommandations",
+    "kindInCatalog": "Dans le catalogue",
+    "kindExternal": "Hors catalogue",
+    "untitledWork": "Œuvre sans titre",
+    "externalWork": "Suggestion externe",
+    "rationaleLabel": "Pourquoi cette recommandation :",
+    "viewRecord": "Voir la notice",
+    "openLink": "Ouvrir le lien"
   },
   "library": {
     "general": {

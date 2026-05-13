@@ -22,7 +22,9 @@ import {
   ClipboardList,
   Bookmark,
   BookmarkCheck,
+  Sparkles,
 } from 'lucide-react';
+import { isReaderAssistantFeatureEnabled } from '@/config/appEnv';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLibrary } from '@/contexts/LibraryContext';
@@ -71,6 +73,16 @@ export default function Layout({ children }: LayoutProps) {
     { name: t('nav.users'), href: '/users', icon: Users, show: isLibrarian(user?.accountType) },
     { name: t('nav.z3950Search'), href: '/z3950', icon: Globe, show: isLibrarian(user?.accountType) },
     { name: t('nav.importIso'), href: '/import-iso', icon: Upload, show: isLibrarian(user?.accountType) },
+    ...(isReaderAssistantFeatureEnabled()
+      ? [
+          {
+            name: t('nav.readerAssistant'),
+            href: '/reader-assistant',
+            icon: Sparkles,
+            show: true,
+          },
+        ]
+      : []),
     { name: t('nav.events'), href: '/events', icon: CalendarDays, show: true },
     { name: t('nav.stats'), href: '/stats', icon: BarChart3, show: isLibrarian(user?.accountType) },
     { name: t('nav.library'), href: '/settings?tab=library', icon: LibraryBig, show: isLibrarian(user?.accountType) && !isAdmin(user?.accountType) },

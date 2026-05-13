@@ -102,6 +102,7 @@ import type {
   EmailTemplateDetail,
   UpdateEmailTemplateRequest,
 } from '@/types';
+import { API_BASE_URL } from '@/config/appEnv';
 import { normalizePaginatedResponse } from '@/utils/serverJson';
 
 function normalizeZ3950ServersPayload(data: unknown): Z3950Server[] {
@@ -285,8 +286,6 @@ function normalizeEnqueueResult(
   return { batchId: data.batchId, previews };
 }
 
-const API_BASE_URL = '/api/v1';
-
 /** Dump / restore can take a long time (large DB, pg_dump / psql). */
 const MAINTENANCE_DATABASE_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -396,6 +395,13 @@ class ApiService {
 
   isAuthenticated(): boolean {
     return !!this.token;
+  }
+
+  /**
+   * Shared axios instance (auth + 401 interceptor). Reserved for dedicated API modules.
+   */
+  get axiosClient(): AxiosInstance {
+    return this.client;
   }
 
   // ─── Auth ───────────────────────────────────────────────────────
