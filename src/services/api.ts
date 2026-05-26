@@ -44,6 +44,7 @@ import type {
   MarcImportPreview,
   RecordValidationIssue,
   MarcBatchInfo,
+  MarcBatchImportReport,
   TaskStartResponse,
   BackgroundTask,
   PublicType,
@@ -85,6 +86,9 @@ import type {
   InventoryScan,
   InventoryReport,
   InventoryMissingRow,
+  InventoryConsolidationPreview,
+  ConsolidateInventorySession,
+  InventoryConsolidationResult,
   HistoryPreference,
   ReadingHistoryEntry,
   BatchReturnResponse,
@@ -947,6 +951,56 @@ class ApiService {
     return response.data;
   }
 
+  async getInventoryConsolidationPreview(
+    sessionId: string,
+    params?: { page?: number; perPage?: number }
+  ): Promise<InventoryConsolidationPreview> {
+    const response = await this.client.get<InventoryConsolidationPreview>(
+      `/inventory/sessions/${sessionId}/consolidate/preview`,
+      { params }
+    );
+    return response.data;
+  }
+
+  async consolidateInventorySession(
+    sessionId: string,
+    body: ConsolidateInventorySession = {}
+  ): Promise<TaskStartResponse> {
+    const response = await this.client.post<TaskStartResponse>(
+      `/inventory/sessions/${sessionId}/consolidate`,
+      body
+    );
+    return response.data;
+  }
+
+  /**
+   * Polls GET /tasks/:id until the inventory consolidation task completes or fails.
+   */
+  async waitForInventoryConsolidationTask(
+    taskId: string,
+    onProgress?: (task: BackgroundTask) => void
+  ): Promise<InventoryConsolidationResult> {
+    const baseMs = 500;
+    const maxMs = 5000;
+    let delay = baseMs;
+    for (;;) {
+      const task = await this.getTask(taskId);
+      onProgress?.(task);
+      if (task.status === 'completed') {
+        const r = task.result;
+        if (r && typeof r === 'object' && !Array.isArray(r) && 'sessionId' in r) {
+          return r as InventoryConsolidationResult;
+        }
+        throw new Error('Invalid inventory consolidation task result');
+      }
+      if (task.status === 'failed') {
+        throw new Error(task.error ?? 'Inventory consolidation failed');
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      delay = Math.min(delay * 1.5, maxMs);
+    }
+  }
+
   // ─── Reading history (RGPD) ──────────────────────────────────────
 
   async getReadingHistory(userId: string): Promise<ReadingHistoryEntry[]> {
@@ -1312,14 +1366,60 @@ class ApiService {
   async importMarcBatch(
     batchId: string,
     sourceId?: string | number | null,
+    options?: {
+      recordId?: number;
+      allowDuplicateIsbn?: boolean;
+      confirmReplaceExistingId?: string | number | boolean | null;
+    },
   ): Promise<TaskStartResponse> {
     const params: Record<string, unknown> = { batchId };
     if (sourceId != null) params.sourceId = sourceId;
+    if (options?.recordId != null) params.recordId = options.recordId;
+    if (options?.allowDuplicateIsbn) params.allowDuplicateIsbn = true;
+    if (options?.confirmReplaceExistingId === true) {
+      params.confirmReplaceExistingId = true;
+    } else if (options?.confirmReplaceExistingId != null && options.confirmReplaceExistingId !== false) {
+      params.confirmReplaceExistingId = options.confirmReplaceExistingId;
+    }
 
     const response = await this.client.post<TaskStartResponse>('/biblios/import-marc-batch', null, {
       params,
     });
-    return response.data;
+    const raw = response.data as TaskStartResponse & { task_id?: string };
+    const taskId = String(raw.taskId ?? raw.task_id ?? '');
+    if (!taskId) {
+      throw new Error('Missing taskId in import-marc-batch response');
+    }
+    return { taskId };
+  }
+
+  /**
+   * Polls GET /tasks/:id until a MARC batch import task completes or fails.
+   */
+  async waitForMarcBatchImportTask(
+    taskId: string,
+    onProgress?: (task: BackgroundTask) => void,
+  ): Promise<MarcBatchImportReport> {
+    const baseMs = 500;
+    const maxMs = 5000;
+    let delay = baseMs;
+    const id = String(taskId);
+    for (;;) {
+      const task = await this.getTask(id);
+      onProgress?.(task);
+      if (task.status === 'completed') {
+        const result = task.result;
+        if (result && typeof result === 'object') {
+          return result as MarcBatchImportReport;
+        }
+        throw new Error('Invalid MARC batch import task result');
+      }
+      if (task.status === 'failed') {
+        throw new Error(task.error ?? 'MARC batch import failed');
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      delay = Math.min(delay * 1.5, maxMs);
+    }
   }
 
   // ─── Export ──────────────────────────────────────────────────────

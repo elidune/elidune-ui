@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronDown,
   ExternalLink,
+  Archive,
 } from 'lucide-react';
 import {
   useInfiniteQuery,
@@ -29,6 +30,7 @@ import type {
   CreateInventorySession,
   InventoryScan,
   InventoryScanResultCode,
+  InventoryConsolidationResult,
   Author,
   Biblio,
   Item,
@@ -38,6 +40,7 @@ const SCANS_PER_PAGE = 50;
 const MISSING_PER_PAGE = 50;
 const SESSIONS_PER_PAGE = 50;
 const BATCH_CHUNK = 500;
+const CONSOLIDATION_PREVIEW_PER_PAGE = 50;
 
 type SessionStatusFilter = 'all' | 'open' | 'closed';
 type SessionSubTab = 'scans' | 'missing';
@@ -88,6 +91,7 @@ export default function InventoryPage() {
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchSummary, setBatchSummary] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showConsolidationModal, setShowConsolidationModal] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
 
   const sessionsQuery = useQuery({
@@ -353,6 +357,9 @@ export default function InventoryPage() {
     }
 
     const report = reportQuery.data ?? null;
+    const isConsolidated = activeSession.consolidatedAt != null;
+    const canPreviewOrConsolidate =
+      activeSession.status === 'closed' && activeSession.consolidatedAt == null;
 
     return (
       <div className="space-y-6">
@@ -378,10 +385,23 @@ export default function InventoryPage() {
                 : ` · ${t('inventory.scopeAll')}`}
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-3 shrink-0">
+          <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap justify-end">
             <Badge variant={activeSession.status === 'open' ? 'success' : 'default'}>
               {t(`inventory.statuses.${activeSession.status}`)}
             </Badge>
+            {isConsolidated && (
+              <Badge variant="default">{t('inventory.consolidatedBadge')}</Badge>
+            )}
+            {canPreviewOrConsolidate && (
+              <Button
+                variant="danger"
+                size="sm"
+                leftIcon={<Archive className="h-4 w-4" />}
+                onClick={() => setShowConsolidationModal(true)}
+              >
+                {t('inventory.consolidateCatalog')}
+              </Button>
+            )}
             {activeSession.status === 'open' && (
               <Button
                 variant="danger"
@@ -400,8 +420,10 @@ export default function InventoryPage() {
           <p className="mt-1 text-indigo-800 dark:text-indigo-200">{t('inventory.sessionHelpBody')}</p>
           {activeSession.status === 'open' ? (
             <p className="mt-2 text-indigo-800 dark:text-indigo-200">{t('inventory.sessionHelpOpen')}</p>
+          ) : isConsolidated ? (
+            <p className="mt-2 text-indigo-800 dark:text-indigo-200">{t('inventory.sessionHelpConsolidated')}</p>
           ) : (
-            <p className="mt-2 text-indigo-800 dark:text-indigo-200">{t('inventory.sessionHelpClosed')}</p>
+            <p className="mt-2 text-indigo-800 dark:text-indigo-200">{t('inventory.sessionHelpClosedConsolidate')}</p>
           )}
         </div>
 
@@ -827,6 +849,16 @@ export default function InventoryPage() {
             )}
           </ScrollableListRegion>
         </Card>
+
+        <ConsolidationModal
+          sessionId={activeSession.id}
+          isOpen={showConsolidationModal}
+          onClose={() => setShowConsolidationModal(false)}
+          onSuccess={(id) => {
+            invalidateSessionData(id);
+            void queryClient.invalidateQueries({ queryKey: ['biblios'] });
+          }}
+        />
       </div>
     );
   }
@@ -844,6 +876,7 @@ export default function InventoryPage() {
           <li>{t('inventory.listHelpStep2')}</li>
           <li>{t('inventory.listHelpStep3')}</li>
           <li>{t('inventory.listHelpStep4')}</li>
+          <li>{t('inventory.listHelpStep5')}</li>
         </ul>
       </div>
 
@@ -912,9 +945,14 @@ export default function InventoryPage() {
                           : ''}
                       </p>
                     </div>
-                    <Badge variant={session.status === 'open' ? 'success' : 'default'}>
-                      {t(`inventory.statuses.${session.status}`)}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {session.consolidatedAt != null && (
+                        <Badge variant="default">{t('inventory.consolidatedBadge')}</Badge>
+                      )}
+                      <Badge variant={session.status === 'open' ? 'success' : 'default'}>
+                        {t(`inventory.statuses.${session.status}`)}
+                      </Badge>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -1165,6 +1203,304 @@ function PaginationControls(props: {
         </Button>
       </div>
     </div>
+  );
+}
+
+function ConsolidationModal({
+  sessionId,
+  isOpen,
+  onClose,
+  onSuccess,
+}: {
+  sessionId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: (sessionId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState<InventoryConsolidationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPage(1);
+      setResult(null);
+      setError(null);
+    }
+  }, [isOpen, sessionId]);
+
+  const previewQuery = useQuery({
+    queryKey: ['inventory', 'consolidation-preview', sessionId, page, CONSOLIDATION_PREVIEW_PER_PAGE],
+    queryFn: () =>
+      api.getInventoryConsolidationPreview(sessionId, {
+        page,
+        perPage: CONSOLIDATION_PREVIEW_PER_PAGE,
+      }),
+    enabled: isOpen && result == null,
+    staleTime: 0,
+  });
+
+  const consolidateMutation = useMutation({
+    mutationFn: async (force: boolean) => {
+      const { taskId } = await api.consolidateInventorySession(sessionId, { force });
+      return api.waitForInventoryConsolidationTask(taskId);
+    },
+    onSuccess: (data) => {
+      setResult(data);
+      setError(null);
+      onSuccess(sessionId);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error && err.message ? err.message : t('inventory.consolidationError');
+      setError(msg);
+    },
+  });
+
+  const preview = previewQuery.data ?? null;
+  const summary = preview?.summary;
+  const isPending = consolidateMutation.isPending;
+
+  const handleClose = () => {
+    if (isPending) return;
+    onClose();
+  };
+
+  const footer = result ? (
+    <div className="flex justify-end gap-2">
+      <Button onClick={handleClose}>{t('common.close')}</Button>
+    </div>
+  ) : (
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button variant="secondary" onClick={handleClose} disabled={isPending}>
+        {t('common.cancel')}
+      </Button>
+      {summary && summary.totalMissing > 0 && (
+        <>
+          <Button
+            variant="danger"
+            onClick={() => consolidateMutation.mutate(false)}
+            isLoading={isPending}
+            disabled={previewQuery.isLoading || previewQuery.isError}
+          >
+            {t('inventory.consolidate')}
+          </Button>
+          {summary.onLoanCount > 0 && (
+            <Button
+              variant="danger"
+              onClick={() => consolidateMutation.mutate(true)}
+              isLoading={isPending}
+              disabled={previewQuery.isLoading || previewQuery.isError}
+            >
+              {t('inventory.consolidateForce')}
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={t('inventory.consolidationModalTitle')}
+      size="lg"
+      footer={footer}
+    >
+      {result ? (
+        <div className="space-y-4">
+          {result.consolidated ? (
+            <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-medium">{t('inventory.consolidationSuccessTitle')}</p>
+                <p className="mt-1">
+                  {t('inventory.consolidationSuccessBody', {
+                    deleted: result.deleted,
+                    archivedBiblios: result.archivedBiblios,
+                  })}
+                </p>
+                {result.loanClosureEmailsSent > 0 && (
+                  <p className="mt-1">
+                    {t('inventory.consolidationEmailsSent', { count: result.loanClosureEmailsSent })}
+                  </p>
+                )}
+                {result.loanClosureEmailErrors.length > 0 && (
+                  <p className="mt-1 text-amber-700 dark:text-amber-300">
+                    {t('inventory.consolidationEmailErrors', {
+                      count: result.loanClosureEmailErrors.length,
+                    })}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-medium">{t('inventory.consolidationPartialTitle')}</p>
+                  <p className="mt-1">
+                    {t('inventory.consolidationPartialBody', {
+                      deleted: result.deleted,
+                      skipped: result.skipped.length,
+                    })}
+                  </p>
+                </div>
+              </div>
+              {result.skipped.length > 0 && (
+                <Button variant="danger" size="sm" onClick={() => consolidateMutation.mutate(true)}>
+                  {t('inventory.consolidationRetryForce')}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-red-700 dark:text-red-400">{t('inventory.consolidationWarning')}</p>
+
+          {previewQuery.isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : previewQuery.isError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{t('inventory.consolidationPreviewLoadError')}</p>
+          ) : preview && summary ? (
+            <>
+              {summary.totalMissing === 0 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('inventory.consolidationNoMissing')}</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    <StatBox compact label={t('inventory.consolidationSummaryTotalMissing')} value={summary.totalMissing} color="red" />
+                    <StatBox compact label={t('inventory.consolidationSummaryOnLoan')} value={summary.onLoanCount} color="amber" />
+                    <StatBox
+                      compact
+                      label={t('inventory.consolidationSummaryDeletable')}
+                      value={summary.deletableWithoutForce}
+                    />
+                    <StatBox
+                      compact
+                      label={t('inventory.consolidationSummaryOrphanBiblios')}
+                      value={summary.orphanBibliosCount}
+                      color="amber"
+                    />
+                    <StatBox
+                      compact
+                      label={t('inventory.consolidationSummaryAffectedReaders')}
+                      value={summary.affectedReadersCount}
+                    />
+                  </div>
+
+                  {summary.onLoanCount > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
+                      <p>{t('inventory.consolidationOnLoanWarning', { count: summary.onLoanCount })}</p>
+                      <p className="mt-1">{t('inventory.consolidationForceWarning')}</p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('inventory.consolidationPreviewHint')}</p>
+
+                  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
+                          <th className="py-2 px-3 font-medium">{t('inventory.consolidationColTitle')}</th>
+                          <th className="py-2 px-3 font-medium">{t('items.callNumber')}</th>
+                          <th className="py-2 px-3 font-medium">{t('inventory.missingColBarcode')}</th>
+                          <th className="py-2 px-3 font-medium">{t('inventory.consolidationColOnLoan')}</th>
+                          <th className="py-2 px-3 font-medium">{t('inventory.consolidationColOrphan')}</th>
+                          <th className="py-2 px-3 font-medium">{t('inventory.consolidationColLoanReader')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.items.map((row) => {
+                          const loan = row.activeLoan;
+                          const readerName =
+                            loan &&
+                            [loan.userFirstname, loan.userLastname].filter(Boolean).join(' ').trim();
+                          return (
+                            <tr
+                              key={row.itemId}
+                              className={`border-b border-gray-100 dark:border-gray-800 ${
+                                row.onLoan
+                                  ? 'bg-amber-50/60 dark:bg-amber-950/20'
+                                  : row.biblioWouldBeOrphaned
+                                    ? 'bg-indigo-50/40 dark:bg-indigo-950/20'
+                                    : ''
+                              }`}
+                            >
+                              <td className="py-2 px-3 text-gray-900 dark:text-gray-100">{row.biblioTitle ?? '—'}</td>
+                              <td className="py-2 px-3 font-mono text-gray-700 dark:text-gray-300">{row.callNumber ?? '—'}</td>
+                              <td className="py-2 px-3 font-mono text-gray-700 dark:text-gray-300">{row.barcode ?? '—'}</td>
+                              <td className="py-2 px-3">
+                                {row.onLoan ? (
+                                  <Badge variant="warning">{t('inventory.consolidationOnLoanYes')}</Badge>
+                                ) : (
+                                  t('inventory.consolidationOnLoanNo')
+                                )}
+                              </td>
+                              <td className="py-2 px-3">
+                                {row.biblioWouldBeOrphaned ? (
+                                  <Badge variant="warning">{t('inventory.consolidationOrphanYes')}</Badge>
+                                ) : (
+                                  t('inventory.consolidationOrphanNo')
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-xs text-gray-600 dark:text-gray-400">
+                                {row.onLoan && loan ? (
+                                  <span>
+                                    {readerName || loan.userEmail || loan.userId}
+                                    {loan.expiryAt && (
+                                      <span className="block text-gray-500 dark:text-gray-500">
+                                        {new Date(loan.expiryAt).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {preview.pageCount > 1 && (
+                    <PaginationControls
+                      page={page}
+                      pageCount={Math.max(1, preview.pageCount)}
+                      total={preview.total}
+                      perPage={preview.perPage}
+                      onPageChange={setPage}
+                      t={t}
+                    />
+                  )}
+                </>
+              )}
+            </>
+          ) : null}
+
+          {isPending && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              {t('inventory.consolidationProgress')}
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
 

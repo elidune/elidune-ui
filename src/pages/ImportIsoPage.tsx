@@ -210,8 +210,52 @@ function getMarcBatchFailureEntries(result: unknown): MarcBatchImportError[] {
   if (!result || typeof result !== 'object') return [];
   const failed = (result as Record<string, unknown>).failed;
   if (!Array.isArray(failed)) return [];
-  return failed as MarcBatchImportError[];
+  return failed.map(normalizeMarcBatchImportError);
 }
+
+function normalizeMarcBatchImportError(raw: unknown): MarcBatchImportError {
+  const o = raw as Record<string, unknown>;
+  const existingIdRaw = o.existingId ?? o.existing_id;
+  return {
+    key: String(o.key ?? ''),
+    error: String(o.error ?? ''),
+    existingId:
+      existingIdRaw != null && String(existingIdRaw).length > 0
+        ? String(existingIdRaw)
+        : undefined,
+  };
+}
+
+function parseMarcFailureIndex(failure: MarcBatchImportError): number {
+  const parsed = parseInt(failure.key.split(':').pop() ?? failure.key, 10);
+  return Number.isFinite(parsed) ? parsed : -1;
+}
+
+function findFailureForRecord(
+  failures: MarcBatchImportError[],
+  record: ParsedRecord,
+): MarcBatchImportError | undefined {
+  if (failures.length === 0) return undefined;
+  const match = failures.find((f) => {
+    const idx = parseMarcFailureIndex(f);
+    if (record.recordIndex != null && idx === record.recordIndex) return true;
+    if (record.recordIndex != null && f.key === String(record.recordIndex)) return true;
+    if (record.biblioShort?.id != null && f.key === String(record.biblioShort.id)) return true;
+    return false;
+  });
+  if (match) return match;
+  // Single-record import: one failure in the report is always for that record
+  if (failures.length === 1) return failures[0];
+  return undefined;
+}
+
+function getDuplicateExistingIdFromFailure(failure: MarcBatchImportError): string | null {
+  if (failure.existingId) return failure.existingId;
+  const match = failure.error.match(/confirm_replace_existing_id=(\d+)/i);
+  return match?.[1] ?? null;
+}
+
+type MarcImportTaskContext = { mode: 'all' };
 
 /** Task progress.message may be a string or structured counts from the API. */
 function formatMarcTaskProgressMessage(message: unknown, t: TFunction): string | null {
@@ -534,6 +578,8 @@ export default function ImportIsoPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scanInputRef = useRef<HTMLInputElement>(null);
   const seenImportedIdsRef = useRef<Set<string>>(new Set());
+  /** Maps taskId → import context (single record vs import-all). */
+  const marcImportTaskContextRef = useRef<Map<string, MarcImportTaskContext>>(new Map());
 
   // Sources (for specimen creation) — no default selection
   const [sources, setSources] = useState<Source[]>([]);
@@ -589,20 +635,84 @@ export default function ImportIsoPage() {
   // Recovered background task (from localStorage on page reload)
   const [recoveredTask, setRecoveredTask] = useState<BackgroundTask | null>(null);
 
-  // Background task polling for batch import
-  const importTask = useBackgroundTask('marcBatchImport', {
-    storageKey: MARC_IMPORT_TASK_KEY,
+  const applySingleMarcImportResult = useCallback(
+    (
+      ctx: { record: ParsedRecord },
+      report: unknown,
+      options?: { showDuplicateModal?: boolean },
+    ) => {
+      const failures = getMarcBatchFailureEntries(report);
+      const importedCount = getMarcBatchImportedCount(report);
+      const showDuplicateModal = options?.showDuplicateModal !== false;
+      const currentRecord = records.find((r) => r.id === ctx.record.id) ?? ctx.record;
+      const failure = findFailureForRecord(failures, currentRecord);
+      const duplicateExistingId = failure ? getDuplicateExistingIdFromFailure(failure) : null;
+
+      setRecords((prev) => {
+        if (duplicateExistingId && showDuplicateModal) {
+          return prev.map((r) =>
+            r.id === ctx.record.id ? { ...r, status: 'pending' as const, error: undefined } : r,
+          );
+        }
+
+        if (failure) {
+          return prev.map((r) =>
+            r.id === ctx.record.id
+              ? {
+                  ...r,
+                  status: 'error' as const,
+                  error: duplicateExistingId
+                    ? t('importMarc.duplicateSkippedInBatch')
+                    : failure!.error,
+                }
+              : r,
+          );
+        }
+
+        if (importedCount > 0) {
+          return prev.filter((r) => r.id !== ctx.record.id);
+        }
+
+        return prev.map((r) =>
+          r.id === ctx.record.id ? { ...r, status: 'pending' as const } : r,
+        );
+      });
+      if (duplicateExistingId && showDuplicateModal) {
+        setReplaceConfirmError(null);
+        setReplaceConfirmModal({
+          record: currentRecord,
+          existingId: duplicateExistingId,
+          existingTitle: undefined,
+        });
+      } else if (failure && !duplicateExistingId) {
+        setSingleErrorModal({
+          title: currentRecord.title1 || currentRecord.identification || t('items.notSpecified'),
+          message: failure.error,
+        });
+      } else if (importedCount > 0) {
+        setSuccessCount((c) => c + 1);
+        setReplaceConfirmModal(null);
+      }
+    },
+    [records, t],
+  );
+
+  const marcImportHandlersRef = useRef({
+    onProgress: (_task: BackgroundTask) => {},
+    onSettled: (_task: BackgroundTask) => {},
+  });
+
+  marcImportHandlersRef.current = {
     onProgress: (task) => {
-      // Keep recovery banner in sync when we resumed without local record state
       setRecoveredTask((prev) => (prev && prev.id === task.id ? task : prev));
 
+      const taskCtx = marcImportTaskContextRef.current.get(String(task.id));
       const msg = task.progress?.message;
       if (!msg || typeof msg !== 'object') return;
 
       const importedRaw = (msg as Record<string, unknown>).imported;
       const failedRaw = (msg as Record<string, unknown>).failed;
 
-      // 1) Remove successfully imported rows as we learn their new IDs
       if (Array.isArray(importedRaw)) {
         const importedIds = importedRaw.filter((v): v is string => typeof v === 'string' && v.length > 0);
         const newIds: string[] = [];
@@ -618,7 +728,7 @@ export default function ImportIsoPage() {
           setRecords((prev) => {
             const next = prev.filter((r) => {
               const rowId = r.importedId ?? r.biblioShort?.id;
-              const shouldRemove = rowId ? newIdSet.has(rowId) : false;
+              const shouldRemove = rowId ? newIdSet.has(String(rowId)) : false;
               if (shouldRemove) removedCount += 1;
               return !shouldRemove;
             });
@@ -628,15 +738,11 @@ export default function ImportIsoPage() {
         }
       }
 
-      // 2) Display failures on the go (map by recordIndex)
-      if (Array.isArray(failedRaw)) {
-        const failures = failedRaw as MarcBatchImportError[];
+      if (Array.isArray(failedRaw) && taskCtx) {
+        const failures = failedRaw.map(normalizeMarcBatchImportError);
         if (failures.length > 0) {
           const failedByKey = new Map(
-            failures.map((f) => {
-              const idx = parseInt(f.key.split(':').pop() ?? '', 10);
-              return [idx, f] as const;
-            })
+            failures.map((f) => [parseMarcFailureIndex(f), f] as const),
           );
           setRecords((prev) =>
             prev.map((r) => {
@@ -649,21 +755,19 @@ export default function ImportIsoPage() {
                 status: 'error' as const,
                 error: isDuplicate ? t('importMarc.duplicateSkippedInBatch') : failure.error,
               };
-            })
+            }),
           );
         }
       }
     },
     onSettled: (task) => {
-      // Update recovery banner with final state
       setRecoveredTask((prev) => (prev && prev.id === task.id ? task : prev));
+      marcImportTaskContextRef.current.delete(String(task.id));
+
       if (task.status === 'completed' && task.result) {
         const report = task.result;
         const failedByKey = new Map(
-          getMarcBatchFailureEntries(report).map((f) => {
-            const idx = parseInt(f.key.split(':').pop() ?? '', 10);
-            return [idx, f] as const;
-          })
+          getMarcBatchFailureEntries(report).map((f) => [parseMarcFailureIndex(f), f] as const),
         );
         setRecords((prev) => {
           const next: ParsedRecord[] = [];
@@ -674,14 +778,13 @@ export default function ImportIsoPage() {
             }
             const failure = r.recordIndex != null ? failedByKey.get(r.recordIndex) : undefined;
             if (failure) {
-              const isDuplicate = failure.existingId != null;
+              const isDuplicate = getDuplicateExistingIdFromFailure(failure) != null;
               next.push({
                 ...r,
                 status: 'error',
                 error: isDuplicate ? t('importMarc.duplicateSkippedInBatch') : failure.error,
               });
             }
-            // no failure → imported successfully → drop from list
           }
           return next;
         });
@@ -692,12 +795,18 @@ export default function ImportIsoPage() {
         });
       } else if (task.status === 'failed') {
         setRecords((prev) =>
-          prev.map((r) => (r.status === 'importing' ? { ...r, status: 'pending' as const } : r))
+          prev.map((r) => (r.status === 'importing' ? { ...r, status: 'pending' as const } : r)),
         );
         setParseError(task.error ?? t('importMarc.importErrorGeneric'));
       }
       setIsImporting(false);
     },
+  };
+
+  const importTask = useBackgroundTask('marcBatchImport', {
+    storageKey: MARC_IMPORT_TASK_KEY,
+    onProgress: (task) => marcImportHandlersRef.current.onProgress(task),
+    onSettled: (task) => marcImportHandlersRef.current.onSettled(task),
   });
 
   const fetchSources = useCallback(async () => {
@@ -919,7 +1028,10 @@ export default function ImportIsoPage() {
       setParseError(t('importMarc.cannotImportWithValidationErrors'));
       return;
     }
-    // For server-side UNIMARC batches: start an async task
+    const pendingRecords = records.filter((r) => r.status === 'pending');
+    if (pendingRecords.length === 0) return;
+
+    // Server-side UNIMARC batches: start an async task
     if (batchId) {
       const pendingIds = new Set(
         records.filter((r) => r.status === 'pending' && r.recordIndex != null).map((r) => r.id)
@@ -933,6 +1045,7 @@ export default function ImportIsoPage() {
 
       try {
         const { taskId } = await api.importMarcBatch(batchId, selectedSourceId);
+        marcImportTaskContextRef.current.set(String(taskId), { mode: 'all' });
         importTask.startTask(taskId);
       } catch (error) {
         setRecords((prev) =>
@@ -945,16 +1058,16 @@ export default function ImportIsoPage() {
       return;
     }
 
-    // Legacy path (MARCXML client-side parsing): import one by one via /items
-    const pendingRecords = records.filter((r) => r.status === 'pending');
-    if (pendingRecords.length === 0) return;
-
+    // Legacy path (MARCXML client-side parsing): import one by one via /biblios
     setIsImporting(true);
     setImportProgress({ current: 0, total: pendingRecords.length });
 
     for (let i = 0; i < pendingRecords.length; i++) {
       const record = pendingRecords[i];
-      await importRecord(record, { showErrorModal: false, showDuplicateModal: false });
+      await importRecord(record, {
+        showErrorModal: false,
+        showDuplicateModal: false,
+      });
       setImportProgress({ current: i + 1, total: pendingRecords.length });
     }
 
@@ -998,7 +1111,13 @@ export default function ImportIsoPage() {
 
   const importRecord = async (
     record: ParsedRecord,
-    options?: { showErrorModal?: boolean; showDuplicateModal?: boolean }
+    options?: {
+      showErrorModal?: boolean;
+      showDuplicateModal?: boolean;
+      allowDuplicateIsbn?: boolean;
+      confirmReplaceExistingId?: string;
+      autoReplaceOnDuplicate?: boolean;
+    }
   ) => {
     if (!selectedSourceId) {
       setParseError(t('z3950.sourceRequired'));
@@ -1015,13 +1134,87 @@ export default function ImportIsoPage() {
       r.id === record.id ? { ...r, status: 'importing' as const } : r
     ));
 
+    // Server-side UNIMARC batch: import a single cached record via import-marc-batch
+    if (batchId != null && record.recordIndex != null) {
+      setIsImporting(true);
+      try {
+        const { taskId } = await api.importMarcBatch(batchId, selectedSourceId, {
+          recordId: record.recordIndex,
+          allowDuplicateIsbn: options?.allowDuplicateIsbn,
+          confirmReplaceExistingId: options?.confirmReplaceExistingId,
+        });
+        const report = await api.waitForMarcBatchImportTask(taskId);
+        applySingleMarcImportResult(
+          { record },
+          report,
+          { showDuplicateModal },
+        );
+      } catch (error) {
+        const errorMessage = getApiErrorMessage(error, t);
+        setRecords(prev => prev.map(r =>
+          r.id === record.id ? { ...r, status: 'error' as const, error: errorMessage } : r
+        ));
+        if (showErrorModal) {
+          setSingleErrorModal({
+            title: record.title1 || record.identification || t('items.notSpecified'),
+            message: errorMessage,
+          });
+        }
+      } finally {
+        setIsImporting(false);
+      }
+      return;
+    }
+
     try {
-      // Legacy path (MARCXML → /items)
+      // Legacy path (MARCXML client-side parsing → /biblios)
       const { biblio, importReport } = await api.createBiblio(buildItemPayload(record));
       if (biblio.id != null) await completeImportWithItemId(record, biblio.id, importReport);
     } catch (error) {
       const confirm = getDuplicateConfirmationRequired(error);
       if (confirm) {
+        if (options?.autoReplaceOnDuplicate && confirm.existingId) {
+          try {
+            const { biblio, importReport } = await api.createBiblio(buildItemPayload(record), {
+              confirmReplaceExistingId: confirm.existingId,
+            });
+            if (biblio.id != null) await completeImportWithItemId(record, biblio.id, importReport);
+            return;
+          } catch (retryError) {
+            const errorMessage = getApiErrorMessage(retryError, t);
+            setRecords(prev => prev.map(r =>
+              r.id === record.id ? { ...r, status: 'error' as const, error: errorMessage } : r
+            ));
+            if (showErrorModal) {
+              setSingleErrorModal({
+                title: record.title1 || record.identification || t('items.notSpecified'),
+                message: errorMessage,
+              });
+            }
+            return;
+          }
+        }
+        if (options?.allowDuplicateIsbn) {
+          try {
+            const { biblio, importReport } = await api.createBiblio(buildItemPayload(record), {
+              allowDuplicateIsbn: true,
+            });
+            if (biblio.id != null) await completeImportWithItemId(record, biblio.id, importReport);
+            return;
+          } catch (retryError) {
+            const errorMessage = getApiErrorMessage(retryError, t);
+            setRecords(prev => prev.map(r =>
+              r.id === record.id ? { ...r, status: 'error' as const, error: errorMessage } : r
+            ));
+            if (showErrorModal) {
+              setSingleErrorModal({
+                title: record.title1 || record.identification || t('items.notSpecified'),
+                message: errorMessage,
+              });
+            }
+            return;
+          }
+        }
         if (!showDuplicateModal) {
           setRecords(prev =>
             prev.map(r =>
@@ -1067,6 +1260,15 @@ export default function ImportIsoPage() {
     setReplaceConfirmError(null);
     try {
       const { record, existingId } = replaceConfirmModal as { record: ParsedRecord; existingId: string; existingTitle?: string | null };
+      if (batchId != null && record.recordIndex != null) {
+        await importRecord(record, {
+          showDuplicateModal: false,
+          showErrorModal: true,
+          confirmReplaceExistingId: existingId,
+        });
+        setReplaceConfirmModal(null);
+        return;
+      }
       const { biblio, importReport } = await api.createBiblio(buildItemPayload(record), {
         confirmReplaceExistingId: existingId,
       });
@@ -1090,6 +1292,15 @@ export default function ImportIsoPage() {
     setReplaceConfirmError(null);
     try {
       const { record } = replaceConfirmModal;
+      if (batchId != null && record.recordIndex != null) {
+        await importRecord(record, {
+          showDuplicateModal: false,
+          showErrorModal: true,
+          allowDuplicateIsbn: true,
+        });
+        setReplaceConfirmModal(null);
+        return;
+      }
       const { biblio, importReport } = await api.createBiblio(buildItemPayload(record), {
         allowDuplicateIsbn: true,
       });

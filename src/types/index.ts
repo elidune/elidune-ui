@@ -806,7 +806,11 @@ export interface DuplicateConfirmationRequired {
 }
 
 // Background tasks (async long-running operations)
-export type TaskKind = 'marcBatchImport' | 'maintenance' | 'inventoryBatchScan';
+export type TaskKind =
+  | 'marcBatchImport'
+  | 'maintenance'
+  | 'inventoryBatchScan'
+  | 'inventoryConsolidation';
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface TaskProgress {
@@ -825,7 +829,12 @@ export interface BackgroundTask {
   kind: TaskKind;
   status: TaskStatus;
   progress?: TaskProgress | null;
-  result?: MarcBatchImportReport | MaintenanceResponse | InventoryScan[] | null;
+  result?:
+    | MarcBatchImportReport
+    | MaintenanceResponse
+    | InventoryScan[]
+    | InventoryConsolidationResult
+    | null;
   error?: string | null;
   createdAt: string;
   startedAt?: string | null;
@@ -1371,6 +1380,8 @@ export interface InventorySession {
   createdBy?: string | null;
   /** When set, scope is active non-archived items with this `items.place` only; null = entire active collection */
   scopePlace?: number | null;
+  consolidatedAt?: string | null;
+  consolidatedBy?: string | null;
 }
 
 export interface CreateInventorySession {
@@ -1413,6 +1424,72 @@ export interface InventoryReport {
   missingCount?: number;
   missingScannable?: number;
   missingWithoutBarcode?: number;
+}
+
+export interface InventoryConsolidationPreviewSummary {
+  totalMissing: number;
+  onLoanCount: number;
+  deletableWithoutForce: number;
+  orphanBibliosCount: number;
+  affectedReadersCount: number;
+}
+
+export interface InventoryConsolidationPreviewLoan {
+  loanId: string;
+  userId: string;
+  userEmail?: string | null;
+  userFirstname?: string | null;
+  userLastname?: string | null;
+  expiryAt?: string | null;
+}
+
+export interface InventoryConsolidationPreviewRow {
+  itemId: string;
+  barcode?: string | null;
+  callNumber?: string | null;
+  place?: number | null;
+  biblioId?: string | null;
+  biblioTitle?: string | null;
+  onLoan: boolean;
+  wouldSkipWithoutForce: boolean;
+  biblioWouldBeOrphaned: boolean;
+  activeLoan?: InventoryConsolidationPreviewLoan | null;
+}
+
+export interface InventoryConsolidationPreview {
+  sessionId: string;
+  summary: InventoryConsolidationPreviewSummary;
+  items: InventoryConsolidationPreviewRow[];
+  total: number;
+  page: number;
+  perPage: number;
+  pageCount: number;
+}
+
+export interface ConsolidateInventorySession {
+  force?: boolean;
+}
+
+export interface InventoryConsolidationSkipped {
+  itemId: string;
+  reason: string;
+}
+
+export interface InventoryConsolidationEmailError {
+  userId: string;
+  email: string;
+  errorMessage: string;
+}
+
+export interface InventoryConsolidationResult {
+  sessionId: string;
+  attempted: number;
+  deleted: number;
+  skipped: InventoryConsolidationSkipped[];
+  consolidated: boolean;
+  archivedBiblios: number;
+  loanClosureEmailsSent: number;
+  loanClosureEmailErrors: InventoryConsolidationEmailError[];
 }
 
 // ──────────────────────────────────────────────────────────────────
