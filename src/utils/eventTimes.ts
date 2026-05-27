@@ -1,3 +1,12 @@
+/** Local calendar date as YYYY-MM-DD (matches EventsPage date filters). */
+export function todayDateStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function isPastEventDate(eventDate: string): boolean {
+  return eventDate < todayDateStr();
+}
+
 /** Read start/end times from an Event or snake_case API payload. */
 export function eventTimesFromRow(row: unknown): { startTime: string | null; endTime: string | null } {
   if (!row || typeof row !== 'object') {

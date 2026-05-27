@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Modal } from '@/components/common';
+import { X } from 'lucide-react';
 import { base64ToDataUrl } from '@/utils/eventAttachment';
 
 interface EventFlyerImageBlockProps {
@@ -12,6 +13,71 @@ interface EventFlyerImageBlockProps {
   className?: string;
   /** When variant is `panel`, size image from viewport (does not fill parent height). */
   fillAvailable?: boolean;
+  /** When set, bypasses the built-in image lightbox. */
+  onImageClick?: () => void;
+  /** When false, renders a non-interactive preview (e.g. card opens detail on row click). */
+  interactive?: boolean;
+}
+
+interface EventImageLightboxProps {
+  src: string;
+  title: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function EventImageLightbox({ src, title, isOpen, onClose }: EventImageLightboxProps) {
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-8"
+    >
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label={t('common.close')}
+      />
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        aria-label={t('common.close')}
+      >
+        <X className="h-5 w-5" />
+      </button>
+      <img
+        src={src}
+        alt=""
+        className="relative z-10 max-h-[min(90vh,900px)] w-auto max-w-[min(92vw,1200px)] object-contain rounded-lg shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      />
+    </div>,
+    document.body,
+  );
 }
 
 export default function EventFlyerImageBlock({
@@ -21,10 +87,13 @@ export default function EventFlyerImageBlock({
   variant,
   className,
   fillAvailable = false,
+  onImageClick,
+  interactive = true,
 }: EventFlyerImageBlockProps) {
   const { t } = useTranslation();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const src = base64ToDataUrl(dataBase64, mimeType);
+  const useExternalLightbox = Boolean(onImageClick);
 
   const imgClass =
     variant === 'thumb'
@@ -44,12 +113,20 @@ export default function EventFlyerImageBlock({
         ? `flex w-full max-w-full items-center justify-center rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${className ?? ''}`
         : `rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${className ?? ''}`;
 
+  if (!interactive) {
+    return <img src={src} alt="" className={imgClass} aria-hidden />;
+  }
+
   return (
     <>
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          if (onImageClick) {
+            onImageClick();
+            return;
+          }
           setLightboxOpen(true);
         }}
         className={triggerClass}
@@ -57,20 +134,14 @@ export default function EventFlyerImageBlock({
       >
         <img src={src} alt="" className={imgClass} />
       </button>
-      <Modal
-        isOpen={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
-        title={modalTitle}
-        size="xl"
-      >
-        <div className="flex justify-center p-1">
-          <img
-            src={src}
-            alt=""
-            className="max-h-[min(70vh,720px)] w-auto max-w-full object-contain rounded-lg"
-          />
-        </div>
-      </Modal>
+      {!useExternalLightbox && (
+        <EventImageLightbox
+          src={src}
+          title={modalTitle}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </>
   );
 }

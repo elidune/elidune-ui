@@ -10,12 +10,16 @@ interface EventAttachmentLeadProps {
   isSelected: boolean;
   /** Full-height strip for public event list rows; compact table thumb; square public card */
   layout?: 'compact' | 'listRow' | 'card';
+  onImageClick?: () => void;
+  interactive?: boolean;
 }
 
 export default function EventAttachmentLead({
   event,
   isSelected,
   layout = 'compact',
+  onImageClick,
+  interactive = true,
 }: EventAttachmentLeadProps) {
   const imageMime = isImageMime(event.attachmentMimeType);
 
@@ -67,6 +71,8 @@ export default function EventAttachmentLead({
               mimeType={mime}
               modalTitle={event.name}
               className="min-h-0 flex-1"
+              onImageClick={onImageClick}
+              interactive={interactive}
             />
           </div>
         );
@@ -80,6 +86,8 @@ export default function EventAttachmentLead({
               mimeType={mime}
               modalTitle={event.name}
               className="min-h-0 flex-1"
+              onImageClick={onImageClick}
+              interactive={interactive}
             />
           </div>
         );
@@ -91,6 +99,8 @@ export default function EventAttachmentLead({
           mimeType={mime}
           modalTitle={event.name}
           className="flex-shrink-0"
+          onImageClick={onImageClick}
+          interactive={interactive}
         />
       );
     }

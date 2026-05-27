@@ -459,14 +459,6 @@ export default function LoginPage() {
     });
   }, [resultsTab, hasQuery, opacLoading, opacBiblioIds, opacPage]);
 
-  const { data: eventsData, isLoading: eventsLoading } = useQuery({
-    queryKey: ['public-events-login'],
-    queryFn: () => api.getEvents({ perPage: 50, page: 1 }),
-    staleTime: 2 * 60 * 1000,
-  });
-
-  const events = eventsData?.events ?? [];
-
   // Ctrl/Cmd+K focuses the search bar; Escape clears catalog selection overlay
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -509,7 +501,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* 2FA modal overlay */}
       {pending2FA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -517,7 +509,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <div className="mx-auto flex w-[80%] flex-1 flex-col gap-4 py-6 min-h-0 sm:gap-6 sm:py-8">
+      <div className="mx-auto flex w-[80%] min-h-0 flex-1 flex-col gap-4 overflow-hidden py-6 sm:gap-6 sm:py-8">
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <div className="relative shrink-0 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 sm:p-8 shadow-sm">
@@ -573,7 +565,7 @@ export default function LoginPage() {
         </div>
 
         {/* ── Results + Login (fills space so library info sits at bottom of page) ─ */}
-        <div className="flex min-h-0 flex-1 gap-4 sm:gap-6 items-stretch">
+        <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-hidden sm:gap-6">
 
           {/* Results card — tabs + list/detail panes */}
           <Card
@@ -630,9 +622,7 @@ export default function LoginPage() {
                 {resultsTab === 'events' && (
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                     <PublicEventsPanel
-                      events={events}
-                      isLoading={eventsLoading}
-                      total={eventsData?.total}
+                      queryKey={['public-events-login']}
                       emptyMessage={t('opac.eventsEmpty')}
                     />
                   </div>
@@ -659,7 +649,7 @@ export default function LoginPage() {
                         </h3>
                       </div>
 
-                      <div className="min-h-0 px-4 py-2 [scrollbar-gutter:stable]">
+                      <div className="min-h-0 overflow-y-auto px-4 py-2 [scrollbar-gutter:stable]">
                         {!hasQuery ? (
                           <p className="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                             {t('opac.searchPrompt')}

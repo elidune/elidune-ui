@@ -1,23 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { CalendarDays } from 'lucide-react';
 import { Card, Button } from '@/components/common';
 import PublicEventsPanel from '@/components/events/PublicEventsPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { isLibrarian } from '@/types';
-import api from '@/services/api';
 
 export default function PublicEventsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  const { data: eventsData, isLoading: eventsLoading } = useQuery({
-    queryKey: ['app-public-events'],
-    queryFn: () => api.getEvents({ perPage: 50, page: 1 }),
-    staleTime: 2 * 60 * 1000,
-  });
 
   const canManage = isLibrarian(user?.accountType);
 
@@ -47,9 +39,7 @@ export default function PublicEventsPage() {
       >
         <div className="flex min-h-0 min-w-0 w-full flex-1 overflow-hidden">
           <PublicEventsPanel
-            events={eventsData?.events ?? []}
-            isLoading={eventsLoading}
-            total={eventsData?.total}
+            queryKey={['app-public-events']}
             emptyMessage={t('opac.eventsEmpty')}
           />
         </div>
