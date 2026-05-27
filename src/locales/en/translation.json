@@ -387,6 +387,8 @@
     "keywords": "Keywords",
     "keywordsHint": "Separated by commas",
     "subject": "Subject",
+    "dewey": "Dewey classification",
+    "deweyPlaceholder": "e.g. 843.914",
     "formSectionAudienceAndLanguage": "Audience and language",
     "publicType": "Public type",
     "notSpecified": "Not specified",

@@ -394,6 +394,7 @@ export interface Biblio {
   title?: string | null;
   genre?: number | null;
   subject?: string | null;
+  dewey?: string | null;
   audienceType?: string | null;
   lang?: string | null;
   langOrig?: string | null;

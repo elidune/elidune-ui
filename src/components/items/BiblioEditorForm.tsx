@@ -44,6 +44,7 @@ function applyZ3950BiblioToForm(
     mediaType: MediaType;
     publicationDate: string;
     subject: string;
+    dewey: string;
     abstract: string;
     keywords: string;
     audienceType: string;
@@ -61,6 +62,7 @@ function applyZ3950BiblioToForm(
     mediaType: (item.mediaType || prev.mediaType) as MediaType,
     publicationDate: item.publicationDate || prev.publicationDate,
     subject: item.subject || prev.subject,
+    dewey: item.dewey || prev.dewey,
     abstract: item.abstract || prev.abstract,
     keywords: Array.isArray(item.keywords) ? item.keywords.join(', ') : (item.keywords || prev.keywords),
     audienceType: item.audienceType || prev.audienceType,
@@ -129,7 +131,8 @@ function computeZ3950OpenedSections(
   if (
     nextForm.abstract !== prevForm.abstract ||
     nextForm.keywords !== prevForm.keywords ||
-    nextForm.subject !== prevForm.subject
+    nextForm.subject !== prevForm.subject ||
+    nextForm.dewey !== prevForm.dewey
   ) {
     opened.push('abstractAndIndexing');
   }
@@ -280,6 +283,7 @@ export default function BiblioEditorForm({
         abstract: b.abstract || '',
         keywords: Array.isArray(b.keywords) ? b.keywords.join(', ') : (b.keywords || ''),
         subject: b.subject || '',
+        dewey: b.dewey || '',
         mediaType: (b.mediaType || 'printedText') as MediaType,
         audienceType: b.audienceType ?? '',
         lang: b.lang ?? '',
@@ -296,6 +300,7 @@ export default function BiblioEditorForm({
       abstract: '',
       keywords: '',
       subject: '',
+      dewey: '',
       mediaType: 'printedText' as MediaType,
       audienceType: '',
       lang: '',
@@ -480,6 +485,7 @@ export default function BiblioEditorForm({
       abstract: formData.abstract || undefined,
       keywords: formData.keywords || undefined,
       subject: formData.subject || undefined,
+      dewey: formData.dewey || undefined,
       audienceType: formData.audienceType || undefined,
       lang: formData.lang || undefined,
       edition:
@@ -657,6 +663,7 @@ export default function BiblioEditorForm({
         abstract: formData.abstract || undefined,
         keywords: formData.keywords || undefined,
         subject: formData.subject || undefined,
+        dewey: formData.dewey || undefined,
         mediaType: formData.mediaType,
         audienceType: formData.audienceType || undefined,
         lang: formData.lang || undefined,
@@ -696,7 +703,7 @@ export default function BiblioEditorForm({
       <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       <section className={BIBLIO_FORM_SECTION}>
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('items.identification')}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(12rem,1fr)_minmax(0,2fr)] gap-4">
           <Input
             label={t('items.isbn')}
             value={formData.isbn}
@@ -926,6 +933,13 @@ export default function BiblioEditorForm({
           onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
           placeholder={t('items.keywordsHint')}
         />
+        <Input
+          label={t('items.dewey')}
+          value={formData.dewey}
+          onChange={(e) => setFormData({ ...formData, dewey: e.target.value })}
+          placeholder={t('items.deweyPlaceholder')}
+          className="font-mono"
+        />
 
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('items.abstract')}
@@ -933,8 +947,8 @@ export default function BiblioEditorForm({
           <textarea
             value={formData.abstract}
             onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            rows={6}
+            className="w-full min-h-[9rem] px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-y"
           />
         </div>
              

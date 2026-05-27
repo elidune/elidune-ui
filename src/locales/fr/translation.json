@@ -390,6 +390,8 @@
     "keywords": "Mots-clés",
     "keywordsHint": "Séparés par des virgules",
     "subject": "Sujet",
+    "dewey": "Classification Dewey",
+    "deweyPlaceholder": "ex. 843.914",
     "formSectionAudienceAndLanguage": "Public et langue",
     "publicType": "Type public",
     "notSpecified": "Non renseigné",

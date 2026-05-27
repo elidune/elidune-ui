@@ -139,9 +139,9 @@ export default function BiblioCreatePage() {
   }
 
   return (
-    <div className="max-w-[min(100%,96rem)] mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-      <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-4 mb-6 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur border-b border-gray-200/80 dark:border-gray-800/80">
-        <div className="max-w-[min(100%,96rem)] mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="pb-12">
+      <div className="sticky top-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-4 mb-6 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur border-b border-gray-200/80 dark:border-gray-800/80">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start sm:items-center gap-3 min-w-0">
             <button
               type="button"

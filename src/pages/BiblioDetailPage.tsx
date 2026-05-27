@@ -418,7 +418,7 @@ export default function BiblioDetailPage() {
             </Card>
           )}
 
-          {(item.keywords || item.subject) && (
+          {(item.keywords || item.subject || item.dewey) && (
             <Card>
               <CardHeader title={t('items.keywordsAndSubject')} />
               <div className="space-y-3">
@@ -434,6 +434,15 @@ export default function BiblioDetailPage() {
                     <p className="text-gray-600 dark:text-gray-300">{item.subject}</p>
                   </div>
                 )}
+                <div className="flex items-start gap-2">
+                  <Hash className="h-4 w-4 mt-1 text-gray-400" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('items.dewey')}</p>
+                    <p className="text-gray-600 dark:text-gray-300 font-mono">
+                      {hasNonEmptyText(item.dewey) ? item.dewey : t('items.notSpecified')}
+                    </p>
+                  </div>
+                </div>
               </div>
             </Card>
           )}

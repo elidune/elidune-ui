@@ -387,6 +387,8 @@
     "keywords": "Schlagwörter",
     "keywordsHint": "Durch Kommas getrennt",
     "subject": "Thema",
+    "dewey": "Dewey-Klassifikation",
+    "deweyPlaceholder": "z. B. 843.914",
     "formSectionAudienceAndLanguage": "Zielgruppe und Sprache",
     "publicType": "Öffentlicher Typ",
     "notSpecified": "Nicht angegeben",
