@@ -83,6 +83,7 @@ import type {
   FineRule,
   InventorySession,
   CreateInventorySession,
+  CreateInventorySessionResponse,
   InventoryScan,
   InventoryReport,
   InventoryMissingRow,
@@ -870,8 +871,11 @@ class ApiService {
     return normalizePaginatedResponse<InventorySession>(response.data);
   }
 
-  async createInventorySession(data: CreateInventorySession): Promise<InventorySession> {
-    const response = await this.client.post<InventorySession>('/inventory/sessions', data);
+  async createInventorySession(data: CreateInventorySession): Promise<CreateInventorySessionResponse> {
+    const response = await this.client.post<CreateInventorySessionResponse>(
+      '/inventory/sessions',
+      data
+    );
     return response.data;
   }
 

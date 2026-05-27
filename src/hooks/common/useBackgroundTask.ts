@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import api from '@/services/api';
+import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import type { BackgroundTask, TaskKind } from '@/types';
-
-const BASE_MS = 500;
-const MAX_MS = 5_000;
 
 export interface UseBackgroundTaskOptions {
   /** localStorage key to persist/restore the taskId across page reloads */
@@ -26,119 +24,74 @@ export interface UseBackgroundTaskResult {
 }
 
 export function useBackgroundTask(
-  kind: TaskKind,
+  _kind: TaskKind,
   options: UseBackgroundTaskOptions = {}
 ): UseBackgroundTaskResult {
   const { storageKey, onProgress, onSettled } = options;
+  const { trackTask, getTask } = useBackgroundTasks();
 
-  const [task, setTask] = useState<BackgroundTask | null>(null);
-  const [isPolling, setIsPolling] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const settledRef = useRef(false);
+  const onProgressRef = useRef(onProgress);
+  const onSettledRef = useRef(onSettled);
 
-  const stopPolling = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setIsPolling(false);
-  }, []);
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+    onSettledRef.current = onSettled;
+  }, [onProgress, onSettled]);
+
+  const task = taskId ? getTask(taskId) ?? null : null;
+  const isPolling = !!task && (task.status === 'pending' || task.status === 'running');
 
   const clearTask = useCallback(() => {
-    stopPolling();
-    setTask(null);
+    settledRef.current = false;
+    setTaskId(null);
     if (storageKey) localStorage.removeItem(storageKey);
-  }, [stopPolling, storageKey]);
-
-  const poll = useCallback(
-    async (taskId: string, controller: AbortController) => {
-      let delay = BASE_MS;
-
-      while (!controller.signal.aborted) {
-        let fetched: BackgroundTask;
-        try {
-          fetched = await api.getTask(taskId);
-        } catch (err: unknown) {
-          // 404 means the task was evicted (server restart or >5 min after completion)
-          const status = (err as { response?: { status?: number } })?.response?.status;
-          if (status === 404) {
-            stopPolling();
-            return;
-          }
-          // Transient error — keep polling
-          await sleep(delay);
-          delay = Math.min(delay * 1.5, MAX_MS);
-          continue;
-        }
-
-        if (controller.signal.aborted) break;
-
-        setTask(fetched);
-
-        if (fetched.status === 'completed' || fetched.status === 'failed') {
-          stopPolling();
-          if (storageKey) localStorage.removeItem(storageKey);
-          onSettled?.(fetched);
-          return;
-        }
-
-        onProgress?.(fetched);
-
-        await sleep(delay);
-        delay = Math.min(delay * 1.5, MAX_MS);
-      }
-    },
-    [onProgress, onSettled, stopPolling, storageKey]
-  );
-
-  const startPolling = useCallback(
-    (taskId: string, initialTask?: BackgroundTask) => {
-      stopPolling();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setIsPolling(true);
-      if (initialTask) setTask(initialTask);
-      if (storageKey) localStorage.setItem(storageKey, taskId);
-      void poll(taskId, controller);
-    },
-    [poll, stopPolling, storageKey]
-  );
+  }, [storageKey]);
 
   const startTask = useCallback(
-    (taskId: string) => {
-      const placeholder: BackgroundTask = {
-        id: taskId,
-        kind,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        userId: '',
-      };
-      startPolling(taskId, placeholder);
+    (id: string) => {
+      settledRef.current = false;
+      setTaskId(id);
+      trackTask(id);
+      if (storageKey) localStorage.setItem(storageKey, id);
     },
-    [startPolling, kind]
+    [trackTask, storageKey]
   );
 
   const resumeTask = useCallback(
-    (taskId: string) => {
-      startPolling(taskId);
+    (id: string) => {
+      startTask(id);
     },
-    [startPolling]
+    [startTask]
   );
 
-  // On unmount stop polling (but don't clear localStorage — task may still run)
   useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, []);
+    if (!taskId) return;
+    trackTask(taskId);
+  }, [taskId, trackTask]);
+
+  useEffect(() => {
+    if (!task) return;
+
+    if (task.status === 'pending' || task.status === 'running') {
+      onProgressRef.current?.(task);
+      return;
+    }
+
+    if ((task.status === 'completed' || task.status === 'failed') && !settledRef.current) {
+      settledRef.current = true;
+      if (storageKey) localStorage.removeItem(storageKey);
+      onSettledRef.current?.(task);
+    }
+  }, [task, storageKey]);
 
   return { task, isPolling, startTask, resumeTask, clearTask };
 }
 
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Restore a persisted taskId for a given storage key.
- * Returns the stored taskId or null if none / already completed.
+ * Returns the stored task or null if none / already completed.
  */
 export async function restoreTaskId(storageKey: string): Promise<BackgroundTask | null> {
   const taskId = localStorage.getItem(storageKey);

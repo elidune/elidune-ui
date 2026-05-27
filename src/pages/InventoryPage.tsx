@@ -25,15 +25,20 @@ import {
 } from '@tanstack/react-query';
 import { Card, Button, Modal, Input, Badge, ScrollableListRegion } from '@/components/common';
 import api from '@/services/api';
+import { getApiErrorMessage } from '@/utils/apiError';
+import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
+import { formatTaskProgressDetail, taskProgressPercent } from '@/utils/backgroundTaskDisplay';
 import type {
   InventorySession,
   CreateInventorySession,
+  CreateInventorySessionResponse,
   InventoryScan,
   InventoryScanResultCode,
   InventoryConsolidationResult,
   Author,
   Biblio,
   Item,
+  Source,
 } from '@/types';
 
 const SCANS_PER_PAGE = 50;
@@ -55,17 +60,34 @@ function sessionDisplayName(s: InventorySession, t: (k: string) => string): stri
   return `${t('inventory.sessionTitle')} #${s.id.slice(0, 8)}`;
 }
 
+function formatSessionScope(
+  session: InventorySession,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
+  const source = session.scopeSourceName?.trim()
+    ? session.scopeSourceName.trim()
+    : t('inventory.scopeAllSources');
+  const place =
+    session.scopePlace != null
+      ? t('inventory.scopePlaceShort', { n: session.scopePlace })
+      : t('inventory.scopeAllPlaces');
+  return `${source} · ${place}`;
+}
+
 function scanResultVariant(
   result: InventoryScanResultCode
-): 'success' | 'warning' | 'default' {
+): 'success' | 'warning' | 'danger' | 'default' {
   if (result === 'found') return 'success';
+  if (result === 'found_out_of_scope') return 'warning';
   if (result === 'found_archived') return 'warning';
-  return 'warning';
+  if (result === 'unknown_barcode') return 'danger';
+  return 'default';
 }
 
 export default function InventoryPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const { trackTask } = useBackgroundTasks();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionsPage, setSessionsPage] = useState(1);
   const [sessionsStatus, setSessionsStatus] = useState<SessionStatusFilter>('all');
@@ -82,7 +104,12 @@ export default function InventoryPage() {
   const [createLocationFilter, setCreateLocationFilter] = useState('');
   const [createNotes, setCreateNotes] = useState('');
   const [createScopePlace, setCreateScopePlace] = useState('');
+  const [createScopeSourceId, setCreateScopeSourceId] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
+  const [sessionCreateInfo, setSessionCreateInfo] = useState<{
+    expectedInScope: number;
+    warnings: string[];
+  } | null>(null);
 
   const [barcode, setBarcode] = useState('');
   const [scanFlash, setScanFlash] = useState<InventoryScan | null>(null);
@@ -93,6 +120,13 @@ export default function InventoryPage() {
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
+
+  const sourcesQuery = useQuery({
+    queryKey: ['sources', false],
+    queryFn: () => api.getSources(false),
+    enabled: showCreateModal,
+    staleTime: 60_000,
+  });
 
   const sessionsQuery = useQuery({
     queryKey: ['inventory', 'sessions', sessionsPage, SESSIONS_PER_PAGE, sessionsStatus],
@@ -211,19 +245,69 @@ export default function InventoryPage() {
     setSessionId(id);
   }, []);
 
+  const resolveCreateScope = useCallback(() => {
+    const scopeRaw = createScopePlace.trim();
+    let scopePlace: number | null = null;
+    if (scopeRaw !== '') {
+      const n = parseInt(scopeRaw, 10);
+      if (Number.isNaN(n) || n < 0) {
+        return { error: 'scopePlaceInvalid' as const };
+      }
+      scopePlace = n;
+    }
+    const scopeSourceId = createScopeSourceId.trim() === '' ? null : createScopeSourceId.trim();
+    return {
+      scopePlace: scopeRaw === '' ? null : scopePlace,
+      scopeSourceId,
+    };
+  }, [createScopePlace, createScopeSourceId]);
+
   const createMutation = useMutation({
     mutationFn: (body: CreateInventorySession) => api.createInventorySession(body),
-    onSuccess: (created) => {
+    onSuccess: (created: CreateInventorySessionResponse) => {
       setShowCreateModal(false);
       setCreateName('');
       setCreateLocationFilter('');
       setCreateNotes('');
       setCreateScopePlace('');
+      setCreateScopeSourceId('');
       setCreateError(null);
+      setSessionCreateInfo({
+        expectedInScope: created.expectedInScope,
+        warnings: created.warnings ?? [],
+      });
       void queryClient.invalidateQueries({ queryKey: ['inventory', 'sessions'] });
-      enterSession(created.id);
+      enterSession(created.session.id);
     },
-    onError: () => setCreateError(t('inventory.createError')),
+    onError: async (err: unknown) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        const scope = resolveCreateScope();
+        if ('error' in scope) {
+          setCreateError(t('inventory.createConflict'));
+          return;
+        }
+        try {
+          const open = await api.getInventorySessions({ status: 'open', perPage: 200 });
+          const existing = open.items.find(
+            (s) =>
+              (s.scopeSourceId ?? null) === scope.scopeSourceId &&
+              (s.scopePlace ?? null) === scope.scopePlace
+          );
+          if (existing) {
+            setShowCreateModal(false);
+            setCreateError(null);
+            enterSession(existing.id);
+            return;
+          }
+        } catch {
+          /* fall through to message */
+        }
+        setCreateError(t('inventory.createConflict'));
+        return;
+      }
+      setCreateError(getApiErrorMessage(err, t) || t('inventory.createError'));
+    },
   });
 
   const scanMutation = useMutation({
@@ -245,6 +329,7 @@ export default function InventoryPage() {
         const chunk = codes.slice(i, i + BATCH_CHUNK);
         setBatchProgress(null);
         const { taskId } = await api.batchInventoryScans(id, chunk);
+        trackTask(taskId);
         await api.waitForInventoryBatchScanTask(taskId, (task) => {
           const p = task.progress;
           if (p && typeof p.current === 'number' && typeof p.total === 'number') {
@@ -282,22 +367,18 @@ export default function InventoryPage() {
       setCreateError(t('inventory.nameRequired'));
       return;
     }
-    setCreateError(null);
-    const scopeRaw = createScopePlace.trim();
-    let scopePlace: number | null | undefined = null;
-    if (scopeRaw !== '') {
-      const n = parseInt(scopeRaw, 10);
-      if (Number.isNaN(n) || n < 0) {
-        setCreateError(t('inventory.scopePlaceInvalid'));
-        return;
-      }
-      scopePlace = n;
+    const scope = resolveCreateScope();
+    if ('error' in scope) {
+      setCreateError(t('inventory.scopePlaceInvalid'));
+      return;
     }
+    setCreateError(null);
     createMutation.mutate({
       name,
       locationFilter: createLocationFilter.trim() || null,
       notes: createNotes.trim() || null,
-      scopePlace: scopeRaw === '' ? null : scopePlace,
+      scopePlace: scope.scopePlace,
+      scopeSourceId: scope.scopeSourceId,
     });
   };
 
@@ -331,6 +412,7 @@ export default function InventoryPage() {
     setCreateLocationFilter('');
     setCreateNotes('');
     setCreateScopePlace('');
+    setCreateScopeSourceId('');
     setCreateError(null);
     setShowCreateModal(true);
   };
@@ -380,9 +462,8 @@ export default function InventoryPage() {
                 ? new Date(sessionStartedAt(activeSession)).toLocaleString()
                 : '—'}
               {activeSession.locationFilter ? ` — ${activeSession.locationFilter}` : ''}
-              {activeSession.scopePlace != null
-                ? ` · ${t('inventory.scopePlaceShort', { n: activeSession.scopePlace })}`
-                : ` · ${t('inventory.scopeAll')}`}
+              {' · '}
+              {formatSessionScope(activeSession, t)}
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3 shrink-0 flex-wrap justify-end">
@@ -414,6 +495,24 @@ export default function InventoryPage() {
             )}
           </div>
         </div>
+
+        {sessionCreateInfo && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/30 px-4 py-3 text-sm space-y-2">
+            <p className="font-medium text-amber-900 dark:text-amber-100">
+              {t('inventory.createExpectedInScope', { count: sessionCreateInfo.expectedInScope })}
+            </p>
+            {sessionCreateInfo.warnings.map((w, i) => (
+              <p key={i} className="text-amber-800 dark:text-amber-200">
+                {w}
+              </p>
+            ))}
+            <div className="pt-1">
+              <Button size="sm" variant="secondary" onClick={() => setSessionCreateInfo(null)}>
+                {t('inventory.createAcknowledgeWarnings')}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-4 py-3 text-sm text-indigo-900 dark:text-indigo-100">
           <p className="font-medium">{t('inventory.sessionHelpTitle')}</p>
@@ -485,9 +584,11 @@ export default function InventoryPage() {
                     className={`mt-3 flex items-center gap-2 p-3 rounded-lg text-sm ${
                       scanFlash.result === 'found'
                         ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                        : scanFlash.result === 'found_archived'
-                          ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
-                          : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
+                        : scanFlash.result === 'found_out_of_scope'
+                          ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-700 text-orange-800 dark:text-orange-200'
+                          : scanFlash.result === 'found_archived'
+                            ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+                            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
                     }`}
                   >
                     {scanFlash.result === 'found' ? (
@@ -498,6 +599,8 @@ export default function InventoryPage() {
                     <span>
                       {scanFlash.result === 'found' &&
                         t('inventory.scanFound', { barcode: scanFlash.barcode })}
+                      {scanFlash.result === 'found_out_of_scope' &&
+                        t('inventory.scanOutOfScope', { barcode: scanFlash.barcode })}
                       {scanFlash.result === 'found_archived' &&
                         t('inventory.scanArchived', { barcode: scanFlash.barcode })}
                       {scanFlash.result === 'unknown_barcode' &&
@@ -576,10 +679,41 @@ export default function InventoryPage() {
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           ) : report ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+            <>
+              {(report.expectedInScope ?? 0) > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <span>{t('inventory.progressLabel')}</span>
+                    <span className="tabular-nums font-medium">
+                      {t('inventory.progressRatio', {
+                        scanned: report.distinctItemsScanned ?? 0,
+                        expected: report.expectedInScope ?? 0,
+                      })}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-indigo-600 dark:bg-indigo-500 transition-all"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          ((report.distinctItemsScanned ?? 0) / (report.expectedInScope ?? 1)) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
               <StatBox compact label={t('inventory.expectedInScope')} value={report.expectedInScope ?? 0} />
               <StatBox compact label={t('inventory.totalScanned')} value={report.totalScanned ?? 0} />
               <StatBox compact label={t('inventory.totalFound')} value={report.totalFound ?? 0} color="green" />
+              <StatBox
+                compact
+                label={t('inventory.totalFoundOutOfScope')}
+                value={report.totalFoundOutOfScope ?? 0}
+                color="amber"
+              />
               <StatBox
                 compact
                 label={t('inventory.totalFoundArchived')}
@@ -615,6 +749,7 @@ export default function InventoryPage() {
                 value={report.missingWithoutBarcode ?? 0}
               />
             </div>
+            </>
           ) : (
             <p className="text-center text-gray-500 dark:text-gray-400 py-3 text-sm">{t('inventory.noReport')}</p>
           )}
@@ -771,6 +906,7 @@ export default function InventoryPage() {
                           <th className="py-2 pr-3 font-medium">{t('inventory.missingColTitle')}</th>
                           <th className="py-2 pr-3 font-medium">{t('items.callNumber')}</th>
                           <th className="py-2 pr-3 font-medium">{t('inventory.missingColBarcode')}</th>
+                          <th className="py-2 pr-3 font-medium">{t('items.source')}</th>
                           <th className="py-2 font-medium">{t('inventory.missingColPlace')}</th>
                         </tr>
                       </thead>
@@ -808,13 +944,16 @@ export default function InventoryPage() {
                                 <td className="py-2 pr-3 font-mono text-gray-700 dark:text-gray-300">
                                   {row.barcode ?? '—'}
                                 </td>
+                                <td className="py-2 pr-3 text-gray-700 dark:text-gray-300">
+                                  {row.sourceName ?? '—'}
+                                </td>
                                 <td className="py-2 text-gray-600 dark:text-gray-400">
                                   {row.place != null ? row.place : '—'}
                                 </td>
                               </tr>
                               {open && (
                                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
-                                  <td colSpan={5} className="p-3 pl-10">
+                                  <td colSpan={6} className="p-3 pl-10">
                                     <InventoryExpandContent mode="item" itemId={row.itemId} />
                                   </td>
                                 </tr>
@@ -851,6 +990,7 @@ export default function InventoryPage() {
         </Card>
 
         <ConsolidationModal
+          session={activeSession}
           sessionId={activeSession.id}
           isOpen={showConsolidationModal}
           onClose={() => setShowConsolidationModal(false)}
@@ -940,9 +1080,8 @@ export default function InventoryPage() {
                           ? new Date(sessionStartedAt(session)).toLocaleString()
                           : '—'}
                         {session.locationFilter ? ` — ${session.locationFilter}` : ''}
-                        {session.scopePlace != null
-                          ? ` · ${t('inventory.scopePlaceShort', { n: session.scopePlace })}`
-                          : ''}
+                        {' · '}
+                        {formatSessionScope(session, t)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -1013,6 +1152,34 @@ export default function InventoryPage() {
             onChange={(e) => setCreateLocationFilter(e.target.value)}
             placeholder={t('inventory.locationFilterHint')}
           />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('inventory.scopeSource')}
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">{t('inventory.scopeSourceHint')}</p>
+            {sourcesQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-2">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                {t('common.loading')}
+              </div>
+            ) : sourcesQuery.isError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">{t('inventory.sourcesLoadError')}</p>
+            ) : (
+              <select
+                value={createScopeSourceId}
+                onChange={(e) => setCreateScopeSourceId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+              >
+                <option value="">{t('inventory.scopeAllSources')}</option>
+                {(sourcesQuery.data ?? []).map((source: Source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name || source.key || `Source ${source.id}`}
+                    {source.default ? ` (${t('inventory.defaultSource')})` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           <Input
             label={t('inventory.scopePlace')}
             hint={t('inventory.scopePlaceHint')}
@@ -1207,28 +1374,58 @@ function PaginationControls(props: {
 }
 
 function ConsolidationModal({
+  session,
   sessionId,
   isOpen,
   onClose,
   onSuccess,
 }: {
+  session: InventorySession;
   sessionId: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (sessionId: string) => void;
 }) {
   const { t } = useTranslation();
+  const { trackTask, getTask } = useBackgroundTasks();
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<InventoryConsolidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consolidationTaskId, setConsolidationTaskId] = useState<string | null>(null);
+  const settledTaskRef = useRef<string | null>(null);
+
+  const consolidationTask = consolidationTaskId ? getTask(consolidationTaskId) : null;
+  const isConsolidating =
+    !!consolidationTask &&
+    (consolidationTask.status === 'pending' || consolidationTask.status === 'running');
 
   useEffect(() => {
     if (!isOpen) {
       setPage(1);
       setResult(null);
       setError(null);
+      setConsolidationTaskId(null);
+      settledTaskRef.current = null;
     }
   }, [isOpen, sessionId]);
+
+  useEffect(() => {
+    if (!consolidationTask || settledTaskRef.current === consolidationTask.id) return;
+    if (consolidationTask.status === 'completed') {
+      settledTaskRef.current = consolidationTask.id;
+      const data = consolidationTask.result;
+      if (data && typeof data === 'object' && !Array.isArray(data) && 'sessionId' in data) {
+        setResult(data as InventoryConsolidationResult);
+        setError(null);
+        onSuccess(sessionId);
+      } else {
+        setError(t('inventory.consolidationError'));
+      }
+    } else if (consolidationTask.status === 'failed') {
+      settledTaskRef.current = consolidationTask.id;
+      setError(consolidationTask.error ?? t('inventory.consolidationError'));
+    }
+  }, [consolidationTask, onSuccess, sessionId, t]);
 
   const previewQuery = useQuery({
     queryKey: ['inventory', 'consolidation-preview', sessionId, page, CONSOLIDATION_PREVIEW_PER_PAGE],
@@ -1244,25 +1441,25 @@ function ConsolidationModal({
   const consolidateMutation = useMutation({
     mutationFn: async (force: boolean) => {
       const { taskId } = await api.consolidateInventorySession(sessionId, { force });
-      return api.waitForInventoryConsolidationTask(taskId);
-    },
-    onSuccess: (data) => {
-      setResult(data);
+      settledTaskRef.current = null;
+      setResult(null);
       setError(null);
-      onSuccess(sessionId);
+      setConsolidationTaskId(taskId);
+      trackTask(taskId);
+      return taskId;
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error && err.message ? err.message : t('inventory.consolidationError');
-      setError(msg);
+      setError(getApiErrorMessage(err, t) || msg);
     },
   });
 
   const preview = previewQuery.data ?? null;
   const summary = preview?.summary;
-  const isPending = consolidateMutation.isPending;
+  const isPending = consolidateMutation.isPending || isConsolidating;
 
   const handleClose = () => {
-    if (isPending) return;
+    if (consolidateMutation.isPending) return;
     onClose();
   };
 
@@ -1360,6 +1557,11 @@ function ConsolidationModal({
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-red-700 dark:text-red-400">{t('inventory.consolidationWarning')}</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            {t('inventory.consolidationScopeReminder', {
+              scope: formatSessionScope(session, t),
+            })}
+          </p>
 
           {previewQuery.isLoading ? (
             <div className="flex justify-center py-8">
@@ -1410,6 +1612,7 @@ function ConsolidationModal({
                           <th className="py-2 px-3 font-medium">{t('inventory.consolidationColTitle')}</th>
                           <th className="py-2 px-3 font-medium">{t('items.callNumber')}</th>
                           <th className="py-2 px-3 font-medium">{t('inventory.missingColBarcode')}</th>
+                          <th className="py-2 px-3 font-medium">{t('items.source')}</th>
                           <th className="py-2 px-3 font-medium">{t('inventory.consolidationColOnLoan')}</th>
                           <th className="py-2 px-3 font-medium">{t('inventory.consolidationColOrphan')}</th>
                           <th className="py-2 px-3 font-medium">{t('inventory.consolidationColLoanReader')}</th>
@@ -1435,6 +1638,7 @@ function ConsolidationModal({
                               <td className="py-2 px-3 text-gray-900 dark:text-gray-100">{row.biblioTitle ?? '—'}</td>
                               <td className="py-2 px-3 font-mono text-gray-700 dark:text-gray-300">{row.callNumber ?? '—'}</td>
                               <td className="py-2 px-3 font-mono text-gray-700 dark:text-gray-300">{row.barcode ?? '—'}</td>
+                              <td className="py-2 px-3 text-gray-700 dark:text-gray-300">{row.sourceName ?? '—'}</td>
                               <td className="py-2 px-3">
                                 {row.onLoan ? (
                                   <Badge variant="warning">{t('inventory.consolidationOnLoanYes')}</Badge>
@@ -1485,7 +1689,35 @@ function ConsolidationModal({
             </>
           ) : null}
 
-          {isPending && (
+          {isConsolidating && consolidationTask?.progress && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-3 text-sm dark:border-indigo-800 dark:bg-indigo-950/30">
+              <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-100">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                <span>{formatTaskProgressDetail(consolidationTask, t)}</span>
+              </div>
+              {taskProgressPercent(consolidationTask) != null && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-indigo-700 dark:text-indigo-300 mb-1">
+                    <span>{t('backgroundTask.progress')}</span>
+                    <span className="tabular-nums">
+                      {consolidationTask.progress!.current} / {consolidationTask.progress!.total}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-indigo-200 dark:bg-indigo-900 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-indigo-600 dark:bg-indigo-500 transition-all"
+                      style={{ width: `${taskProgressPercent(consolidationTask)!}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="mt-2 text-xs text-indigo-800 dark:text-indigo-200">
+                {t('inventory.consolidationBackgroundHint')}
+              </p>
+            </div>
+          )}
+
+          {isPending && !isConsolidating && (
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               {t('inventory.consolidationProgress')}

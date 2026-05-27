@@ -816,8 +816,17 @@ export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed';
 export interface TaskProgress {
   current: number;
   total: number;
-  /** Plain text or structured counts (e.g. MARC batch import) from the server */
-  message?: string | { imported?: number | string[]; failed?: number | unknown[] };
+  /** Plain text or structured payload from the server (varies by task kind). */
+  message?: unknown;
+}
+
+export interface InventoryConsolidationProgressMessage {
+  sessionId?: string;
+  phase?: 'archiving' | 'notifying_readers';
+  deleted?: number;
+  skipped?: number;
+  archivedBiblios?: number;
+  recipientCount?: number;
 }
 
 export interface TaskStartResponse {
@@ -1364,7 +1373,11 @@ export interface FineRule {
 // Inventory / Stock check
 // ──────────────────────────────────────────────────────────────────
 
-export type InventoryScanResultCode = 'found' | 'found_archived' | 'unknown_barcode';
+export type InventoryScanResultCode =
+  | 'found'
+  | 'found_out_of_scope'
+  | 'found_archived'
+  | 'unknown_barcode';
 
 export interface InventorySession {
   id: string;
@@ -1380,6 +1393,9 @@ export interface InventorySession {
   createdBy?: string | null;
   /** When set, scope is active non-archived items with this `items.place` only; null = entire active collection */
   scopePlace?: number | null;
+  /** Catalog source filter (`items.source_id`); null = all sources */
+  scopeSourceId?: string | null;
+  scopeSourceName?: string | null;
   consolidatedAt?: string | null;
   consolidatedBy?: string | null;
 }
@@ -1389,6 +1405,13 @@ export interface CreateInventorySession {
   locationFilter?: string | null;
   notes?: string | null;
   scopePlace?: number | null;
+  scopeSourceId?: string | null;
+}
+
+export interface CreateInventorySessionResponse {
+  session: InventorySession;
+  expectedInScope: number;
+  warnings: string[];
 }
 
 export interface InventoryScan {
@@ -1410,6 +1433,8 @@ export interface InventoryMissingRow {
   callNumber?: string | null;
   place?: number | null;
   biblioTitle?: string | null;
+  sourceId?: string | null;
+  sourceName?: string | null;
 }
 
 export interface InventoryReport {
@@ -1418,6 +1443,7 @@ export interface InventoryReport {
   totalScanned?: number;
   totalFound?: number;
   totalFoundArchived?: number;
+  totalFoundOutOfScope?: number;
   totalUnknown?: number;
   distinctItemsScanned?: number;
   duplicateScanCount?: number;
@@ -1448,6 +1474,8 @@ export interface InventoryConsolidationPreviewRow {
   barcode?: string | null;
   callNumber?: string | null;
   place?: number | null;
+  sourceId?: string | null;
+  sourceName?: string | null;
   biblioId?: string | null;
   biblioTitle?: string | null;
   onLoan: boolean;

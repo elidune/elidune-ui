@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, Fragment, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import {
   Upload,
   FileText,
@@ -257,21 +256,7 @@ function getDuplicateExistingIdFromFailure(failure: MarcBatchImportError): strin
 
 type MarcImportTaskContext = { mode: 'all' };
 
-/** Task progress.message may be a string or structured counts from the API. */
-function formatMarcTaskProgressMessage(message: unknown, t: TFunction): string | null {
-  if (message == null) return null;
-  if (typeof message === 'string') return message;
-  if (typeof message === 'object' && message !== null && 'failed' in message && 'imported' in message) {
-    const o = message as { failed: unknown; imported: unknown };
-    return t('backgroundTask.marcImport.completedSummary', {
-      imported: getMarcBatchImportedCount(o),
-      failed: getMarcBatchFailedCount(o),
-    });
-  }
-  return null;
-}
-
-// Helper to get subfield from MARC field
+import { formatMarcTaskProgressMessage } from '@/utils/backgroundTaskDisplay';
 function getSubfield(fieldData: string, code: string, delimiter = SUBFIELD_DELIMITER): string | undefined {
   const parts = fieldData.split(delimiter);
   for (const part of parts) {

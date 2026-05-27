@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { BackgroundTasksProvider } from '@/contexts/BackgroundTasksContext';
+import ToastContainer from '@/components/common/ToastContainer';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { LibraryProvider } from '@/contexts/LibraryContext';
@@ -324,15 +327,20 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <LibraryProvider>
-            <LanguageProvider>
-              <BrowserRouter>
-                <FirstSetupGate>
-                  <AppRoutes />
-                </FirstSetupGate>
-              </BrowserRouter>
-            </LanguageProvider>
-          </LibraryProvider>
+          <ToastProvider>
+            <BackgroundTasksProvider>
+              <LibraryProvider>
+                <LanguageProvider>
+                  <BrowserRouter>
+                    <FirstSetupGate>
+                      <AppRoutes />
+                      <ToastContainer />
+                    </FirstSetupGate>
+                  </BrowserRouter>
+                </LanguageProvider>
+              </LibraryProvider>
+            </BackgroundTasksProvider>
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

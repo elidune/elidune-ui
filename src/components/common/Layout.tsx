@@ -29,6 +29,10 @@ import { useLibrary } from '@/contexts/LibraryContext';
 import { isLibrarian, isAdmin, canPatronSelfServiceHolds } from '@/types';
 import api from '@/services/api';
 import { version as uiVersion } from '../../../package.json';
+import {
+  BackgroundTasksDrawer,
+  BackgroundTasksNavItem,
+} from './BackgroundTasksPanel';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -156,6 +160,12 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
+          {isLibrarian(user?.accountType) && (
+            <div className="shrink-0 px-3 pb-2">
+              <BackgroundTasksNavItem />
+            </div>
+          )}
+
           {/* Theme selector */}
           <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
@@ -229,11 +239,15 @@ export default function Layout({ children }: LayoutProps) {
           >
             <Menu className="h-6 w-6" />
           </button>
-          <div className="flex items-center gap-3 ml-4">
-            <img src="/elidune_logo.png" alt="Elidune" className="h-8 w-8" />
-            <span className="text-lg font-bold text-gray-900 dark:text-white">{libraryName ?? 'Elidune'}</span>
+          <div className="flex items-center gap-3 ml-4 min-w-0 flex-1">
+            <img src="/elidune_logo.png" alt="Elidune" className="h-8 w-8 shrink-0" />
+            <span className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              {libraryName ?? 'Elidune'}
+            </span>
           </div>
         </header>
+
+        <BackgroundTasksDrawer />
 
         {/* Page content */}
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 lg:p-6">{children}</main>

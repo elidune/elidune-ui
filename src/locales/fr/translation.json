@@ -55,6 +55,7 @@
     "importIso": "Import MARC",
     "events": "Événements",
     "stats": "Statistiques",
+    "tasks": "Tâches",
     "library": "Ma bibliothèque",
     "settings": "Paramètres",
     "profile": "Mon Profil",
@@ -1103,8 +1104,46 @@
   },
   "backgroundTask": {
     "progress": "Progression",
+    "dismiss": "Masquer",
+    "openRelatedPage": "Ouvrir la page associée",
+    "trigger": {
+      "label": "Activité en arrière-plan",
+      "activeLabel": "{{count}} tâche(s) en cours — voir le détail",
+      "unreadLabel": "Tâches terminées non consultées"
+    },
+    "drawer": {
+      "title": "Activité",
+      "activeSubtitle": "{{count}} tâche(s) en cours",
+      "idleSubtitle": "Aucune tâche en cours",
+      "empty": "Aucune tâche récente."
+    },
+    "toast": {
+      "started": "{{label}} — démarrée",
+      "completed": "{{label}} — terminée",
+      "completedWithSummary": "{{label}} — {{summary}}",
+      "failed": "{{label}} — {{error}}",
+      "resumed": "{{count}} tâche(s) reprise(s) en arrière-plan"
+    },
+    "kind": {
+      "marcBatchImport": "Import MARC",
+      "maintenance": "Maintenance",
+      "inventoryBatchScan": "Scan d'inventaire (lot)",
+      "inventoryConsolidation": "Consolidation d'inventaire"
+    },
     "marcImport": {
       "completedSummary": "{{imported}} notice(s) importée(s), {{failed}} échec(s)."
+    },
+    "maintenance": {
+      "completedSummary": "{{count}} action(s) de maintenance terminée(s)."
+    },
+    "inventoryBatchScan": {
+      "completedSummary": "{{count}} scan(s) enregistré(s)."
+    },
+    "consolidation": {
+      "archiving": "Archivage : {{deleted}} exemplaire(s), {{skipped}} ignoré(s), {{archivedBiblios}} notice(s) orpheline(s).",
+      "notifyingReaders": "Envoi des e-mails aux lecteurs ({{count}} destinataire(s))…",
+      "completedSummary": "{{deleted}} exemplaire(s) archivé(s), {{archivedBiblios}} notice(s) orpheline(s).",
+      "partialSummary": "{{deleted}} archivé(s), {{skipped}} ignoré(s) — consolidation partielle."
     },
     "status": {
       "pending": "Tâche en attente…",
@@ -1369,6 +1408,15 @@
   "inventory": {
     "sessionTitle": "Session",
     "createError": "Impossible de créer la session.",
+    "createConflict": "Une session ouverte existe déjà pour cette source et ce lieu.",
+    "createExpectedInScope": "{{count}} exemplaire(s) attendu(s) dans le périmètre.",
+    "createAcknowledgeWarnings": "Commencer le scan",
+    "sourcesLoadError": "Impossible de charger la liste des sources.",
+    "scopeSource": "Source (périmètre)",
+    "scopeSourceHint": "Recommandé pour un inventaire par fonds. Laissez vide pour toute la bibliothèque.",
+    "scopeAllSources": "Toutes sources",
+    "scopeAllPlaces": "Tous lieux",
+    "defaultSource": "par défaut",
     "scanError": "Erreur lors du scan (session fermée ou réseau).",
     "batchDone": "{{count}} scan(s) enregistré(s).",
     "batchError": "Échec de l'import (session fermée, plus de 500 codes par lot côté serveur, ou erreur réseau).",
@@ -1394,6 +1442,7 @@
     "barcodePlaceholder": "Code-barres de l'exemplaire",
     "scan": "Enregistrer",
     "scanFound": "Exemplaire actif : {{barcode}}.",
+    "scanOutOfScope": "Exemplaire hors périmètre (source ou lieu) : {{barcode}} — non comptabilisé comme trouvé.",
     "scanArchived": "Code connu mais exemplaire archivé : {{barcode}}.",
     "scanNotFound": "Aucun exemplaire pour {{barcode}}.",
     "batchHint": "Collez une liste (un code par ligne). Le serveur accepte au plus 500 codes par requête : les lots sont découpés automatiquement.",
@@ -1402,10 +1451,13 @@
     "batchProgress": "Traitement des codes-barres : {{current}} / {{total}}",
     "batchSubmit": "Importer les scans",
     "report": "Rapport d'écart",
-    "reportHint": "Les totaux reflètent le périmètre de la session : exemplaires actifs non archivés, filtrés par lieu si un code lieu a été défini.",
+    "reportHint": "Les totaux reflètent le périmètre de la session (source et lieu). Seuls les scans « actif » in-scope comptent dans les trouvés et la progression.",
+    "progressLabel": "Progression (exemplaires distincts / attendus)",
+    "progressRatio": "{{scanned}} / {{expected}}",
     "expectedInScope": "Attendus (périmètre)",
     "totalScanned": "Lignes de scan",
-    "totalFound": "Scans « actif »",
+    "totalFound": "Scans « actif » (périmètre)",
+    "totalFoundOutOfScope": "Hors périmètre",
     "totalFoundArchived": "Scans « archivé »",
     "totalUnknown": "Codes inconnus",
     "distinctItemsScanned": "Exemplaires distincts",
@@ -1430,8 +1482,8 @@
     "loadingMore": "Chargement…",
     "endOfList": "Fin de la liste",
     "listHelpTitle": "Comment utiliser l'inventaire",
-    "listHelpBody": "Une session regroupe tous les scans d'un même contrôle. Le périmètre (toute la collection active ou un lieu précis) est défini à la création et ne peut pas être modifié ensuite.",
-    "listHelpStep1": "Créez une session avec un libellé clair ; indiquez le code lieu (scope) si vous ne contrôlez qu'une salle ou un magasin.",
+    "listHelpBody": "Une session regroupe tous les scans d'un même contrôle. Le périmètre (source et/ou lieu) est défini à la création et ne peut pas être modifié ensuite.",
+    "listHelpStep1": "Créez une session avec un libellé clair ; choisissez une source et/ou un code lieu si vous ne contrôlez qu'un fonds ou une salle.",
     "listHelpStep2": "En session ouverte, enregistrez chaque exemplaire par code-barres, ou importez une liste (fichier dépose-pose) par lots de 500 codes maximum par envoi.",
     "listHelpStep3": "Consultez le journal des scans et la liste des manquants : exemplaires actifs dans le périmètre qui n'ont encore jamais été vus lors de cette session.",
     "listHelpStep4": "Clôturez la session pour figer les résultats ; le rapport d'écart synthétise volumes attendus, doublons de scan et codes inconnus.",
@@ -1440,7 +1492,7 @@
     "subtitle": "Sessions de contrôle physique : scans, écarts et exemplaires non vus",
     "newSession": "Nouvelle session",
     "noSessions": "Aucune session d'inventaire.",
-    "createModalHint": "Le filtre d'affichage et les notes sont optionnels. Seul le code lieu définit le périmètre technique des comptages et des listes.",
+    "createModalHint": "Le filtre d'affichage et les notes sont optionnels. La source et le code lieu définissent le périmètre technique des comptages et des listes.",
     "sessionName": "Libellé de la session",
     "sessionNamePlaceholder": "ex. Inventaire salle lecture — mars 2026",
     "locationFilter": "Indication de lieu (affichage)",
@@ -1462,10 +1514,12 @@
     },
     "scanResults": {
       "found": "Actif",
+      "found_out_of_scope": "Hors périmètre",
       "found_archived": "Archivé",
       "unknown_barcode": "Inconnu"
     },
     "consolidationModalTitle": "Consolidation du catalogue",
+    "consolidationScopeReminder": "Consolidation pour le périmètre : {{scope}}.",
     "consolidationWarning": "Action destructive : archive définitivement les exemplaires manquants du périmètre dans le catalogue.",
     "consolidationSummaryTotalMissing": "Manquants à archiver",
     "consolidationSummaryOnLoan": "En cours d'emprunt",
@@ -1485,7 +1539,8 @@
     "consolidationForceWarning": "Forcer la consolidation clôtura les emprunts actifs et enverra un e-mail aux lecteurs concernés.",
     "consolidate": "Consolider",
     "consolidateForce": "Forcer la consolidation",
-    "consolidationProgress": "Consolidation en cours…",
+    "consolidationProgress": "Lancement de la consolidation…",
+    "consolidationBackgroundHint": "La consolidation continue en arrière-plan ; vous pouvez fermer cette fenêtre et suivre la progression dans le bandeau en haut.",
     "consolidationError": "Échec de la consolidation.",
     "consolidationPartialTitle": "Consolidation partielle",
     "consolidationPartialBody": "{{deleted}} exemplaire(s) archivé(s), {{skipped}} ignoré(s) (souvent en cours d'emprunt). La session n'est pas marquée comme consolidée.",

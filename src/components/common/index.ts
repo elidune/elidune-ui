@@ -13,3 +13,5 @@ export { default as LibraryInfoSection } from './LibraryInfoSection';
 export { default as ScrollableListRegion, APP_LIST_SCROLL_ROOT_CLASS } from './ScrollableListRegion';
 export { default as ResponsiveRecordList } from './ResponsiveRecordList';
 export { default as ListSkeleton } from './ListSkeleton';
+export { default as BackgroundTasksPanel, BackgroundTasksNavItem, BackgroundTasksDrawer } from './BackgroundTasksPanel';
+export { default as ToastContainer } from './ToastContainer';
