@@ -1,3 +1,4 @@
+import type { SupportedLanguage } from '@/locales';
 import type { EmailTemplateListItem } from '@/types';
 
 /** Only languages supported by the API for template editing (fixed set). */
@@ -20,6 +21,26 @@ export function emailTemplateLanguagesAvailableForEdit(
   return EMAIL_TEMPLATE_EDIT_LANGUAGES.filter((code): code is EmailTemplateEditLanguage =>
     present.has(code)
   );
+}
+
+/** Email template row language that best matches the staff UI locale. */
+export function emailTemplateLanguageForUi(uiLanguage: SupportedLanguage): EmailTemplateEditLanguage {
+  return uiLanguage === 'fr' ? 'french' : 'english';
+}
+
+/** Display label for a template group; prefers the row matching the UI locale, then the other language. */
+export function emailTemplateDisplayName(
+  rows: EmailTemplateListItem[],
+  uiLanguage: SupportedLanguage
+): string {
+  const preferred = emailTemplateLanguageForUi(uiLanguage);
+  const fallback: EmailTemplateEditLanguage = preferred === 'french' ? 'english' : 'french';
+  const row =
+    rows.find((r) => r.language === preferred) ??
+    rows.find((r) => r.language === fallback) ??
+    rows[0];
+  const name = row?.name?.trim();
+  return name || row?.templateId || '';
 }
 
 /** Placeholders `{{name}}` supported per templateId (backend contract). */

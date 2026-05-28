@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Info, Save } from 'lucide-react';
 import { Card, CardHeader, Button, Input } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { canManageSettings } from '@/types';
@@ -13,6 +14,8 @@ import {
   EMAIL_TEMPLATE_VARIABLES,
   EMAIL_TEMPLATES_LIST_QUERY_KEY,
   emailTemplateDetailQueryKey,
+  emailTemplateDisplayName,
+  emailTemplateLanguageForUi,
   emailTemplateLanguagesAvailableForEdit,
   filterEmailTemplatesBySupportedLanguages,
   normalizeEmailTemplateHtmlForApi,
@@ -23,6 +26,7 @@ export default function EmailTemplatesSettings() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { language: uiLanguage } = useLanguage();
   const canEdit = canManageSettings(user?.accountType);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -55,7 +59,17 @@ export default function EmailTemplatesSettings() {
     return m;
   }, [list]);
 
-  const templateIds = useMemo(() => [...grouped.keys()].sort((a, b) => a.localeCompare(b)), [grouped]);
+  const templateIds = useMemo(
+    () =>
+      [...grouped.keys()].sort((a, b) => {
+        const nameA = emailTemplateDisplayName(grouped.get(a) ?? [], uiLanguage);
+        const nameB = emailTemplateDisplayName(grouped.get(b) ?? [], uiLanguage);
+        return nameA.localeCompare(nameB, uiLanguage);
+      }),
+    [grouped, uiLanguage]
+  );
+
+  const preferredEditLanguage = emailTemplateLanguageForUi(uiLanguage);
 
   const languagesForTemplate = useCallback(
     (tid: string) => emailTemplateLanguagesAvailableForEdit(grouped.get(tid) ?? []),
@@ -68,16 +82,20 @@ export default function EmailTemplatesSettings() {
     if (!t0) return;
     setSelectedTemplateId(t0);
     const langs = languagesForTemplate(t0);
-    setSelectedLanguage(langs[0] ?? 'french');
-  }, [list.length, selectedTemplateId, templateIds, languagesForTemplate]);
+    setSelectedLanguage(
+      langs.includes(preferredEditLanguage) ? preferredEditLanguage : (langs[0] ?? 'french')
+    );
+  }, [list.length, selectedTemplateId, templateIds, languagesForTemplate, preferredEditLanguage]);
 
   useEffect(() => {
     if (!selectedTemplateId) return;
     const langs = languagesForTemplate(selectedTemplateId);
     if (!langs.length) return;
     if (selectedLanguage && langs.includes(selectedLanguage as EmailTemplateEditLanguage)) return;
-    setSelectedLanguage(langs[0] ?? null);
-  }, [selectedTemplateId, selectedLanguage, languagesForTemplate]);
+    setSelectedLanguage(
+      langs.includes(preferredEditLanguage) ? preferredEditLanguage : (langs[0] ?? null)
+    );
+  }, [selectedTemplateId, selectedLanguage, languagesForTemplate, preferredEditLanguage]);
 
   const {
     data: detail,
@@ -107,10 +125,14 @@ export default function EmailTemplatesSettings() {
       setSelectedTemplateId(tid);
       const langs = languagesForTemplate(tid);
       setSelectedLanguage((prev) =>
-        prev && langs.includes(prev as EmailTemplateEditLanguage) ? prev : (langs[0] ?? null)
+        prev && langs.includes(prev as EmailTemplateEditLanguage)
+          ? prev
+          : langs.includes(preferredEditLanguage)
+            ? preferredEditLanguage
+            : (langs[0] ?? null)
       );
     },
-    [languagesForTemplate]
+    [languagesForTemplate, preferredEditLanguage]
   );
 
   const dirty = useMemo(() => {
@@ -178,26 +200,31 @@ export default function EmailTemplatesSettings() {
       <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden lg:sticky lg:top-4 lg:self-start">
         <CardHeader title={t('settings.emailTemplates.templates')} />
         <nav className="px-3 pb-3 space-y-0.5" aria-label={t('settings.emailTemplates.title')}>
-          {templateIds.map((tid) => (
-            <button
-              key={tid}
-              type="button"
-              onClick={() => pickTemplate(tid)}
-              className={`w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                selectedTemplateId === tid
-                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
-                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
-            >
-              <span className="font-mono text-xs break-all">{tid}</span>
-            </button>
-          ))}
+          {templateIds.map((tid) => {
+            const displayName = emailTemplateDisplayName(grouped.get(tid) ?? [], uiLanguage);
+            return (
+              <button
+                key={tid}
+                type="button"
+                onClick={() => pickTemplate(tid)}
+                title={tid}
+                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
+                  selectedTemplateId === tid
+                    ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
+                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                <span className="block font-medium leading-snug">{displayName}</span>
+                <span className="block font-mono text-[0.65rem] opacity-70 break-all mt-0.5">{tid}</span>
+              </button>
+            );
+          })}
         </nav>
       </Card>
 
       <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
         <CardHeader
-          title={t('settings.emailTemplates.editorTitle')}
+          title={detail?.name?.trim() || t('settings.emailTemplates.editorTitle')}
           action={
             canEdit ? (
               <Button

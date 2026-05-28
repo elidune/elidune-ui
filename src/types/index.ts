@@ -1092,6 +1092,8 @@ export interface UpdateEmailTemplateRequest {
 export interface EmailTemplateListItem {
   templateId: string;
   language: string;
+  /** Localized staff-facing label for this (templateId, language) row (read-only). */
+  name: string;
   subject?: string | null;
   bodyPlain?: string | null;
   bodyHtml?: string | null;
