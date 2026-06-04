@@ -71,7 +71,7 @@ function DepList({ deps, loading, error }: { deps: GithubDep[]; loading: boolean
 export default function AboutPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { libraryInfo } = useLibrary();
+
 
   const [serverVersion, setServerVersion] = useState<string | null>(null);
   const [frontendDeps, setFrontendDeps] = useState<GithubDep[]>(FRONTEND_NOTABLE_DEPS);
@@ -125,13 +125,6 @@ export default function AboutPage() {
       .finally(() => setDepsLoading(false));
   }, []);
 
-  const formattedDate = libraryInfo?.updatedAt
-    ? new Date(libraryInfo.updatedAt).toLocaleDateString(i18n.language, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : '—';
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -186,7 +179,6 @@ export default function AboutPage() {
               </a>
             }
           />
-          <InfoRow label={t('about.lastUpdate')} value={formattedDate} />
         </div>
       </Card>
 

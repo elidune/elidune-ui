@@ -125,6 +125,11 @@ function hasMarcValidationErrors(record: ParsedRecord): boolean {
   return (record.validationIssues?.length ?? 0) > 0;
 }
 
+/** Client-side MARCXML only — server-cached UNIMARC batches may carry advisory validation issues. */
+function shouldBlockImportForValidation(record: ParsedRecord, batchId: string | null): boolean {
+  return batchId == null && hasMarcValidationErrors(record);
+}
+
 function marcPreviewToParsedRecord(item: MarcImportPreview, index: number): ParsedRecord {
   return {
     id: `record-${index}-${Date.now()}`,
@@ -798,7 +803,7 @@ export default function ImportIsoPage() {
     try {
       setSourcesError('');
       const data = await api.getSources(false);
-      setSources(data);
+      setSources(data.map((s) => ({ ...s, id: String(s.id) })));
       // Do not preselect any source; user must choose for import
     } catch (e) {
       setSourcesError(t('importMarc.sourcesError'));
@@ -910,7 +915,7 @@ export default function ImportIsoPage() {
     try {
       const created = await api.createSource({ name });
       setSources((prev) => [...prev, created]);
-      setSelectedSourceId(created.id);
+      setSelectedSourceId(String(created.id));
       setNewSourceName('');
       setShowAddSource(false);
     } catch (err) {
@@ -1009,7 +1014,7 @@ export default function ImportIsoPage() {
       setParseError(t('z3950.sourceRequired'));
       return;
     }
-    if (records.some((r) => r.status === 'pending' && hasMarcValidationErrors(r))) {
+    if (records.some((r) => r.status === 'pending' && shouldBlockImportForValidation(r, batchId))) {
       setParseError(t('importMarc.cannotImportWithValidationErrors'));
       return;
     }
@@ -1108,7 +1113,7 @@ export default function ImportIsoPage() {
       setParseError(t('z3950.sourceRequired'));
       return;
     }
-    if (hasMarcValidationErrors(record)) {
+    if (shouldBlockImportForValidation(record, batchId)) {
       setParseError(t('importMarc.cannotImportWithValidationErrors'));
       return;
     }
@@ -1233,7 +1238,7 @@ export default function ImportIsoPage() {
 
   const handleConfirmReplaceExisting = async () => {
     if (!replaceConfirmModal) return;
-    if (hasMarcValidationErrors(replaceConfirmModal.record)) {
+    if (shouldBlockImportForValidation(replaceConfirmModal.record, batchId)) {
       setReplaceConfirmError(t('importMarc.cannotImportWithValidationErrors'));
       return;
     }
@@ -1269,7 +1274,7 @@ export default function ImportIsoPage() {
 
   const handleCreateNewDuplicateIsbn = async () => {
     if (!replaceConfirmModal) return;
-    if (hasMarcValidationErrors(replaceConfirmModal.record)) {
+    if (shouldBlockImportForValidation(replaceConfirmModal.record, batchId)) {
       setReplaceConfirmError(t('importMarc.cannotImportWithValidationErrors'));
       return;
     }
@@ -1325,7 +1330,7 @@ export default function ImportIsoPage() {
       return;
     }
 
-    if (hasMarcValidationErrors(matchingRecord)) {
+    if (shouldBlockImportForValidation(matchingRecord, batchId)) {
       setScanError(t('importMarc.cannotImportWithValidationErrors'));
       setScanInput('');
       scanInputRef.current?.focus();
@@ -1368,7 +1373,7 @@ export default function ImportIsoPage() {
 
   const pendingCount = records.filter(r => r.status === 'pending').length;
   const pendingHasValidationErrors = records.some(
-    (r) => r.status === 'pending' && hasMarcValidationErrors(r),
+    (r) => r.status === 'pending' && shouldBlockImportForValidation(r, batchId),
   );
   const errorCount = records.filter(r => r.status === 'error').length;
 
@@ -1492,12 +1497,12 @@ export default function ImportIsoPage() {
               variant="primary"
               onClick={() => importRecord(record)}
               title={
-                hasMarcValidationErrors(record)
+                shouldBlockImportForValidation(record, batchId)
                   ? t('importMarc.cannotImportWithValidationErrors')
                   : t('importMarc.importOne')
               }
               leftIcon={<Download className="h-4 w-4" />}
-              disabled={!selectedSourceId || hasMarcValidationErrors(record)}
+              disabled={!selectedSourceId || shouldBlockImportForValidation(record, batchId)}
             >
               {t('importMarc.import')}
             </Button>
@@ -1514,12 +1519,12 @@ export default function ImportIsoPage() {
               variant="primary"
               onClick={() => importRecord(record)}
               title={
-                hasMarcValidationErrors(record)
+                shouldBlockImportForValidation(record, batchId)
                   ? t('importMarc.cannotImportWithValidationErrors')
                   : undefined
               }
               leftIcon={<Download className="h-4 w-4" />}
-              disabled={!selectedSourceId || hasMarcValidationErrors(record)}
+              disabled={!selectedSourceId || shouldBlockImportForValidation(record, batchId)}
             >
               {t('importMarc.import')}
             </Button>
@@ -1789,48 +1794,109 @@ export default function ImportIsoPage() {
                 </div>
               </div>
 
-              {parseError && (
-                <div className="mt-4 flex items-center gap-2 text-red-600 dark:text-red-400">
-                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                  {parseError}
-                </div>
-              )}
+            </div>
 
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={handleCancel}>
-                  {t('common.cancel')}
+            {/* Source selector (required before import) */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                  {t('importMarc.source')} :
+                </label>
+                <select
+                  value={selectedSourceId ?? ''}
+                  onChange={(e) => setSelectedSourceId(e.target.value || null)}
+                  className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                >
+                  <option value="">{t('importMarc.noSource')}</option>
+                  {sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name || source.key || `Source ${source.id}`}
+                      {source.default ? ` (${t('importMarc.default')})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowAddSource((v) => !v)}
+                  leftIcon={<Plus className="h-4 w-4" />}
+                >
+                  {t('importMarc.addSource')}
                 </Button>
-                {pendingCount > 0 && !scanMode && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={handleStartScanMode}
-                      leftIcon={<ScanLine className="h-4 w-4" />}
-                      disabled={!selectedSourceId || pendingHasValidationErrors}
-                      title={
-                        pendingHasValidationErrors
-                          ? t('importMarc.cannotImportWithValidationErrors')
-                          : undefined
-                      }
-                    >
-                      {t('importMarc.importWithScan')}
-                    </Button>
-                    <Button
-                      onClick={handleImportAll}
-                      isLoading={isImporting}
-                      leftIcon={<Download className="h-4 w-4" />}
-                      disabled={!selectedSourceId || pendingHasValidationErrors}
-                      title={
-                        pendingHasValidationErrors
-                          ? t('importMarc.cannotImportWithValidationErrors')
-                          : undefined
-                      }
-                    >
-                      {t('importMarc.importAll', { count: pendingCount })}
-                    </Button>
-                  </>
-                )}
               </div>
+              {showAddSource && (
+                <form onSubmit={handleAddSource} className="mt-3 flex flex-wrap items-end gap-2">
+                  <Input
+                    value={newSourceName}
+                    onChange={(e) => setNewSourceName(e.target.value)}
+                    placeholder={t('importMarc.newSourceName')}
+                    className="flex-1 min-w-[180px]"
+                    autoFocus
+                  />
+                  <Button type="submit" size="sm" isLoading={addSourceLoading} disabled={!newSourceName.trim()}>
+                    {t('common.add')}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowAddSource(false); setNewSourceName(''); }}>
+                    {t('common.cancel')}
+                  </Button>
+                </form>
+              )}
+              {sourcesError && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{sourcesError}</p>
+              )}
+              {!selectedSourceId && pendingCount > 0 && !scanMode && (
+                <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                  {t('z3950.sourceRequired')}
+                </p>
+              )}
+            </div>
+
+            {parseError && (
+              <div className="mt-4 flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                {parseError}
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+              <Button variant="ghost" onClick={handleCancel}>
+                {t('common.cancel')}
+              </Button>
+              {pendingCount > 0 && !scanMode && (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={handleStartScanMode}
+                    leftIcon={<ScanLine className="h-4 w-4" />}
+                    disabled={!selectedSourceId || pendingHasValidationErrors}
+                    title={
+                      !selectedSourceId
+                        ? t('z3950.sourceRequired')
+                        : pendingHasValidationErrors
+                          ? t('importMarc.cannotImportWithValidationErrors')
+                          : undefined
+                    }
+                  >
+                    {t('importMarc.importWithScan')}
+                  </Button>
+                  <Button
+                    onClick={handleImportAll}
+                    isLoading={isImporting}
+                    leftIcon={<Download className="h-4 w-4" />}
+                    disabled={!selectedSourceId || pendingHasValidationErrors}
+                    title={
+                      !selectedSourceId
+                        ? t('z3950.sourceRequired')
+                        : pendingHasValidationErrors
+                          ? t('importMarc.cannotImportWithValidationErrors')
+                          : undefined
+                    }
+                  >
+                    {t('importMarc.importAll', { count: pendingCount })}
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Import progress */}
@@ -1890,57 +1956,6 @@ export default function ImportIsoPage() {
                 )}
               </div>
             )}
-
-            {/* Source selector */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
-                  {t('importMarc.source')} :
-                </label>
-                <select
-                  value={selectedSourceId ?? ''}
-                  onChange={(e) => setSelectedSourceId(e.target.value || null)}
-                  className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-                >
-                  <option value="">{t('importMarc.noSource')}</option>
-                  {sources.map((source) => (
-                    <option key={source.id} value={source.id}>
-                      {source.name || source.key || `Source ${source.id}`}
-                      {source.default ? ` (${t('importMarc.default')})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowAddSource((v) => !v)}
-                  leftIcon={<Plus className="h-4 w-4" />}
-                >
-                  {t('importMarc.addSource')}
-                </Button>
-              </div>
-              {showAddSource && (
-                <form onSubmit={handleAddSource} className="mt-3 flex flex-wrap items-end gap-2">
-                  <Input
-                    value={newSourceName}
-                    onChange={(e) => setNewSourceName(e.target.value)}
-                    placeholder={t('importMarc.newSourceName')}
-                    className="flex-1 min-w-[180px]"
-                    autoFocus
-                  />
-                  <Button type="submit" size="sm" isLoading={addSourceLoading} disabled={!newSourceName.trim()}>
-                    {t('common.add')}
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => { setShowAddSource(false); setNewSourceName(''); }}>
-                    {t('common.cancel')}
-                  </Button>
-                </form>
-              )}
-              {sourcesError && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{sourcesError}</p>
-              )}
-            </div>
           </Card>
 
           {/* Scan mode */}
