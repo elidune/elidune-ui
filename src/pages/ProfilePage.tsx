@@ -28,6 +28,7 @@ import api from '@/services/api';
 import type { SupportedLanguage } from '@/locales';
 import type { TwoFactorMethod } from '@/types';
 import { OCCUPATION_OPTIONS } from '@/utils/codeLabels';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -298,7 +299,7 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('profile.occupation')}
                 </label>
                 <div className="relative">
@@ -307,7 +308,7 @@ export default function ProfilePage() {
                   </div>
                   <select
                     disabled
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                    className={formControlClass({ className: 'w-full pl-10' })}
                   >
                     <option value="">{t('common.select')}</option>
                     {OCCUPATION_OPTIONS.map((opt) => (

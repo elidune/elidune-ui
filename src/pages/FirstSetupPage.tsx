@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLibrary } from '@/contexts/LibraryContext';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import type { FirstSetupRequest, UpdateLibraryInfoRequest, FirstSetupEmailOverride } from '@/types';
 import { toServerLanguage, type SupportedLanguage } from '@/locales';
 
@@ -283,11 +284,11 @@ export default function FirstSetupPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('firstSetup.fields.sex')}
                 </label>
                 <select
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  className={formControlClass({ className: 'w-full' })}
                   value={admin.sex}
                   onChange={(e) =>
                     setAdmin((s) => ({ ...s, sex: e.target.value as 'm' | 'f' }))
@@ -298,7 +299,7 @@ export default function FirstSetupPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('firstSetup.fields.birthdate')}
                 </label>
                 <Input
@@ -335,11 +336,11 @@ export default function FirstSetupPage() {
                 autoComplete="email"
               />
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('firstSetup.fields.uiLanguage')}
                 </label>
                 <select
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+                  className={formControlClass({ className: 'w-full' })}
                   value={admin.uiLanguage}
                   onChange={(e) =>
                     setAdmin((s) => ({ ...s, uiLanguage: e.target.value as SupportedLanguage }))
@@ -467,7 +468,7 @@ function Field(props: {
   const { label, value, onChange, type = 'text', autoComplete } = props;
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <label className={formLabelClass()}>
         {label}
       </label>
       <Input

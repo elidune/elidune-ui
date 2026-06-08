@@ -10,6 +10,7 @@ import { getApiErrorMessage } from '@/utils/apiError';
 import type { Biblio, BiblioShort, Hold, UserShort } from '@/types';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { formatUserShortName } from '@/utils/userDisplay';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
 
 function statusBadge(t: (k: string) => string, status: Hold['status']) {
@@ -259,7 +260,7 @@ export default function HoldsPage() {
         </div>
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-end gap-3 flex-shrink-0">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className={formLabelClass({ marginBottom: false })}>
               {t('common.perPage')}
             </label>
             <select
@@ -268,7 +269,7 @@ export default function HoldsPage() {
                 setListPerPage(Number(e.target.value));
                 setListPage(1);
               }}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm min-w-[5rem]"
+              className={formControlClass({ className: 'min-w-[5rem]' })}
             >
               {[25, 50, 100, 200].map((n) => (
                 <option key={n} value={n}>
@@ -387,13 +388,13 @@ export default function HoldsPage() {
             <div className="space-y-2 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
               <p className="font-medium text-gray-900 dark:text-white">{selectedBiblio.title}</p>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label className={formLabelClass({ marginBottom: false })}>
                   {t('holds.pickSpecimen')}
                 </label>
                 <select
                   value={selectedItemId ?? ''}
                   onChange={(e) => setSelectedItemId(e.target.value || null)}
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                  className={formControlClass()}
                 >
                   {(selectedBiblio.items ?? []).map((it) => (
                     <option key={it.id} value={it.id}>

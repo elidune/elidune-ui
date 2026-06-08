@@ -21,6 +21,7 @@ import type { Event, CreateEvent, UpdateEvent } from '@/types';
 import { usePublicTypesQuery } from '@/hooks/usePublicTypesQuery';
 import { eventPublicTypeDisplayLabel } from '@/utils/eventPublicType';
 import { fileToAttachmentInput, base64ToDataUrl, isImageMime } from '@/utils/eventAttachment';
+import { formControlClass, formTextareaClass, formLabelClass, formChoiceLabelClass } from '@/utils/formControl';
 import EventAttachmentLead from '@/components/events/EventAttachmentLead';
 
 const EVENTS_PER_PAGE = 20;
@@ -602,13 +603,13 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
           required={!isEdit}
         />
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className={formLabelClass()}>
             {t('events.type')}
           </label>
           <select
             value={formData.eventType}
             onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            className={formControlClass({ className: 'w-full' })}
           >
             {EVENT_TYPES.map((et) => (
               <option key={et.value} value={String(et.value)}>
@@ -635,14 +636,14 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {t('common.description')}
         </label>
         <textarea
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={2}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none"
+          className={formTextareaClass({ className: 'resize-none' })}
         />
       </div>
 
@@ -652,13 +653,13 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
       </h4>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className={formLabelClass()}>
             {t('events.targetPublicLabel')}
           </label>
           <select
             value={formData.publicType}
             onChange={(e) => setFormData({ ...formData, publicType: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            className={formControlClass({ className: 'w-full' })}
           >
             <option value="">{t('events.targetPublic.all')}</option>
             {publicTypes.map((pt) => (
@@ -712,7 +713,7 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
 
       {/* Flyer / attachment */}
       <div className="space-y-2">
-        <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <span className={formLabelClass({ marginBottom: false })}>
           {t('events.flyerOrAttachment')}
         </span>
         <input
@@ -727,7 +728,7 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
           }}
         />
         {isEdit && (attachmentSource?.attachmentFileName || attachmentSource?.attachmentDataBase64) && (
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+          <label className={formChoiceLabelClass()}>
             <input
               type="checkbox"
               checked={removeAttachment}
@@ -770,14 +771,14 @@ function EventForm({ formId, initialValues, onLoadingChange, onSuccess }: EventF
 
       {/* Notes */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {t('users.notes')}
         </label>
         <textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           rows={2}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none"
+          className={formTextareaClass({ className: 'resize-none' })}
         />
       </div>
     </form>

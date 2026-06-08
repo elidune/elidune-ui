@@ -8,6 +8,7 @@ import { defaultAccountTypeCode } from '@/utils/accountTypeDisplay';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { SEX_OPTIONS } from '@/utils/codeLabels';
 import { searchFrenchCommunePicks } from '@/utils/frenchCommuneSearch';
+import { formControlClass, formLabelClass, formTextareaClass } from '@/utils/formControl';
 import {
   defaultExpiryDateInputOneYearFromNow,
   dateInputToIsoEndOfDayUtc,
@@ -292,20 +293,13 @@ export default function UserEditorForm({
   };
 
   const selectClass = (hasError: boolean) =>
-    `w-full min-w-0 h-10 min-h-10 shrink-0 box-border px-3 py-0 text-sm leading-normal rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${
-      hasError
-        ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
-        : 'border-gray-300 dark:border-gray-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40'
-    }`;
+    formControlClass({ error: hasError, className: 'w-full min-w-0' });
 
   const sectionClass =
     'rounded-lg border p-3 sm:p-3.5 space-y-2.5 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60';
 
   const sectionTitleClass =
     'text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider';
-
-  const fieldLabelClass =
-    'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   const requiredMark = (
     <span className="text-red-600 dark:text-red-400 ml-0.5 font-medium" aria-hidden="true">
@@ -441,7 +435,7 @@ export default function UserEditorForm({
         <h4 className={sectionTitleClass}>{t('users.additionalInfo')}</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
           <div>
-            <label htmlFor={`${formId}-account-type`} className={fieldLabelClass}>
+            <label htmlFor={`${formId}-account-type`} className={formLabelClass()}>
               {t('profile.accountType')}
               {requiredMark}
             </label>
@@ -473,7 +467,7 @@ export default function UserEditorForm({
           </div>
          
           <div>
-            <label htmlFor={`${formId}-public-type`} className={fieldLabelClass}>
+            <label htmlFor={`${formId}-public-type`} className={formLabelClass()}>
               {t('users.publicType')}
               {requiredMark}
             </label>
@@ -511,7 +505,7 @@ export default function UserEditorForm({
             error={fieldErrors.birthdate}
           />
           <div>
-            <label htmlFor={`${formId}-sex`} className={fieldLabelClass}>
+            <label htmlFor={`${formId}-sex`} className={formLabelClass()}>
               {t('users.sex')}
               {requiredMark}
             </label>
@@ -567,7 +561,7 @@ export default function UserEditorForm({
           </div>
 
           <div ref={communeWrapRef} className="relative min-w-0">
-            <label htmlFor={`${formId}-commune-lookup`} className={fieldLabelClass}>
+            <label htmlFor={`${formId}-commune-lookup`} className={formLabelClass()}>
               {t('users.cityPostalLookup')}
               {requiredMark}
             </label>
@@ -601,10 +595,10 @@ export default function UserEditorForm({
                 autoComplete="off"
                 aria-invalid={!!fieldErrors.addrCity}
                 aria-describedby={fieldErrors.addrCity ? `${formId}-city-postal-error` : undefined}
-                className={`w-full rounded-lg border box-border bg-white dark:bg-gray-900 h-10 min-h-10 shrink-0 pl-4 pr-9 py-0 text-sm leading-normal
-                text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
-                ${fieldErrors.addrCity ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}
-                focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40`}
+                className={formControlClass({
+                  error: !!fieldErrors.addrCity,
+                  className: 'w-full pr-9',
+                })}
               />
               {communeLookupLoading && (
                 <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none" aria-hidden>
@@ -699,7 +693,7 @@ export default function UserEditorForm({
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           rows={3}
-          className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
+          className={formTextareaClass({ className: 'resize-none' })}
           aria-label={t('users.notes')}
         />
       </CollapsibleFormSection>

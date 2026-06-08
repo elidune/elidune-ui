@@ -24,6 +24,7 @@ import { getApiErrorMessage } from '@/utils/apiError';
 import { sortLoansByStartDateAsc } from '@/utils/sortLoans';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { LoanMediaTypeBadge } from '@/utils/mediaTypeIcon';
+import { formControlClass, formLabelClass, formChoiceLabelClass } from '@/utils/formControl';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/types';
 import type { User as UserType, Loan, UserShort, OverdueLoanInfo, ReminderReport } from '@/types';
@@ -658,7 +659,7 @@ export default function LoansPage() {
                   <div className="space-y-5">
                     {/* User barcode scan */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label className={formLabelClass()}>
                         {t('loans.scanUserCard')}
                       </label>
                       <form
@@ -693,7 +694,7 @@ export default function LoansPage() {
 
                     {/* User search */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <label className={formLabelClass()}>
                         {t('loans.searchByName')}
                       </label>
                       <div className="relative">
@@ -1254,7 +1255,7 @@ export default function LoansPage() {
                     {t('loans.overdueTotal', { total: overdueData.total })}
                   </span>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                    <label className={formChoiceLabelClass()}>
                       {t('common.perPage')}
                       <select
                         value={overduePerPage}
@@ -1262,7 +1263,7 @@ export default function LoansPage() {
                           setOverduePerPage(Number(e.target.value));
                           setOverduePage(1);
                         }}
-                        className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm"
+                        className={formControlClass()}
                       >
                         {[25, 50, 100, 200].map((n) => (
                           <option key={n} value={n}>

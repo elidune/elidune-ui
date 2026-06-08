@@ -41,6 +41,7 @@ import { RenewSubscriptionModal, UserEditorForm } from '@/components/users';
 import { useAuth } from '@/contexts/AuthContext';
 import { isLibrarian, type User as UserType, type Loan, type LoanStatsResponse, type AdvancedStatsParams, type StatsInterval, type Author, type Hold } from '@/types';
 import { accountTypeDisplayName } from '@/utils/accountTypeDisplay';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import { LoanMediaTypeBadge } from '@/utils/mediaTypeIcon';
 
 const USER_LOANS_PAGE_SIZE = 20;
@@ -404,7 +405,7 @@ export default function UserDetailPage() {
   if (!user) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Usager non trouvé</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('users.detailNotFound')}</p>
       </div>
     );
   }
@@ -420,7 +421,7 @@ export default function UserDetailPage() {
       }}
       className="text-left font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
     >
-      {loan.biblio.title || 'Sans titre'}
+      {loan.biblio.title || t('items.noTitle')}
     </button>
   );
 
@@ -432,7 +433,7 @@ export default function UserDetailPage() {
   const loanColumnsActive = [
     {
       key: 'title',
-      header: 'Document',
+      header: t('loans.document'),
       render: (loan: Loan) => (
         <div className="flex items-start gap-3 min-w-0">
           <LoanMediaTypeBadge mediaType={loan.biblio.mediaType} size="table" />
@@ -442,27 +443,27 @@ export default function UserDetailPage() {
     },
     {
       key: 'date',
-      header: 'Date emprunt',
+      header: t('loans.borrowDate'),
       render: (loan: Loan) =>
-        new Date(loan.startDate).toLocaleDateString('fr-FR'),
+        new Date(loan.startDate).toLocaleDateString(i18n.language),
     },
     {
       key: 'expiryAt',
-      header: 'Échéance',
+      header: t('loans.dueDate'),
       render: (loan: Loan) => (
         <div className="flex items-center gap-2">
-          <span>{new Date(loan.expiryAt).toLocaleDateString('fr-FR')}</span>
+          <span>{new Date(loan.expiryAt).toLocaleDateString(i18n.language)}</span>
         </div>
       ),
     },
     {
       key: 'renews',
-      header: 'Prolongations',
+      header: t('loans.renewals'),
       render: (loan: Loan) => loan.nbRenews,
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: t('common.actions'),
       align: 'right' as const,
       render: (loan: Loan) => (
         <div className="flex items-center justify-end gap-2 flex-wrap">
@@ -475,7 +476,7 @@ export default function UserDetailPage() {
             }}
             leftIcon={<RotateCcw className="h-4 w-4" />}
           >
-            Prolonger
+            {t('loans.renew')}
           </Button>
           <Button
             size="sm"
@@ -486,7 +487,7 @@ export default function UserDetailPage() {
             }}
             leftIcon={<Check className="h-4 w-4" />}
           >
-            Retour
+            {t('loans.return')}
           </Button>
         </div>
       ),
@@ -496,7 +497,7 @@ export default function UserDetailPage() {
   const loanColumnsPast = [
     {
       key: 'title',
-      header: 'Document',
+      header: t('loans.document'),
       render: (loan: Loan) => (
         <div className="flex items-start gap-3 min-w-0">
           <LoanMediaTypeBadge mediaType={loan.biblio.mediaType} size="table" />
@@ -506,18 +507,18 @@ export default function UserDetailPage() {
     },
     {
       key: 'date',
-      header: 'Date emprunt',
-      render: (loan: Loan) => new Date(loan.startDate).toLocaleDateString('fr-FR'),
+      header: t('loans.borrowDate'),
+      render: (loan: Loan) => new Date(loan.startDate).toLocaleDateString(i18n.language),
     },
     {
       key: 'returnedAt',
-      header: 'Date retour',
+      header: t('loans.returnDate'),
       render: (loan: Loan) =>
-        loan.returnedAt ? new Date(loan.returnedAt).toLocaleDateString('fr-FR') : '-',
+        loan.returnedAt ? new Date(loan.returnedAt).toLocaleDateString(i18n.language) : '-',
     },
     {
       key: 'renews',
-      header: 'Prolongations',
+      header: t('loans.renewals'),
       render: (loan: Loan) => loan.nbRenews,
     },
   ];
@@ -581,7 +582,7 @@ export default function UserDetailPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.startDate')}
               </label>
               <Input
@@ -591,7 +592,7 @@ export default function UserDetailPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.endDate')}
               </label>
               <Input
@@ -601,7 +602,7 @@ export default function UserDetailPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.intervalLabel')}
               </label>
               <select
@@ -612,7 +613,7 @@ export default function UserDetailPage() {
                     interval: e.target.value as StatsInterval,
                   })
                 }
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className={formControlClass({ className: 'w-full' })}
               >
                 {STATS_INTERVALS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -959,18 +960,18 @@ export default function UserDetailPage() {
       <Modal
         isOpen={loanDetails !== null}
         onClose={() => setLoanDetails(null)}
-        title="Détails de l'emprunt"
+        title={t('loans.loanDetails')}
         size="md"
       >
         {loanDetails && (
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Document</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('loans.document')}</p>
               <div className="flex items-start gap-3 mt-1">
                 <LoanMediaTypeBadge mediaType={loanDetails.biblio.mediaType} size="table" />
                 <div className="min-w-0">
                   <p className="text-gray-900 dark:text-white font-medium">
-                    {loanDetails.biblio.title || 'Sans titre'}
+                    {loanDetails.biblio.title || t('items.noTitle')}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     {formatAuthor(loanDetails.biblio.author)}
@@ -1102,7 +1103,7 @@ export default function UserDetailPage() {
       <Modal
         isOpen={showBorrowModal}
         onClose={() => setShowBorrowModal(false)}
-        title="Nouvel emprunt"
+        title={t('loans.newLoan')}
         footer={
           <div className="flex justify-end gap-2">
             <Button type="submit" form="borrow-user-form" isLoading={isBorrowLoading}>

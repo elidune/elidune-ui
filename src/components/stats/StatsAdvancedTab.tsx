@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import api from '@/services/api';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import type {
   StatsSchema,
   StatsSchemaEntity,
@@ -36,8 +37,7 @@ const STATS_EDITOR_ROW =
   'flex flex-nowrap gap-2 items-center overflow-x-auto min-w-0 pb-0.5';
 
 /** Native `<select>` styled like `Input` (same height, border, text, focus). */
-const STATS_ROW_SELECT =
-  'rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 h-10 min-h-10 box-border px-4 py-0 text-sm leading-normal text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40 focus:outline-none';
+const STATS_ROW_SELECT = formControlClass();
 
 /** Extra classes for `<Input>` in stats rows (matches shared `Input` sizing). */
 const STATS_ROW_INPUT = 'text-sm';
@@ -711,7 +711,7 @@ export default function StatsAdvancedTab() {
         {body && schema && (
           <div className="space-y-4 px-1 max-h-[70vh] overflow-y-auto">
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.advanced.saveName')}
               </label>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
@@ -744,7 +744,7 @@ export default function StatsAdvancedTab() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.advanced.saveDescription')}
               </label>
               <Input value={saveDescription} onChange={(e) => setSaveDescription(e.target.value)} />
@@ -1264,7 +1264,7 @@ export default function StatsAdvancedTab() {
 
             <section className={`${STATS_EDITOR_BLOCK_SHELL} flex flex-wrap gap-4 items-end`}>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">limit</label>
+                <label className={formLabelClass()}>limit</label>
                 <Input
                   type="number"
                   className="w-28"
@@ -1275,7 +1275,7 @@ export default function StatsAdvancedTab() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">offset</label>
+                <label className={formLabelClass()}>offset</label>
                 <Input
                   type="number"
                   className="w-28"

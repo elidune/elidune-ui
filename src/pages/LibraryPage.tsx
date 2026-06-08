@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Card, Button, Input, Modal } from '@/components/common';
 import api from '@/services/api';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import type {
   LibraryInfo,
   SchedulePeriod,
@@ -129,7 +130,7 @@ function GeneralTab() {
     opts?: { type?: string; placeholder?: string; half?: boolean }
   ) => (
     <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <label className={formLabelClass()}>
         {t(labelKey)}
       </label>
       <Input
@@ -198,7 +199,7 @@ function GeneralTab() {
         {/* Phones */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className={formLabelClass({ marginBottom: false, inline: true })}>
               {t('library.general.phones')}
             </label>
             <button
@@ -684,7 +685,7 @@ function HoursTab() {
             <p className="text-sm text-red-600 dark:text-red-400">{periodError}</p>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('library.hours.periodName')} *
             </label>
             <Input
@@ -695,7 +696,7 @@ function HoursTab() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('library.hours.startDate')} *
               </label>
               <Input
@@ -705,7 +706,7 @@ function HoursTab() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('library.hours.endDate')} *
               </label>
               <Input
@@ -716,7 +717,7 @@ function HoursTab() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('library.hours.notes')}
             </label>
             <Input
@@ -749,7 +750,7 @@ function HoursTab() {
         <div className="space-y-4">
           {slotError && <p className="text-sm text-red-600 dark:text-red-400">{slotError}</p>}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('library.hours.day')}
             </label>
             <select
@@ -757,7 +758,7 @@ function HoursTab() {
               onChange={(e) =>
                 setSlotForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))
               }
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className={formControlClass({ className: 'w-full' })}
             >
               {DAYS_OF_WEEK.map((d) => (
                 <option key={d} value={d}>
@@ -768,7 +769,7 @@ function HoursTab() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('library.hours.openTime')}
               </label>
               <Input
@@ -778,7 +779,7 @@ function HoursTab() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('library.hours.closeTime')}
               </label>
               <Input
@@ -810,7 +811,7 @@ function HoursTab() {
             <p className="text-sm text-red-600 dark:text-red-400">{closureError}</p>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('library.hours.closureDate')} *
             </label>
             <Input
@@ -822,7 +823,7 @@ function HoursTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('library.hours.closureReason')}
             </label>
             <Input

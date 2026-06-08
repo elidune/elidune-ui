@@ -23,6 +23,7 @@ import {
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import { useAuth } from '@/contexts/AuthContext';
 import { canManageItems, canPatronSelfServiceHolds, isLibrarian, type MediaType } from '@/types';
 import PlaceHoldDialog from '@/components/holds/PlaceHoldDialog';
@@ -254,7 +255,7 @@ export default function BiblioDetailPage() {
   if (!item) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Document non trouvé</p>
+        <p className="text-gray-500 dark:text-gray-400">{t('items.biblioNotFound')}</p>
       </div>
     );
   }
@@ -313,7 +314,7 @@ export default function BiblioDetailPage() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              {item.title || 'Sans titre'}
+              {item.title || t('items.noTitle')}
             </h1>
             <div className="flex items-center gap-2 mt-2">
               <Badge>
@@ -327,7 +328,7 @@ export default function BiblioDetailPage() {
                   {getCodeLabel(t, PUBLIC_TYPE_OPTIONS, item.audienceType)}
                 </Badge>
               )}
-              {item.isValid === 0 && <Badge variant="warning">Non validé</Badge>}
+              {item.isValid === 0 && <Badge variant="warning">{t('items.notValidated')}</Badge>}
             </div>
           </div>
         </div>
@@ -343,10 +344,10 @@ export default function BiblioDetailPage() {
               }
               leftIcon={<Edit className="h-4 w-4" />}
             >
-              Modifier
+              {t('common.edit')}
             </Button>
             <Button variant="danger" onClick={() => setShowDeleteModal(true)} leftIcon={<Trash2 className="h-4 w-4" />}>
-              Supprimer
+              {t('common.delete')}
             </Button>
           </div>
         )}
@@ -671,7 +672,7 @@ export default function BiblioDetailPage() {
           setDeleteItemBorrowedError(false);
           setDeleteBiblioApiError(null);
         }}
-        title="Confirmer la suppression"
+        title={t('common.confirmDeletion')}
         size="sm"
         footer={
           <div className="flex justify-end gap-2">
@@ -684,7 +685,7 @@ export default function BiblioDetailPage() {
                 setDeleteBiblioApiError(null);
               }}
             >
-              Annuler
+              {t('common.cancel')}
             </Button>
             {deleteItemBorrowedError ? (
               <Button variant="danger" disabled={deleteItemLoading} onClick={() => handleDelete(true)}>
@@ -692,7 +693,7 @@ export default function BiblioDetailPage() {
               </Button>
             ) : (
               <Button variant="danger" disabled={deleteItemLoading} onClick={() => handleDelete(false)}>
-                Supprimer
+                {t('common.delete')}
               </Button>
             )}
           </div>
@@ -701,7 +702,7 @@ export default function BiblioDetailPage() {
         <p className="text-gray-600 dark:text-gray-300">
           {deleteItemBorrowedError
             ? t('items.itemBorrowedForceDelete')
-            : t('items.deleteConfirm', { title: item.title || 'Sans titre' })}
+            : t('items.deleteConfirm', { title: item.title || t('items.noTitle') })}
         </p>
         {deleteBiblioApiError && (
           <p className="mt-3 text-sm text-red-600 dark:text-red-400">{deleteBiblioApiError}</p>
@@ -1036,13 +1037,13 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
         placeholder="e.g. t. 2"
       />
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {t('items.source')}
         </label>
         <select
           value={formData.sourceId}
           onChange={(e) => setFormData({ ...formData, sourceId: e.target.value })}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-full' })}
         >
           <option value="">{t('items.selectSource')}</option>
           {sources.map((src) => (
@@ -1054,7 +1055,7 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {t('items.borrowable')}
         </label>
         <select
@@ -1062,7 +1063,7 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
           onChange={(e) =>
             setFormData({ ...formData, borrowable: e.target.value as 'true' | 'false' })
           }
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-full' })}
         >
           <option value="true">{t('items.borrowableYes')}</option>
           <option value="false">{t('items.borrowableNo')}</option>
@@ -1173,13 +1174,13 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
         placeholder="e.g. t. 2"
       />
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {t('items.source')}
         </label>
         <select
           value={formData.sourceId}
           onChange={(e) => setFormData({ ...formData, sourceId: e.target.value })}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-full' })}
         >
           <option value="">{t('items.selectSource')}</option>
           {sources.map((src) => (
@@ -1191,13 +1192,13 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {t('items.borrowable')}
         </label>
         <select
           value={formData.borrowable}
           onChange={(e) => setFormData({ ...formData, borrowable: e.target.value as '' | 'true' | 'false' })}
-          className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-full' })}
         >
           <option value="">{t('items.notSpecified')}</option>
           <option value="true">{t('items.borrowableYes')}</option>

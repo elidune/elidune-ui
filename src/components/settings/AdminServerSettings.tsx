@@ -28,7 +28,8 @@ import {
 } from '@/components/settings/EliduneMaintenancePanels';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
-import type { AdminConfigSectionKey, ConfigSectionInfo } from '@/types';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
+import { LOG_ROTATION_OPTIONS, type AdminConfigSectionKey, type ConfigSectionInfo } from '@/types';
 
 function CollapsibleSectionCard({
   sectionKey,
@@ -320,6 +321,22 @@ export default function AdminServerSettings() {
   const num = (v: unknown, d: number) => (typeof v === 'number' && !Number.isNaN(v) ? v : d);
   const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
 
+  const saveLogging = () => {
+    const output = str(loggingValue.output) || 'stdout';
+    const filePath = str(loggingValue.file_path).trim();
+    if (output === 'file' && !filePath) {
+      setError(t('settings.server.logFilePathRequired'));
+      return;
+    }
+    const payload: Record<string, unknown> = { ...loggingValue };
+    delete payload.overridable;
+    if (output === 'file') {
+      payload.file_path = filePath;
+      payload.file_rotation = str(loggingValue.file_rotation) || 'daily';
+    }
+    void saveSection('logging', payload);
+  };
+
   return (
     <Card className="rounded-2xl border-gray-200/80 dark:border-gray-800/80 shadow-sm overflow-hidden">
       <CardHeader title={t('settings.server.title')} subtitle={t('settings.server.subtitle')} />
@@ -520,14 +537,14 @@ export default function AdminServerSettings() {
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <label className={formLabelClass({ marginBottom: false })}>
                     {t('settings.server.logLevel')}
                   </label>
                   <select
                     value={str(loggingValue.level) || 'info'}
                     onChange={(e) => setLoggingValue((v) => ({ ...v, level: e.target.value }))}
                     disabled={!loggingMeta.overridable}
-                    className="px-2 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                    className={formControlClass({ className: 'w-full' })}
                   >
                     {['trace', 'debug', 'info', 'warn', 'error'].map((l) => (
                       <option key={l} value={l}>
@@ -537,14 +554,14 @@ export default function AdminServerSettings() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <label className={formLabelClass({ marginBottom: false })}>
                     {t('settings.server.logFormat')}
                   </label>
                   <select
                     value={str(loggingValue.format) || 'pretty'}
                     onChange={(e) => setLoggingValue((v) => ({ ...v, format: e.target.value }))}
                     disabled={!loggingMeta.overridable}
-                    className="px-2 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                    className={formControlClass({ className: 'w-full' })}
                   >
                     {['pretty', 'plain', 'json'].map((l) => (
                       <option key={l} value={l}>
@@ -554,14 +571,14 @@ export default function AdminServerSettings() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <label className={formLabelClass({ marginBottom: false })}>
                     {t('settings.server.logOutput')}
                   </label>
                   <select
                     value={str(loggingValue.output) || 'stdout'}
                     onChange={(e) => setLoggingValue((v) => ({ ...v, output: e.target.value }))}
                     disabled={!loggingMeta.overridable}
-                    className="px-2 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                    className={formControlClass({ className: 'w-full' })}
                   >
                     {['stdout', 'stderr', 'file', 'syslog'].map((l) => (
                       <option key={l} value={l}>
@@ -570,21 +587,37 @@ export default function AdminServerSettings() {
                     ))}
                   </select>
                 </div>
-                <Input
-                  label={t('settings.server.logFilePath')}
-                  value={str(loggingValue.file_path)}
-                  onChange={(e) => setLoggingValue((v) => ({ ...v, file_path: e.target.value || null }))}
-                  disabled={!loggingMeta.overridable}
-                />
-                <Input
-                  label={t('settings.server.logFileRotation')}
-                  value={str(loggingValue.file_rotation)}
-                  onChange={(e) =>
-                    setLoggingValue((v) => ({ ...v, file_rotation: e.target.value || null }))
-                  }
-                  disabled={!loggingMeta.overridable}
-                  placeholder="daily"
-                />
+                {(str(loggingValue.output) || 'stdout') === 'file' && (
+                  <>
+                    <Input
+                      label={t('settings.server.logFilePath')}
+                      value={str(loggingValue.file_path)}
+                      onChange={(e) =>
+                        setLoggingValue((v) => ({ ...v, file_path: e.target.value || null }))
+                      }
+                      disabled={!loggingMeta.overridable}
+                    />
+                    <div className="flex flex-col gap-1">
+                      <label className={formLabelClass({ marginBottom: false })}>
+                        {t('settings.server.logFileRotation')}
+                      </label>
+                      <select
+                        value={str(loggingValue.file_rotation) || 'daily'}
+                        onChange={(e) =>
+                          setLoggingValue((v) => ({ ...v, file_rotation: e.target.value }))
+                        }
+                        disabled={!loggingMeta.overridable}
+                        className={formControlClass({ className: 'w-full' })}
+                      >
+                        {LOG_ROTATION_OPTIONS.map((rotation) => (
+                          <option key={rotation} value={rotation}>
+                            {t(`settings.server.logRotation.${rotation}`)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
@@ -593,7 +626,7 @@ export default function AdminServerSettings() {
                   leftIcon={<Save className="h-4 w-4" />}
                   isLoading={savingKey === 'logging'}
                   disabled={!loggingMeta.overridable}
-                  onClick={() => void saveSection('logging', { ...loggingValue })}
+                  onClick={() => saveLogging()}
                 >
                   {t('common.save')}
                 </Button>
@@ -705,7 +738,7 @@ export default function AdminServerSettings() {
                   disabled={!emailMeta.overridable}
                 />
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <label className={formLabelClass({ marginBottom: false })}>
                     {t('settings.server.smtpPassword')}
                   </label>
                   <input
@@ -716,7 +749,7 @@ export default function AdminServerSettings() {
                     }
                     placeholder={smtpPasswordRedacted ? '••••••••' : ''}
                     disabled={!emailMeta.overridable}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm"
+                    className={formControlClass({ className: 'w-full' })}
                   />
                 </div>
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 sm:col-span-2">

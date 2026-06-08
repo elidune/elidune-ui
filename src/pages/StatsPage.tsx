@@ -28,6 +28,7 @@ import { Card, CardHeader, Badge, Table, Input, ScrollableListRegion } from '@/c
 import api from '@/services/api';
 import type { Stats, AdvancedStatsParams, MediaType, MediaTypeOption, StatsInterval, UserLoanStats, UserAggregateStats, CatalogStats, CatalogStatsBreakdown } from '@/types';
 import { translateStatLabel } from '@/utils/codeLabels';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import StatsAdvancedTab from '@/components/stats/StatsAdvancedTab';
 
 // Helper function to get translation key for media type
@@ -507,7 +508,7 @@ export default function StatsPage() {
                     const v = e.target.value;
                     setCatalogStatsYear(v === 'all' ? 'all' : Number(v));
                   }}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                  className={formControlClass()}
                 >
                   <option value="all">{t('stats.usersSection.allYears')}</option>
                   {yearOptions.map((y) => (
@@ -611,7 +612,7 @@ export default function StatsPage() {
                 <select
                   value={userStatsMode}
                   onChange={(e) => setUserStatsMode(e.target.value as UserStatsMode)}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                  className={formControlClass()}
                 >
                   <option value="aggregate">{t('stats.usersSection.modeAggregate')}</option>
                   <option value="leaderboard">{t('stats.usersSection.modeLeaderboard')}</option>
@@ -625,7 +626,7 @@ export default function StatsPage() {
                         const v = e.target.value;
                         setUserStatsAggregateYear(v === 'all' ? 'all' : Number(v));
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                      className={formControlClass()}
                     >
                       <option value="all">{t('stats.usersSection.allYears')}</option>
                       {yearOptions.map((y) => (
@@ -643,7 +644,7 @@ export default function StatsPage() {
                         const v = e.target.value;
                         setUserStatsLeaderboardYear(v === 'all' ? 'all' : Number(v));
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                      className={formControlClass()}
                     >
                       <option value="all">{t('stats.usersSection.allYears')}</option>
                       {yearOptions.map((y) => (
@@ -654,7 +655,7 @@ export default function StatsPage() {
                     <select
                       value={userSortBy}
                       onChange={(e) => setUserSortBy(e.target.value as typeof userSortBy)}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                      className={formControlClass()}
                     >
                       <option value="totalLoans">{t('stats.totalLoans')}</option>
                       <option value="activeLoans">{t('stats.activeLoansSort')}</option>
@@ -664,7 +665,7 @@ export default function StatsPage() {
                     <select
                       value={userStatsLimit}
                       onChange={(e) => setUserStatsLimit(Number(e.target.value))}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300"
+                      className={formControlClass()}
                     >
                       {[10, 20, 50, 100].map((n) => (
                         <option key={n} value={n}>{n}</option>
@@ -870,7 +871,7 @@ export default function StatsPage() {
         <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-800">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.startDate')}
               </label>
               <Input
@@ -880,7 +881,7 @@ export default function StatsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.endDate')}
               </label>
               <Input
@@ -890,13 +891,13 @@ export default function StatsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.intervalLabel')}
               </label>
               <select
                 value={interval}
                 onChange={(e) => setInterval(e.target.value as StatsInterval)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className={formControlClass({ className: 'w-full' })}
               >
                 {INTERVALS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -906,13 +907,13 @@ export default function StatsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.mediaType')}
               </label>
               <select
                 value={mediaType}
                 onChange={(e) => setMediaType(e.target.value as MediaType | '')}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className={formControlClass({ className: 'w-full' })}
               >
                 {MEDIA_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>

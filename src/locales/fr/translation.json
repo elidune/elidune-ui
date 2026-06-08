@@ -40,7 +40,11 @@
     "refresh": "Rafraîchir",
     "retry": "Réessayer",
     "expandSection": "Développer la section",
-    "collapseSection": "Réduire la section"
+    "collapseSection": "Réduire la section",
+    "validate": "Valider",
+    "confirmDeletion": "Confirmer la suppression",
+    "firstPage": "Première page",
+    "lastPage": "Dernière page"
   },
   "nav": {
     "home": "Accueil",
@@ -482,7 +486,9 @@
       "statusDeleted": "Supprimé",
       "statusDuplicate": "Doublon",
       "statusError": "Erreur"
-    }
+    },
+    "biblioNotFound": "Document non trouvé",
+    "notValidated": "Non validé"
   },
   "users": {
     "searchPlaceholder": "Rechercher par nom, prénom ou code-barre...",
@@ -533,7 +539,8 @@
     "noUsers": "Aucun usager trouvé",
     "subscriptionExpired": "Abonnement expiré",
     "subscriptionValidUntil": "Jusqu'au {{date}}",
-    "count_plural": "{{count}} usagers"
+    "count_plural": "{{count}} usagers",
+    "detailNotFound": "Usager non trouvé"
   },
   "z3950": {
     "dataFound": "Données trouvées et champs préremplis !",
@@ -577,7 +584,9 @@
     "confirmReplaceConfirm": "Remplacer la notice existante",
     "confirmReplaceExistingId": "ID existant : {{id}}",
     "confirmReplaceExplanation": "La notice existante n'a pas d'exemplaires et n'est pas archivée. Le remplacement modifiera uniquement la notice bibliographique.",
-    "documentsFound_plural": "{{count}} documents trouvés"
+    "documentsFound_plural": "{{count}} documents trouvés",
+    "port": "Port",
+    "database": "Base de données"
   },
   "catalog": {
     "searchOrCreateCollection": "Rechercher ou saisir une collection…",
@@ -769,7 +778,8 @@
     "overdueTotal": "{{total}} prêt(s) en retard au total",
     "sendRemindersConfirm": "Envoyer maintenant les e-mails de rappel pour les retards ? Les usagers éligibles recevront un e-mail regroupé (selon les règles du serveur).",
     "loanDate": "Date emprunt",
-    "count_plural": "{{count}} emprunts"
+    "count_plural": "{{count}} emprunts",
+    "returnDate": "Date retour"
   },
   "settings": {
     "server": {
@@ -811,6 +821,12 @@
       "logOutput": "Sortie",
       "logFilePath": "Chemin du fichier (si sortie = fichier)",
       "logFileRotation": "Rotation des fichiers",
+      "logRotation": {
+        "daily": "Quotidienne",
+        "weekly": "Hebdomadaire",
+        "monthly": "Mensuelle",
+        "never": "Jamais"
+      },
       "remindersEnabled": "Planificateur activé",
       "frequencyDays": "Jours min entre rappels (par prêt)",
       "sendTime": "Heure d'envoi quotidienne (HH:MM)",
@@ -823,7 +839,8 @@
         "general": "Général",
         "catalog": "Catalogue",
         "database": "Base de données"
-      }
+      },
+      "logFilePathRequired": "Le chemin du fichier est requis lorsque la sortie est « fichier »."
     },
     "audit": {
       "loadError": "Impossible de charger le journal d'audit",

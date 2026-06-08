@@ -14,6 +14,7 @@ import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { LIST_ROW_ICON_BTN, LIST_ROW_ICON_BTN_DANGER } from '@/utils/listRowActionIconClass';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
 import { LoanMediaTypeBadge, mediaTypeIconBadgeBgClass, renderMediaTypeIcon } from '@/utils/mediaTypeIcon';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 type CatalogTab = 'catalog' | 'collections' | 'series';
 
@@ -585,7 +586,7 @@ export default function BibliosPage() {
               <div className="flex flex-col gap-1.5 w-[11rem] shrink-0">
                 <label
                   htmlFor="catalog-media-type"
-                  className="text-xs font-medium text-gray-600 dark:text-gray-400"
+                  className={formLabelClass({ marginBottom: false })}
                 >
                   {t('items.mediaTypeLabel')}
                 </label>
@@ -593,7 +594,7 @@ export default function BibliosPage() {
                   id="catalog-media-type"
                   value={mediaType}
                   onChange={(e) => setMediaType(e.target.value as MediaType | '')}
-                  className="h-10 w-full px-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                  className={formControlClass({ className: 'w-full' })}
                 >
                   {MEDIA_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
@@ -605,7 +606,7 @@ export default function BibliosPage() {
               <div className="flex flex-col gap-1.5 w-[11rem] shrink-0">
                 <label
                   htmlFor="catalog-audience-type"
-                  className="text-xs font-medium text-gray-600 dark:text-gray-400"
+                  className={formLabelClass({ marginBottom: false })}
                 >
                   {t('items.publicType')}
                 </label>
@@ -613,7 +614,7 @@ export default function BibliosPage() {
                   id="catalog-audience-type"
                   value={audienceType}
                   onChange={(e) => setAudienceType(e.target.value)}
-                  className="h-10 w-full px-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                  className={formControlClass({ className: 'w-full' })}
                 >
                   <option value="">{t('items.allPublicTypes')}</option>
                   {PUBLIC_TYPE_OPTIONS.map((opt) => (
@@ -626,7 +627,7 @@ export default function BibliosPage() {
               <div className="flex flex-col gap-1.5 w-[min(14rem,max-content)] shrink-0">
                 <span
                   id="catalog-include-without-items-label"
-                  className="text-xs font-medium text-gray-600 dark:text-gray-400 leading-snug"
+                  className={formLabelClass({ marginBottom: false, className: 'leading-snug' })}
                 >
                   {t('items.includeWithoutActiveItems')}
                 </span>

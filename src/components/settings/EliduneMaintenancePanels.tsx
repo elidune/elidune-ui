@@ -24,6 +24,7 @@ import {
   formatMaintenanceFileSize,
   isZ3950RefreshDetails,
 } from '@/hooks/settings/useEliduneMaintenance';
+import { formControlClass } from '@/utils/formControl';
 
 type MaintenancePanelsProps = {
   error: string | null;
@@ -225,7 +226,7 @@ export function EliduneCatalogMaintenancePanel({
                 onChange={(e) => setZ3950ServerId(e.target.value)}
                 title={t('settings.maintenance.z3950Server')}
                 aria-label={t('settings.maintenance.z3950Server')}
-                className="min-w-[12rem] max-w-full flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                className={formControlClass({ className: 'min-w-[12rem] max-w-full flex-1' })}
               >
                 {activeZ3950Servers.map((s) => (
                   <option key={s.id} value={s.id}>

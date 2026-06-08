@@ -15,6 +15,7 @@ import {
 import { Input, Button, ConfirmDialog } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
+import { formControlClass, formTextareaClass, formLabelClass } from '@/utils/formControl';
 import api from '@/services/api';
 import type { Author, Biblio, CreateBiblioItemInput, MediaType, MediaTypeOption, Source, Z3950Server, Serie, Collection } from '@/types';
 import { LANG_OPTIONS, FUNCTION_OPTIONS, PUBLIC_TYPE_OPTIONS } from '@/utils/codeLabels';
@@ -165,11 +166,11 @@ const BIBLIO_SPECIMENS_SECTION =
   'rounded-lg border border-amber-300/80 dark:border-amber-700/50 p-4 space-y-4 bg-amber-100/90 dark:bg-amber-950/35 shadow-sm';
 
 /** Matches common `Input` control height */
-const BIBLIO_FORM_SELECT =
-  'w-full h-10 min-h-10 shrink-0 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-0 text-sm text-gray-900 dark:text-gray-100 box-border focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40';
+const BIBLIO_FORM_SELECT = formControlClass({ className: 'w-full' });
 
-const BIBLIO_FORM_SELECT_COMPACT =
-  'shrink-0 h-10 min-h-10 w-[min(100%,11rem)] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-0 text-sm text-gray-900 dark:text-gray-100 box-border focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40';
+const BIBLIO_FORM_SELECT_COMPACT = formControlClass({
+  className: 'shrink-0 w-[min(100%,11rem)]',
+});
 
 function BiblioFormCollapsibleSection({
   sectionId,
@@ -891,7 +892,7 @@ export default function BiblioEditorForm({
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('items.mediaTypeLabel')}
             </label>
             <select
@@ -941,14 +942,14 @@ export default function BiblioEditorForm({
           className="font-mono"
         />
 
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className={formLabelClass()}>
             {t('items.abstract')}
           </label>
           <textarea
             value={formData.abstract}
             onChange={(e) => setFormData({ ...formData, abstract: e.target.value })}
             rows={6}
-            className="w-full min-h-[9rem] px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-y"
+            className={formTextareaClass({ className: 'min-h-[9rem]' })}
           />
         </div>
              
@@ -962,7 +963,7 @@ export default function BiblioEditorForm({
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('items.publicType')}
             </label>
             <select
@@ -979,7 +980,7 @@ export default function BiblioEditorForm({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('items.language')}
             </label>
             <select

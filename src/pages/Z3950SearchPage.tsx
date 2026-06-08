@@ -19,6 +19,7 @@ import api from '@/services/api';
 import type { Biblio, Author, Z3950Server, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import type { AxiosError } from 'axios';
 
 
@@ -365,7 +366,7 @@ export default function Z3950SearchPage() {
         <form onSubmit={handleSearch} className="space-y-4">
           {/* Server selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className={formLabelClass()}>
               <div className="flex items-center gap-2">
                 <Server className="h-4 w-4" />
                 {t('z3950.server')}
@@ -426,13 +427,13 @@ export default function Z3950SearchPage() {
             />
             {/* Max results selector */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className={formLabelClass()}>
                 {t('z3950.maxResults')}
               </label>
               <select
                 value={maxResults}
                 onChange={(e) => setMaxResults(Number(e.target.value))}
-                className="w-auto min-w-20 rounded-lg border bg-white dark:bg-gray-900 px-3 py-2.5 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
+                className={formControlClass({ className: 'w-auto min-w-20' })}
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -632,7 +633,7 @@ export default function Z3950SearchPage() {
 
             {/* Source selector (required for /z3950/import) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className={formLabelClass()}>
                 {t('items.source')} <span className="text-red-500">*</span>
               </label>
               {sourcesError ? (
@@ -643,7 +644,7 @@ export default function Z3950SearchPage() {
                 <select
                   value={selectedSourceId || ''}
                   onChange={(e) => setSelectedSourceId(e.target.value || null)}
-                  className="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-2.5 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40"
+                  className={formControlClass({ className: 'w-full' })}
                 >
                   <option value="">{t('z3950.selectSource')}</option>
                   {sources.map((source) => (
@@ -659,7 +660,7 @@ export default function Z3950SearchPage() {
             {/* Specimens */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className={formLabelClass({ marginBottom: false })}>
                   {t('z3950.specimensToCreate')}
                 </label>
                 <Button

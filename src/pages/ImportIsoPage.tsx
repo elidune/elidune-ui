@@ -262,6 +262,7 @@ function getDuplicateExistingIdFromFailure(failure: MarcBatchImportError): strin
 type MarcImportTaskContext = { mode: 'all' };
 
 import { formatMarcTaskProgressMessage } from '@/utils/backgroundTaskDisplay';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 function getSubfield(fieldData: string, code: string, delimiter = SUBFIELD_DELIMITER): string | undefined {
   const parts = fieldData.split(delimiter);
   for (const part of parts) {
@@ -1799,13 +1800,13 @@ export default function ImportIsoPage() {
             {/* Source selector (required before import) */}
             <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex flex-wrap items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                <label className={formLabelClass({ marginBottom: false, inline: true, className: 'shrink-0' })}>
                   {t('importMarc.source')} :
                 </label>
                 <select
                   value={selectedSourceId ?? ''}
                   onChange={(e) => setSelectedSourceId(e.target.value || null)}
-                  className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                  className={formControlClass({ className: 'flex-1 min-w-[200px]' })}
                 >
                   <option value="">{t('importMarc.noSource')}</option>
                   {sources.map((source) => (
@@ -2268,7 +2269,7 @@ export default function ImportIsoPage() {
                     variant="ghost"
                     onClick={() => setCurrentPage(1)}
                     disabled={safePage === 1}
-                    aria-label="First page"
+                    aria-label={t('common.firstPage')}
                   >
                     «
                   </Button>
@@ -2295,7 +2296,7 @@ export default function ImportIsoPage() {
                     variant="ghost"
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={safePage === totalPages}
-                    aria-label="Last page"
+                    aria-label={t('common.lastPage')}
                   >
                     »
                   </Button>

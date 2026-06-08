@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import { ACCOUNT_TYPES_QUERY_KEY, useAccountTypesQuery } from '@/hooks/useAccountTypesQuery';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formControlClass } from '@/utils/formControl';
 import { isAdmin } from '@/types';
 import type { AccountTypeDefinition, AccountTypeRightLevel, UpdateAccountTypeRequest } from '@/types';
 
@@ -101,8 +102,9 @@ export default function AccountTypesSettings() {
     }
   };
 
-  const rightSelectClass =
-    'min-w-[4.5rem] max-w-[6rem] px-1.5 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs';
+  const rightSelectClass = formControlClass({
+    className: 'min-w-[4.5rem] max-w-[6rem] px-1.5 text-xs',
+  });
 
   if (isLoading && data === undefined) {
     return (

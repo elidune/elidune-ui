@@ -20,6 +20,7 @@ import HoldDocumentCell from '@/components/holds/HoldDocumentCell';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formControlClass, formLabelClass, formChoiceLabelClass } from '@/utils/formControl';
 import type { Hold } from '@/types';
 import { canPatronSelfServiceHolds } from '@/types';
 
@@ -178,7 +179,7 @@ export default function MyHoldsPage() {
           <div className="flex flex-wrap items-end gap-3">
             <fieldset className="flex flex-wrap gap-4">
               <legend className="sr-only">{t('holds.patronFilterLegend')}</legend>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <label className={formChoiceLabelClass()}>
                 <input
                   type="radio"
                   name="holds-filter"
@@ -188,7 +189,7 @@ export default function MyHoldsPage() {
                 />
                 {t('holds.filterOngoing')}
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <label className={formChoiceLabelClass()}>
                 <input
                   type="radio"
                   name="holds-filter"
@@ -200,7 +201,7 @@ export default function MyHoldsPage() {
               </label>
             </fieldset>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400" htmlFor="my-holds-per-page">
+              <label className={formLabelClass({ marginBottom: false })} htmlFor="my-holds-per-page">
                 {t('common.perPage')}
               </label>
               <select
@@ -210,7 +211,7 @@ export default function MyHoldsPage() {
                   setPerPage(Number(e.target.value));
                   setPage(1);
                 }}
-                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm min-w-[5rem]"
+                className={formControlClass({ className: 'min-w-[5rem]' })}
               >
                 {[10, 20, 50, 100].map((n) => (
                   <option key={n} value={n}>

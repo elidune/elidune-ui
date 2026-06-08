@@ -1,4 +1,5 @@
 import { forwardRef, InputHTMLAttributes, ReactNode, useId } from 'react';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -20,7 +21,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor={inputId} className={formLabelClass()}>
             {label}
             {required && (
               <span className="text-red-600 dark:text-red-400 ml-0.5 font-medium" aria-hidden="true">
@@ -41,19 +42,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             required={required}
             aria-invalid={error ? 'true' : undefined}
             aria-describedby={describedBy}
-            className={`
-              w-full rounded-lg border bg-white dark:bg-gray-900 box-border
-              h-10 min-h-10 shrink-0
-              ${leftIcon ? 'pl-10' : 'pl-4'} ${rightIcon ? 'pr-10' : 'pr-4'}
-              py-0 text-sm leading-normal
-              text-gray-900 dark:text-gray-100
-              placeholder-gray-400 dark:placeholder-gray-500
-              border-gray-300 dark:border-gray-700
-              focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/20 dark:focus-visible:ring-amber-500/40
-              disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-500
-              ${error ? 'border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20' : ''}
-              ${className}
-            `}
+            className={formControlClass({
+              error: !!error,
+              className: `w-full ${leftIcon ? 'pl-10' : ''} ${rightIcon ? 'pr-10' : ''} ${className}`,
+            })}
             {...props}
           />
           {rightIcon && (

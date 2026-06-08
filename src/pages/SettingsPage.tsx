@@ -11,6 +11,7 @@ import AuditLogViewer from '@/components/settings/AuditLogViewer';
 import { Card, CardHeader, Button, Input, Badge, ConfirmDialog } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
+import { formControlClass, formLabelClass, formChoiceLabelClass } from '@/utils/formControl';
 import { isAdmin } from '@/types';
 import type {
   Settings,
@@ -260,7 +261,7 @@ function SourceEditor() {
                   if (e.key === 'Escape') handleRenameCancel();
                 }}
                 autoFocus
-                className="flex-1 px-2 py-1 rounded border border-indigo-400 dark:border-indigo-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className={formControlClass({ className: 'flex-1' })}
               />
               <button
                 onClick={() => handleRenameConfirm(source.id)}
@@ -407,7 +408,7 @@ function SourceEditor() {
 
       {/* Toggle archived */}
       <div className="px-4 mb-3">
-        <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+        <label className={formChoiceLabelClass()}>
           <input
             type="checkbox"
             checked={showArchived}
@@ -443,7 +444,7 @@ function SourceEditor() {
               {t('settings.sources.mergeHint')}
             </p>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className={formLabelClass({ marginBottom: false })}>
                 {t('settings.sources.mergeName')}
               </label>
               <input
@@ -453,7 +454,7 @@ function SourceEditor() {
                 placeholder={t('settings.sources.mergeNamePlaceholder')}
                 autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter' && mergeName.trim()) handleMergeConfirm(); }}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className={formControlClass({ className: 'w-full' })}
               />
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -791,25 +792,25 @@ function PublicTypeEditForm({
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.name')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.name')}</label>
           <input
             type="text"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.label')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.label')}</label>
           <input
             type="text"
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          <label className={formLabelClass({ marginBottom: false })}>
             {t('settings.publicTypes.subscriptionDurationDays')}
           </label>
           <input
@@ -818,44 +819,44 @@ function PublicTypeEditForm({
             placeholder="—"
             value={form.subscriptionDurationDays}
             onChange={(e) => setForm((f) => ({ ...f, subscriptionDurationDays: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.loanDurationDays')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.loanDurationDays')}</label>
           <input
             type="number"
             min="0"
             placeholder="—"
             value={form.loanDurationDays}
             onChange={(e) => setForm((f) => ({ ...f, loanDurationDays: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.ageMin')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.ageMin')}</label>
           <input
             type="number"
             min="0"
             placeholder="—"
             value={form.ageMin}
             onChange={(e) => setForm((f) => ({ ...f, ageMin: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.ageMax')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.ageMax')}</label>
           <input
             type="number"
             min="0"
             placeholder="—"
             value={form.ageMax}
             onChange={(e) => setForm((f) => ({ ...f, ageMax: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.subscriptionPrice')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.subscriptionPrice')}</label>
           <input
             type="number"
             step="0.01"
@@ -863,18 +864,18 @@ function PublicTypeEditForm({
             placeholder="—"
             value={form.subscriptionPrice}
             onChange={(e) => setForm((f) => ({ ...f, subscriptionPrice: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('settings.publicTypes.maxLoans')}</label>
+          <label className={formLabelClass({ marginBottom: false })}>{t('settings.publicTypes.maxLoans')}</label>
           <input
             type="number"
             min="0"
             placeholder="—"
             value={form.maxLoans}
             onChange={(e) => setForm((f) => ({ ...f, maxLoans: e.target.value }))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+            className={formControlClass()}
           />
         </div>
       </div>
@@ -1059,7 +1060,7 @@ function PublicTypeLoanOverrideRow({
         <select
           value={row.mediaType ?? ''}
           onChange={(e) => onMediaTypeChange(row.key, e.target.value)}
-          className="max-w-[min(100%,14rem)] px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm min-w-[140px]"
+          className={formControlClass({ className: 'max-w-[min(100%,14rem)] min-w-[140px]' })}
           aria-label={t('settings.publicTypes.mediaType')}
         >
           {mediaTypeOptions.map((opt) => (
@@ -1074,7 +1075,7 @@ function PublicTypeLoanOverrideRow({
           type="number"
           value={row.duration}
           onChange={(e) => onFieldChange(row.key, { duration: parseInt(e.target.value, 10) || 0 })}
-          className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-20' })}
           min={1}
         />
       </td>
@@ -1083,7 +1084,7 @@ function PublicTypeLoanOverrideRow({
           type="number"
           value={row.nbMax}
           onChange={(e) => onFieldChange(row.key, { nbMax: parseInt(e.target.value, 10) || 0 })}
-          className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-20' })}
           min={1}
           title={
             row.mediaType == null
@@ -1102,7 +1103,7 @@ function PublicTypeLoanOverrideRow({
           type="number"
           value={row.nbRenews}
           onChange={(e) => onFieldChange(row.key, { nbRenews: parseInt(e.target.value, 10) || 0 })}
-          className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+          className={formControlClass({ className: 'w-20' })}
           min={0}
         />
       </td>
@@ -1113,7 +1114,7 @@ function PublicTypeLoanOverrideRow({
             const v = e.target.value;
             onFieldChange(row.key, { renewMode: v === 'inherit' ? 'inherit' : (v as LoanSettingsRenewAt) });
           }}
-          className="max-w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+          className={formControlClass({ className: 'max-w-full' })}
           aria-label={t('settings.publicTypes.renewAt')}
         >
           <option value="inherit">{t('settings.publicTypes.renewAtInherit')}</option>
@@ -1764,7 +1765,7 @@ export default function SettingsPage() {
                             v === '' ? null : (v as MediaType),
                           );
                         }}
-                        className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[140px]"
+                        className={formControlClass({ className: 'min-w-[140px]' })}
                       >
                         <option value="" disabled={defaultTakenElsewhere}>
                           {t('settings.mediaTypeDefault')}
@@ -1782,7 +1783,7 @@ export default function SettingsPage() {
                       type="number"
                       value={setting.durationDays}
                       onChange={(e) => updateLoanSetting(index, 'durationDays', parseInt(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                      className={formControlClass({ className: 'w-20' })}
                       min={1}
                     />
                   </td>
@@ -1791,7 +1792,7 @@ export default function SettingsPage() {
                       type="number"
                       value={setting.maxLoans}
                       onChange={(e) => updateLoanSetting(index, 'maxLoans', parseInt(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                      className={formControlClass({ className: 'w-20' })}
                       min={1}
                       title={
                         setting.mediaType == null
@@ -1810,7 +1811,7 @@ export default function SettingsPage() {
                       type="number"
                       value={setting.maxRenewals}
                       onChange={(e) => updateLoanSetting(index, 'maxRenewals', parseInt(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                      className={formControlClass({ className: 'w-20' })}
                       min={0}
                     />
                   </td>
@@ -1820,7 +1821,7 @@ export default function SettingsPage() {
                       onChange={(e) =>
                         updateLoanSetting(index, 'renewAt', e.target.value as LoanSettingsRenewAt)
                       }
-                      className="max-w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                      className={formControlClass({ className: 'max-w-full' })}
                       aria-label={t('settings.renewAt')}
                     >
                       <option value="now">{t('settings.renewAtNow')}</option>
@@ -1998,14 +1999,14 @@ export default function SettingsPage() {
                   onChange={(e) => updateZ3950Server(index, 'address', e.target.value)}
                 />
                 <Input
-                  label="Port"
+                  label={t('z3950.port')}
                   type="number"
                   value={server.port}
                   disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'port', parseInt(e.target.value))}
                 />
                 <Input
-                  label="Database"
+                  label={t('z3950.database')}
                   value={server.database || ''}
                   disabled={!server.isActive}
                   onChange={(e) => updateZ3950Server(index, 'database', e.target.value)}

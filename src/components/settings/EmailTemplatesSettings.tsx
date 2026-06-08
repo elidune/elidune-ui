@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formTextareaClass, formLabelClass } from '@/utils/formControl';
 import { canManageSettings } from '@/types';
 import type { EmailTemplateListItem, UpdateEmailTemplateRequest } from '@/types';
 import EmailTemplateHtmlEditor from '@/components/settings/EmailTemplateHtmlEditor';
@@ -304,7 +305,7 @@ export default function EmailTemplatesSettings() {
               />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('settings.emailTemplates.bodyPlain')}
                 </label>
                 <textarea
@@ -312,12 +313,12 @@ export default function EmailTemplatesSettings() {
                   onChange={(e) => setBodyPlain(e.target.value)}
                   disabled={!canEdit}
                   rows={10}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm resize-y min-h-[8rem] disabled:opacity-60"
+                  className={formTextareaClass({ className: 'font-mono min-h-[8rem]' })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('settings.emailTemplates.bodyHtml')}
                 </label>
                 <EmailTemplateHtmlEditor

@@ -5,6 +5,7 @@ import { Button, Input } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin, type MediaType, type MediaTypeOption } from '@/types';
 import api from '@/services/api';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 import type { StatsInterval, AdvancedStatsParams, UserShort } from '@/types';
 
 interface StatsFiltersProps {
@@ -130,7 +131,7 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
         <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.startDate')}
               </label>
               <Input
@@ -140,7 +141,7 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.endDate')}
               </label>
               <Input
@@ -150,13 +151,13 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.intervalLabel')}
               </label>
               <select
                 value={interval}
                 onChange={(e) => setInterval(e.target.value as StatsInterval)}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className={formControlClass({ className: 'w-full' })}
               >
                 {INTERVALS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -166,13 +167,13 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.mediaType')}
               </label>
               <select
                 value={mediaType}
                 onChange={(e) => setMediaType(e.target.value as MediaType | '')}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className={formControlClass({ className: 'w-full' })}
               >
                 {MEDIA_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -185,14 +186,14 @@ export default function StatsFilters({ onFiltersChange }: StatsFiltersProps) {
 
           {isUserAdmin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className={formLabelClass()}>
                 {t('stats.user')}
               </label>
               <select
                 value={selectedUserId || ''}
                 onChange={(e) => setSelectedUserId(e.target.value || undefined)}
                 disabled={isLoadingUsers}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 disabled:opacity-50"
+                className={formControlClass({ className: 'w-full' })}
               >
                 <option value="">{t('stats.allUsers')}</option>
                 {users.map((u) => (

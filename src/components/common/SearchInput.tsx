@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react';
+import { formControlClass } from '@/utils/formControl';
 
 interface SearchInputProps {
   value: string;
@@ -72,7 +73,9 @@ export default function SearchInput({
         }}
         placeholder={effectivePlaceholder}
         aria-label={effectivePlaceholder}
-        className={`w-full pl-10 ${localValue ? 'pr-10' : 'pr-4'} ${showSubmitButton ? 'sm:pr-28 pr-24' : ''} py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/20`}
+        className={formControlClass({
+          className: `w-full pl-10 ${localValue ? 'pr-10' : ''} ${showSubmitButton ? 'sm:pr-28 pr-24' : ''}`,
+        })}
       />
       {showSubmitButton && (
         <button

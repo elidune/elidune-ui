@@ -13,6 +13,7 @@ import { Card, CardHeader, Button, Input } from '@/components/common';
 import { Pagination } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formControlClass, formLabelClass, formChoiceLabelClass } from '@/utils/formControl';
 import type { AuditLogEntry } from '@/types';
 
 type OutcomeFilter = '' | 'success' | 'failure';
@@ -272,7 +273,7 @@ export default function AuditLogViewer() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label className={formLabelClass({ marginBottom: false })}>
               {t('settings.audit.eventType')}
             </label>
             <input
@@ -280,14 +281,14 @@ export default function AuditLogViewer() {
               value={draft.eventType}
               onChange={(e) => setDraft((d) => ({ ...d, eventType: e.target.value }))}
               placeholder="user.created"
-              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              className={formControlClass({ className: 'w-full' })}
             />
             <datalist id="audit-event-presets">
               {AUDIT_EVENT_PRESETS.flatMap((g) => g.types.map((type) => <option key={type} value={type} />))}
             </datalist>
           </div>
           <div className="flex flex-col gap-1 xl:col-span-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label className={formLabelClass({ marginBottom: false })}>
               {t('settings.audit.commonEvents')}
             </label>
             <select
@@ -297,7 +298,7 @@ export default function AuditLogViewer() {
                 if (v) setDraft((d) => ({ ...d, eventType: v }));
                 e.target.value = '';
               }}
-              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              className={formControlClass({ className: 'w-full' })}
             >
               <option value="">{t('settings.audit.commonEventsPlaceholder')}</option>
               {AUDIT_EVENT_PRESETS.map((g) => (
@@ -330,7 +331,7 @@ export default function AuditLogViewer() {
             placeholder="3"
           />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label className={formLabelClass({ marginBottom: false })}>
               {t('settings.audit.outcome')}
             </label>
             <select
@@ -338,7 +339,7 @@ export default function AuditLogViewer() {
               onChange={(e) =>
                 setDraft((d) => ({ ...d, outcome: e.target.value as OutcomeFilter }))
               }
-              className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
+              className={formControlClass({ className: 'w-full' })}
             >
               <option value="">{t('settings.audit.outcomeAny')}</option>
               <option value="success">{t('settings.audit.outcomeSuccess')}</option>
@@ -396,7 +397,7 @@ export default function AuditLogViewer() {
           >
             {t('settings.audit.exportCsv')}
           </Button>
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <label className={formChoiceLabelClass()}>
             <span>{t('common.perPage')}</span>
             <select
               value={perPage}
@@ -404,7 +405,7 @@ export default function AuditLogViewer() {
                 setPerPage(Number(e.target.value));
                 setPage(1);
               }}
-              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-sm"
+              className={formControlClass()}
             >
               {[25, 50, 100, 200, 500].map((n) => (
                 <option key={n} value={n}>

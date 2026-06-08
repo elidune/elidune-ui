@@ -28,6 +28,7 @@ import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { formatTaskProgressDetail, taskProgressPercent } from '@/utils/backgroundTaskDisplay';
+import { formControlClass, formTextareaClass, formLabelClass } from '@/utils/formControl';
 import type {
   InventorySession,
   CreateInventorySession,
@@ -621,14 +622,14 @@ export default function InventoryPage() {
             {inputSubTab === 'batch' && (
               <>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('inventory.batchHint')}</p>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className={formLabelClass()}>
                   {t('inventory.batchTextareaLabel')}
                 </label>
                 <textarea
                   value={batchText}
                   onChange={(e) => setBatchText(e.target.value)}
                   rows={6}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 font-mono"
+                  className={formTextareaClass({ className: 'font-mono' })}
                   placeholder={t('inventory.batchPlaceholder')}
                 />
                 {batchError && (
@@ -1153,7 +1154,7 @@ export default function InventoryPage() {
             placeholder={t('inventory.locationFilterHint')}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('inventory.scopeSource')}
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">{t('inventory.scopeSourceHint')}</p>
@@ -1168,7 +1169,7 @@ export default function InventoryPage() {
               <select
                 value={createScopeSourceId}
                 onChange={(e) => setCreateScopeSourceId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm"
+                className={formControlClass({ className: 'w-full' })}
               >
                 <option value="">{t('inventory.scopeAllSources')}</option>
                 {(sourcesQuery.data ?? []).map((source: Source) => (
@@ -1188,14 +1189,14 @@ export default function InventoryPage() {
             placeholder={t('inventory.scopePlacePlaceholder')}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className={formLabelClass()}>
               {t('inventory.notes')}
             </label>
             <textarea
               value={createNotes}
               onChange={(e) => setCreateNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100"
+              className={formTextareaClass()}
               placeholder={t('inventory.notesPlaceholder')}
             />
           </div>

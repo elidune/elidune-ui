@@ -38,7 +38,13 @@
     "copy": "Copy",
     "active": "Active",
     "refresh": "Refresh",
-    "retry": "Retry"
+    "retry": "Retry",
+    "expandSection": "Expand section",
+    "collapseSection": "Collapse section",
+    "validate": "Validate",
+    "confirmDeletion": "Confirm deletion",
+    "firstPage": "First page",
+    "lastPage": "Last page"
   },
   "nav": {
     "home": "Home",
@@ -58,7 +64,8 @@
     "profile": "My Profile",
     "logout": "Log out",
     "about": "About",
-    "privacy": "Privacy"
+    "privacy": "Privacy",
+    "tasks": "Tasks"
   },
   "theme": {
     "light": "Light",
@@ -479,7 +486,9 @@
       "statusDeleted": "Deleted",
       "statusDuplicate": "Duplicate",
       "statusError": "Error"
-    }
+    },
+    "biblioNotFound": "Record not found",
+    "notValidated": "Not validated"
   },
   "users": {
     "searchPlaceholder": "Search by name, first name or barcode...",
@@ -525,7 +534,13 @@
     "noUsers": "No users found",
     "subscriptionExpired": "Subscription expired",
     "subscriptionValidUntil": "Until {{date}}",
-    "count_plural": "{{count}} users"
+    "count_plural": "{{count}} users",
+    "cityPostalLookup": "City or postal code (lookup)",
+    "cityPostalLookupHint": "France data (government API). Fills postal code and city on selection.",
+    "cityPostalLookupPlaceholder": "e.g. Annecy or Annecy (74000)",
+    "communeSearchEmpty": "No matching municipality",
+    "communeSearchLoading": "Searching…",
+    "detailNotFound": "Patron not found"
   },
   "z3950": {
     "dataFound": "Data found and fields prefilled!",
@@ -569,7 +584,9 @@
     "confirmReplaceConfirm": "Replace existing record",
     "confirmReplaceExistingId": "Existing ID: {{id}}",
     "confirmReplaceExplanation": "The existing item has no specimens and is not archived. Replacing will modify only the bibliographic record.",
-    "documentsFound_plural": "{{count}} documents found"
+    "documentsFound_plural": "{{count}} documents found",
+    "port": "Port",
+    "database": "Database"
   },
   "catalog": {
     "searchOrCreateCollection": "Search or enter a collection…",
@@ -761,7 +778,8 @@
     "overdueTotal": "{{total}} overdue loan(s) total",
     "sendRemindersConfirm": "Send overdue reminder emails now? Eligible users will receive one email per batch (subject to server rules).",
     "loanDate": "Loan date",
-    "count_plural": "{{count}} loans"
+    "count_plural": "{{count}} loans",
+    "returnDate": "Return date"
   },
   "settings": {
     "server": {
@@ -803,6 +821,12 @@
       "logOutput": "Output",
       "logFilePath": "Log file path (if output is file)",
       "logFileRotation": "File rotation",
+      "logRotation": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "never": "Never"
+      },
       "remindersEnabled": "Scheduler enabled",
       "frequencyDays": "Min days between reminders (per loan)",
       "sendTime": "Daily send time (HH:MM)",
@@ -815,7 +839,8 @@
         "general": "General",
         "catalog": "Catalog",
         "database": "Database"
-      }
+      },
+      "logFilePathRequired": "Log file path is required when output is set to file."
     },
     "audit": {
       "loadError": "Could not load audit log",
@@ -1106,6 +1131,44 @@
       "running": "Task running…",
       "completed": "Task completed",
       "failed": "Task failed"
+    },
+    "consolidation": {
+      "archiving": "Archiving: {{deleted}} copy/copies, {{skipped}} skipped, {{archivedBiblios}} orphan record(s).",
+      "completedSummary": "{{deleted}} copy/copies archived, {{archivedBiblios}} orphan record(s).",
+      "notifyingReaders": "Sending emails to readers ({{count}} recipient(s))…",
+      "partialSummary": "{{deleted}} archived, {{skipped}} skipped — partial consolidation."
+    },
+    "dismiss": "Dismiss",
+    "drawer": {
+      "activeSubtitle": "{{count}} task(s) in progress",
+      "empty": "No recent tasks.",
+      "idleSubtitle": "No tasks in progress",
+      "title": "Activity"
+    },
+    "inventoryBatchScan": {
+      "completedSummary": "{{count}} scan(s) recorded."
+    },
+    "kind": {
+      "inventoryBatchScan": "Inventory scan (batch)",
+      "inventoryConsolidation": "Inventory consolidation",
+      "maintenance": "Maintenance",
+      "marcBatchImport": "MARC import"
+    },
+    "maintenance": {
+      "completedSummary": "{{count}} maintenance action(s) completed."
+    },
+    "openRelatedPage": "Open related page",
+    "toast": {
+      "completed": "{{label}} — completed",
+      "completedWithSummary": "{{label}} — {{summary}}",
+      "failed": "{{label}} — {{error}}",
+      "resumed": "{{count}} task(s) resumed in the background",
+      "started": "{{label}} — started"
+    },
+    "trigger": {
+      "activeLabel": "{{count}} task(s) in progress — see details",
+      "label": "Background activity",
+      "unreadLabel": "Completed tasks not yet viewed"
     }
   },
   "stats": {
@@ -1233,7 +1296,8 @@
     }
   },
   "validation": {
-    "required": "This field is required"
+    "required": "This field is required",
+    "requiredFieldsLegend": "Fields marked with an asterisk (*) are required."
   },
   "auth": {
     "password": "Password",
@@ -1328,7 +1392,22 @@
       "clientError": "The request could not be completed.",
       "serverError": "Server error. Please try again later.",
       "badGateway": "The service is temporarily unavailable or overloaded.",
-      "notImplemented": "This function is not available on the server."
+      "notImplemented": "This function is not available on the server.",
+      "failedDependency": "The operation failed because of a dependency.",
+      "gone": "This resource no longer exists on the server.",
+      "insufficientStorage": "Insufficient storage on the server.",
+      "lengthRequired": "A valid content length is required.",
+      "locked": "The resource is locked.",
+      "misdirectedRequest": "Request misdirected to this server.",
+      "networkAuthRequired": "Network authentication required.",
+      "notAcceptable": "The server cannot produce an acceptable response for the sent headers.",
+      "paymentRequired": "Payment or subscription required to access this resource.",
+      "preconditionFailed": "A precondition of the request is not met.",
+      "preconditionRequired": "Preconditions are required for this request.",
+      "rangeNotSatisfiable": "The requested range cannot be served.",
+      "requestHeaderFieldsTooLarge": "HTTP headers too large.",
+      "unavailableForLegalReasons": "Content unavailable for legal reasons.",
+      "upgradeRequired": "Newer protocol or version required."
     },
     "apiCode": {
       "authentication_failed": "Authentication failed. Check your credentials.",
@@ -1442,7 +1521,8 @@
     "scanResults": {
       "found": "Active",
       "found_archived": "Archived",
-      "unknown_barcode": "Unknown"
+      "unknown_barcode": "Unknown",
+      "found_out_of_scope": "Out of scope"
     },
     "consolidationModalTitle": "Catalogue consolidation",
     "consolidationWarning": "Destructive action: permanently archives missing in-scope copies from the catalogue.",
@@ -1474,7 +1554,22 @@
     "consolidationEmailErrors": "{{count}} email delivery error(s).",
     "consolidationNoMissing": "No missing copies to consolidate.",
     "consolidationPreviewLoadError": "Could not load preview.",
-    "consolidationRetryForce": "Retry with force"
+    "consolidationRetryForce": "Retry with force",
+    "consolidationBackgroundHint": "Consolidation continues in the background; you can close this window and follow progress in the banner at the top.",
+    "consolidationScopeReminder": "Consolidation for scope: {{scope}}.",
+    "createAcknowledgeWarnings": "Start scanning",
+    "createConflict": "An open session already exists for this source and place.",
+    "createExpectedInScope": "{{count}} copy/copies expected in scope.",
+    "defaultSource": "default",
+    "progressLabel": "Progress (distinct copies / expected)",
+    "progressRatio": "{{scanned}} / {{expected}}",
+    "scanOutOfScope": "Copy out of scope (source or place): {{barcode}} — not counted as found.",
+    "scopeAllPlaces": "All places",
+    "scopeAllSources": "All sources",
+    "scopeSource": "Source (scope)",
+    "scopeSourceHint": "Recommended for stocktaking by collection. Leave empty for the whole library.",
+    "sourcesLoadError": "Could not load the source list.",
+    "totalFoundOutOfScope": "Out of scope"
   },
   "opac": {
     "filterAll": "All",

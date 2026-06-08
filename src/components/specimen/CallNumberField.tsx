@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { validateCallNumber } from '@/utils/callNumber';
+import { formControlClass, formLabelClass } from '@/utils/formControl';
 
 interface CallNumberFieldProps {
   value: string;
@@ -55,7 +56,7 @@ export default function CallNumberField({
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className={formLabelClass()}>
           {label}
         </label>
       )}
@@ -67,17 +68,12 @@ export default function CallNumberField({
           onBlur={() => {}}
           placeholder={placeholder}
           disabled={disabled}
-          className={`
-            w-full rounded-lg border box-border flex-1
-            h-10 min-h-10 shrink-0 pl-4 pr-10 py-0 text-sm leading-normal
-            text-gray-900 dark:text-gray-100
-            placeholder-gray-400 dark:placeholder-gray-500
-            border-gray-300 dark:border-gray-700
-            focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:focus:ring-amber-500/40
-            disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-500
-            ${validationError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}
-            ${isAutoFillMode ? 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-700' : 'bg-white dark:bg-gray-900'}
-          `}
+          className={formControlClass({
+            error: !!validationError,
+            className: `w-full flex-1 pr-10 ${
+              isAutoFillMode ? 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-700' : ''
+            }`,
+          })}
         />
         {showAutofillButton && (
           <button

@@ -1109,6 +1109,19 @@ export type EmailTemplateDetail = EmailTemplateListItem & {
 // Admin dynamic config (GET/PUT/DELETE /admin/config)
 export type AdminConfigSectionKey = 'email' | 'logging' | 'reminders' | 'audit' | 'holds';
 
+export type LogRotation = 'daily' | 'weekly' | 'monthly' | 'never';
+
+export interface LoggingConfig {
+  level: 'trace' | 'debug' | 'info' | 'warn' | 'error';
+  format: 'pretty' | 'plain' | 'json';
+  output: 'stdout' | 'stderr' | 'file' | 'syslog';
+  file_path?: string | null;
+  file_rotation?: LogRotation | null;
+  overridable?: boolean;
+}
+
+export const LOG_ROTATION_OPTIONS: LogRotation[] = ['daily', 'weekly', 'monthly', 'never'];
+
 export interface ConfigSectionInfo {
   key: string;
   value: Record<string, unknown>;
