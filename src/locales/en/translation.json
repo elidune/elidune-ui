@@ -437,6 +437,8 @@
     "specimenBorrowedForceDelete": "This specimen is currently borrowed. Force delete anyway?",
     "confirmDeleteSpecimen": "Are you sure you want to delete the copy \"{{identification}}\"? This action is irreversible.",
     "borrowed": "Borrowed",
+    "borrowedBy": "Borrowed by:",
+    "borrowedByLoading": "Borrowed by: …",
     "available": "Available",
     "borrowableYes": "Borrowable",
     "borrowableNo": "Not borrowable",

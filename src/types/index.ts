@@ -380,6 +380,8 @@ export interface Item {
   archivedAt?: string | null;
   sourceName?: string | null;
   borrowed?: boolean;
+  /** Active loan id when borrowed (staff circulation lookup). */
+  loanId?: string | null;
 }
 
 /** Full bibliographic record */

@@ -437,6 +437,8 @@
     "specimenBorrowedForceDelete": "Dieses Exemplar ist derzeit ausgeliehen. Trotzdem löschen?",
     "confirmDeleteSpecimen": "Sind Sie sicher, dass Sie das Exemplar \"{{identification}}\" löschen möchten? Diese Aktion ist unwiderruflich.",
     "borrowed": "Ausgeliehen",
+    "borrowedBy": "Ausgeliehen von:",
+    "borrowedByLoading": "Ausgeliehen von: …",
     "available": "Verfügbar",
     "borrowableYes": "Ausleihbar",
     "borrowableNo": "Nicht ausleihbar",

@@ -743,6 +743,12 @@ class ApiService {
     return response.data;
   }
 
+  /** Patron profile for an active loan (requires loans write). */
+  async getLoanBorrower(loanId: string): Promise<UserShort> {
+    const response = await this.client.get<UserShort>(`/loans/${loanId}/user`);
+    return response.data;
+  }
+
   async getOverdueLoans(params?: { page?: number; perPage?: number }): Promise<OverdueLoansPage> {
     const response = await this.client.get<OverdueLoansPage>('/loans/overdue', { params });
     return response.data;

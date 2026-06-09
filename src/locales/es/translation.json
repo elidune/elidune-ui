@@ -437,6 +437,8 @@
     "specimenBorrowedForceDelete": "Este ejemplar está actualmente prestado. ¿Forzar la eliminación?",
     "confirmDeleteSpecimen": "¿Está seguro de que desea eliminar el ejemplar \"{{identification}}\"? Esta acción es irreversible.",
     "borrowed": "Prestado",
+    "borrowedBy": "Prestado por:",
+    "borrowedByLoading": "Prestado por: …",
     "available": "Disponible",
     "borrowableYes": "Prestable",
     "borrowableNo": "No prestable",

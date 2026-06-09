@@ -25,7 +25,8 @@ import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { formControlClass, formLabelClass } from '@/utils/formControl';
 import { useAuth } from '@/contexts/AuthContext';
-import { canManageItems, canPatronSelfServiceHolds, isLibrarian, type MediaType } from '@/types';
+import { canManageItems, canManageLoans, canPatronSelfServiceHolds, isLibrarian, type MediaType } from '@/types';
+import SpecimenBorrowerLine from '@/components/specimen/SpecimenBorrowerLine';
 import PlaceHoldDialog from '@/components/holds/PlaceHoldDialog';
 import BatchDeleteSpecimensDialog from '@/components/specimen/BatchDeleteSpecimensDialog';
 import api from '@/services/api';
@@ -487,6 +488,7 @@ export default function BiblioDetailPage() {
                     key={specimen.id}
                     specimen={specimen}
                     canManage={canManageItems(user?.accountType)}
+                    showBorrower={canManageLoans(user?.accountType)}
                     showReserveButton={
                       !!user?.id &&
                       specimen.borrowable !== false &&
@@ -867,6 +869,7 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
 interface SpecimenCardProps {
   specimen: Item;
   canManage: boolean;
+  showBorrower?: boolean;
   showReserveButton?: boolean;
   onReserve?: () => void;
   onEdit: () => void;
@@ -876,6 +879,7 @@ interface SpecimenCardProps {
 function SpecimenCard({
   specimen,
   canManage,
+  showBorrower,
   showReserveButton,
   onReserve,
   onEdit,
@@ -935,6 +939,10 @@ function SpecimenCard({
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {t('items.source')}: {specimen.sourceName ?? '—'}
       </p>
+
+      {showBorrower && specimen.borrowed && specimen.loanId && (
+        <SpecimenBorrowerLine loanId={specimen.loanId} />
+      )}
 
       {showReserveButton && onReserve && (
         <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
