@@ -41,7 +41,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (newPassword.length < 4) {
+    if (newPassword.length < 8) {
       setError(t('profile.passwordTooShort'));
       return;
     }

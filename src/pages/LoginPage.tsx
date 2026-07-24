@@ -501,7 +501,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
       {/* 2FA modal overlay */}
       {pending2FA && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -509,7 +509,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <div className="mx-auto flex w-[80%] min-h-0 flex-1 flex-col gap-4 overflow-hidden py-6 sm:gap-6 sm:py-8">
+      <div className="mx-auto mb-[10px] mt-[10px] flex w-[calc(100%-20px)] min-[1920px]:my-[10px] min-[1920px]:w-[80%] flex-1 flex-col gap-4 pb-6 pt-0 sm:gap-6 min-[1920px]:py-6 sm:min-[1920px]:py-8">
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <div className="relative shrink-0 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 sm:p-8 shadow-sm">
@@ -565,7 +565,7 @@ export default function LoginPage() {
         </div>
 
         {/* ── Results + Login (fills space so library info sits at bottom of page) ─ */}
-        <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-hidden sm:gap-6">
+        <div className="flex min-h-min flex-1 items-stretch gap-4 sm:gap-6">
 
           {/* Results card — tabs + list/detail panes */}
           <Card
@@ -796,14 +796,14 @@ export default function LoginPage() {
           </Card>
 
           {/* Login — same height as results column */}
-          <div className="flex min-h-0 w-80 flex-shrink-0 flex-col self-stretch">
-            <Card padding="none" className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex w-80 shrink-0 flex-col self-stretch min-h-min">
+            <Card padding="none" className="flex flex-col">
               <div className="shrink-0 border-b border-gray-100 px-4 pt-3 pb-2.5 dark:border-gray-800">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t('opac.readerSpace')}
                 </h3>
               </div>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+              <div className="space-y-3 px-4 py-3">
                 <form onSubmit={handleLogin} className="space-y-2">
                   <div className="space-y-2">
                     <Input

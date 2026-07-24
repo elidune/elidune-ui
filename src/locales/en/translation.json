@@ -202,7 +202,7 @@
     "zipCode": "Zip code",
     "city": "City",
     "passwordMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 4 characters",
+    "passwordTooShort": "Password must be at least 8 characters",
     "updateError": "Error updating profile",
     "2fa": {
       "setupError": "Error setting up 2FA",
@@ -241,7 +241,7 @@
     "language": "Interface Language",
     "languageHint": "Choose the language for the interface",
     "changePassword": "Change Password",
-    "passwordHint": "Choose a secure password with at least 4 characters",
+    "passwordHint": "Choose a secure password with at least 8 characters",
     "passwordChanged": "Password changed successfully"
   },
   "firstSetup": {

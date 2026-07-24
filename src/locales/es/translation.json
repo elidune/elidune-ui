@@ -202,7 +202,7 @@
     "zipCode": "Código postal",
     "city": "Ciudad",
     "passwordMismatch": "Las contraseñas no coinciden",
-    "passwordTooShort": "La contraseña debe tener al menos 4 caracteres",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
     "updateError": "Error al actualizar el perfil",
     "2fa": {
       "setupError": "Error al configurar la 2FA",
@@ -241,7 +241,7 @@
     "language": "Idioma de la interfaz",
     "languageHint": "Elija el idioma de la interfaz",
     "changePassword": "Cambiar contraseña",
-    "passwordHint": "Elija una contraseña segura de al menos 4 caracteres",
+    "passwordHint": "Elija una contraseña segura de al menos 8 caracteres",
     "passwordChanged": "Contraseña cambiada correctamente"
   },
   "firstSetup": {

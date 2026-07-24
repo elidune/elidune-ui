@@ -133,7 +133,7 @@ export default function ProfilePage() {
       return;
     }
 
-    if (passwordData.newPassword.length < 4) {
+    if (passwordData.newPassword.length < 8) {
       setPasswordError(t('profile.passwordTooShort'));
       return;
     }
