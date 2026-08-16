@@ -15,7 +15,17 @@
   --focus-ring-offset: #f9fafb;
 }
 
-/* Base styles */
+/* Base styles — rem scales down on viewports ≤ 1024px (e.g. 1024×768) */
+html {
+  font-size: 16px;
+}
+
+@media (max-width: 1024px) {
+  html {
+    font-size: 14px;
+  }
+}
+
 body {
   @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
