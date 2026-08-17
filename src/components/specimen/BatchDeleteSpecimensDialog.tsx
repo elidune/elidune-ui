@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { Badge, Button, Input, Modal, ScrollableListRegion } from '@/components/common';
+import { Badge, Button, Modal, ScrollableListRegion, BarcodeScanField } from '@/components/common';
 import api from '@/services/api';
 import type { Author, Item } from '@/types';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
@@ -329,7 +329,7 @@ export default function BatchDeleteSpecimensDialog({
         <p className="text-sm text-gray-600 dark:text-gray-400">{hint}</p>
 
         <div className="relative">
-          <Input
+          <BarcodeScanField
             ref={inputRef}
             label={t('items.batchDeleteScan.inputLabel')}
             value={barcode}
@@ -343,6 +343,8 @@ export default function BatchDeleteSpecimensDialog({
             leftIcon={<Scan className="h-4 w-4" />}
             rightIcon={isDeleting ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> : null}
             aria-describedby="batch-delete-preview"
+            scannerTitle={t('items.batchDeleteScan.inputLabel')}
+            onCameraScan={handleChange}
           />
           <BarcodePreview preview={preview} id="batch-delete-preview" />
         </div>

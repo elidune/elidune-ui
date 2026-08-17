@@ -44,7 +44,22 @@
     "validate": "Valider",
     "confirmDeletion": "Confirmer la suppression",
     "firstPage": "Première page",
-    "lastPage": "Dernière page"
+    "lastPage": "Dernière page",
+    "barcodeScanner": {
+      "openCamera": "Scanner avec la caméra",
+      "title": "Scanner un code-barre",
+      "hint": "Placez le code-barre dans le cadre. La détection est automatique.",
+      "starting": "Démarrage de la caméra…",
+      "permissionDenied": "Accès à la caméra refusé. Autorisez la caméra dans les paramètres du navigateur.",
+      "noCamera": "Impossible d'accéder à la caméra sur cet appareil.",
+      "unsupported": "La caméra en direct n'est pas disponible sur ce navigateur.",
+      "insecureContext": "La caméra en direct nécessite une connexion HTTPS. Photographiez le code-barre avec le bouton ci-dessous.",
+      "photoHint": "Photographiez le code-barre pour le lire automatiquement.",
+      "takePhoto": "Photographier le code-barre",
+      "decodingPhoto": "Analyse de la photo…",
+      "photoDecodeFailed": "Aucun code-barre détecté. Réessayez avec une photo plus nette.",
+      "retryLiveCamera": "Réessayer la caméra en direct"
+    }
   },
   "nav": {
     "home": "Accueil",

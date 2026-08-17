@@ -16,7 +16,7 @@ import {
   FlaskConical,
   ChevronDown,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Table, Input, MessageModal, ConfirmDialog, ScrollableListRegion, ResponsiveRecordList, ListSkeleton } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Table, Input, MessageModal, ConfirmDialog, ScrollableListRegion, ResponsiveRecordList, ListSkeleton, BarcodeScanField } from '@/components/common';
 import ActiveLoanCard from '@/components/loans/ActiveLoanCard';
 import Pagination from '@/components/common/Pagination';
 import api from '@/services/api';
@@ -671,24 +671,29 @@ export default function LoansPage() {
                           }
                         }}
                       >
-                        <div className="flex gap-2">
-                          <Input
-                            ref={userBarcodeInputRef}
-                            name="userBarcode"
-                            placeholder={t('loans.scanOrEnterBarcode')}
-                            leftIcon={<CreditCard className="h-4 w-4" />}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const barcode = (e.target as HTMLInputElement).value;
-                                if (barcode) {
-                                  handleUserBarcodeScan(barcode);
-                                }
+                        <BarcodeScanField
+                          ref={userBarcodeInputRef}
+                          name="userBarcode"
+                          placeholder={t('loans.scanOrEnterBarcode')}
+                          leftIcon={<CreditCard className="h-4 w-4" />}
+                          autoFocus
+                          scannerTitle={t('loans.scanUserCard')}
+                          onCameraScan={(barcode) => {
+                            if (userBarcodeInputRef.current) {
+                              userBarcodeInputRef.current.value = barcode;
+                            }
+                            void handleUserBarcodeScan(barcode);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const barcode = (e.target as HTMLInputElement).value;
+                              if (barcode) {
+                                handleUserBarcodeScan(barcode);
                               }
-                            }}
-                          />
-                        </div>
+                            }
+                          }}
+                        />
                       </form>
                     </div>
 
@@ -930,7 +935,7 @@ export default function LoansPage() {
                     }}
                     className="space-y-3 max-w-2xl"
                   >
-                    <Input
+                    <BarcodeScanField
                       ref={returnBarcodeInputRef}
                       value={returnBarcodeInput}
                       onChange={(e) => {
@@ -943,6 +948,15 @@ export default function LoansPage() {
                       autoFocus
                       disabled={isProcessingReturn}
                       aria-busy={isProcessingReturn}
+                      scannerTitle={t('loans.returnLoan')}
+                      onCameraScan={(barcode) => {
+                        setReturnBarcodeInput(barcode);
+                        setReturnError('');
+                        setReturnResult(null);
+                        if (!isProcessingReturn) {
+                          void handleReturnByBarcode(barcode);
+                        }
+                      }}
                       rightIcon={
                         <button
                           type="submit"
@@ -1449,13 +1463,14 @@ function BorrowForm({
   const { t } = useTranslation();
   const [error, setError] = useState('');
 
-  const runBorrow = async () => {
-    if (!barcodeInput.trim()) return;
+  const runBorrow = async (overrideBarcode?: string) => {
+    const code = (overrideBarcode ?? barcodeInput).trim();
+    if (!code) return;
 
     setError('');
     onLoadingChange(true);
     try {
-      await onBorrow(barcodeInput);
+      await onBorrow(code);
       setBarcodeInput('');
       setError('');
       if (onSuccess) {
@@ -1485,7 +1500,7 @@ function BorrowForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className={isInline ? 'space-y-2' : 'space-y-4'}>
-      <Input
+      <BarcodeScanField
         ref={barcodeInputRef}
         label={isInline ? undefined : t('loans.specimenBarcode')}
         value={barcodeInput}
@@ -1498,6 +1513,12 @@ function BorrowForm({
         required={!isInline}
         disabled={isLoading}
         leftIcon={<BookOpen className="h-4 w-4" />}
+        scannerTitle={t('loans.scanSpecimenBarcode')}
+        onCameraScan={(barcode) => {
+          setBarcodeInput(barcode);
+          if (error) setError('');
+          void runBorrow(barcode);
+        }}
         rightIcon={
           isInline ? (
             <button

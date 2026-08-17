@@ -13,7 +13,7 @@ import {
   Loader2,
   Server,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Table, Modal, Input, ScrollableListRegion, ResponsiveRecordList } from '@/components/common';
+import { Card, CardHeader, Button, Table, Modal, Input, ScrollableListRegion, ResponsiveRecordList, BarcodeScanField } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import api from '@/services/api';
 import type { Biblio, Author, Z3950Server, Source, ImportReport, DuplicateConfirmationRequired } from '@/types';
@@ -677,10 +677,12 @@ export default function Z3950SearchPage() {
                 {specimens.map((specimen, index) => (
                   <div key={index} className="flex items-start gap-3">
                     <div className="flex-1 grid grid-cols-2 gap-3">
-                      <Input
+                      <BarcodeScanField
                         placeholder={t('items.specimenBarcode')}
                         value={specimen.barcode}
                         onChange={(e) => handleSpecimenChange(index, 'barcode', e.target.value)}
+                        scannerTitle={t('items.specimenBarcode')}
+                        onCameraScan={(code) => handleSpecimenChange(index, 'barcode', code)}
                       />
                       <CallNumberField
                         value={specimen.callNumber}

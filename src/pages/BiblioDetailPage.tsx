@@ -20,7 +20,7 @@ import {
   Bookmark,
   RefreshCw,
 } from 'lucide-react';
-import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/common';
+import { Card, CardHeader, Button, Badge, Modal, Input, BarcodeScanField } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { formControlClass, formLabelClass } from '@/utils/formControl';
@@ -1017,12 +1017,17 @@ function AddSpecimenForm({ formId, item, onLoadingChange, onSuccess }: AddSpecim
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      <Input
+      <BarcodeScanField
         label={t('items.specimenBarcode')}
         value={formData.barcode}
         onChange={(e) => {
           setError(null);
           setFormData({ ...formData, barcode: e.target.value });
+        }}
+        scannerTitle={t('items.specimenBarcode')}
+        onCameraScan={(code) => {
+          setError(null);
+          setFormData({ ...formData, barcode: code });
         }}
       />
       {error && (
@@ -1153,12 +1158,17 @@ function EditSpecimenForm({ formId, item, specimen, onLoadingChange, onSuccess }
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      <Input
+      <BarcodeScanField
         label={t('items.specimenBarcode')}
         value={formData.barcode}
         onChange={(e) => {
           setError(null);
           setFormData({ ...formData, barcode: e.target.value });
+        }}
+        scannerTitle={t('items.specimenBarcode')}
+        onCameraScan={(code) => {
+          setError(null);
+          setFormData({ ...formData, barcode: code });
         }}
       />
       {error && (

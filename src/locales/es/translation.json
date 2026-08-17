@@ -44,7 +44,22 @@
     "validate": "Validar",
     "confirmDeletion": "Confirmar eliminación",
     "firstPage": "Primera página",
-    "lastPage": "Última página"
+    "lastPage": "Última página",
+    "barcodeScanner": {
+      "openCamera": "Escanear con cámara",
+      "title": "Escanear código de barras",
+      "hint": "Coloque el código de barras dentro del marco. La detección es automática.",
+      "starting": "Iniciando cámara…",
+      "permissionDenied": "Acceso a la cámara denegado. Permita la cámara en la configuración del navegador.",
+      "noCamera": "No se puede acceder a la cámara en este dispositivo.",
+      "unsupported": "La cámara en directo no está disponible en este navegador.",
+      "insecureContext": "La cámara en directo requiere HTTPS. Fotografíe el código de barras con el botón de abajo.",
+      "photoHint": "Fotografíe el código de barras para escanearlo automáticamente.",
+      "takePhoto": "Fotografiar código de barras",
+      "decodingPhoto": "Analizando foto…",
+      "photoDecodeFailed": "No se detectó ningún código de barras. Inténtelo con una foto más nítida.",
+      "retryLiveCamera": "Reintentar cámara en directo"
+    }
   },
   "nav": {
     "home": "Inicio",

@@ -29,7 +29,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { Card, Button, Badge, Modal, Input, Table, ConfirmDialog, MessageModal, ScrollableListRegion } from '@/components/common';
+import { Card, Button, Badge, Modal, Input, Table, ConfirmDialog, MessageModal, ScrollableListRegion, BarcodeScanField } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorCode, getApiErrorMessage } from '@/utils/apiError';
 import { isSubscriptionExpired } from '@/utils/userSubscription';
@@ -1221,7 +1221,7 @@ function BorrowForm({
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      <Input
+      <BarcodeScanField
         label={t('loans.specimenBarcode')}
         value={specimenCode}
         onChange={(e) => {
@@ -1231,6 +1231,11 @@ function BorrowForm({
         placeholder={t('loans.scanOrEnterBarcode')}
         autoFocus
         required
+        scannerTitle={t('loans.scanSpecimenBarcode')}
+        onCameraScan={(code) => {
+          setSpecimenCode(code);
+          if (error) setError('');
+        }}
       />
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </form>

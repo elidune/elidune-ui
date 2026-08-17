@@ -44,7 +44,22 @@
     "validate": "Bestätigen",
     "confirmDeletion": "Löschen bestätigen",
     "firstPage": "Erste Seite",
-    "lastPage": "Letzte Seite"
+    "lastPage": "Letzte Seite",
+    "barcodeScanner": {
+      "openCamera": "Mit Kamera scannen",
+      "title": "Barcode scannen",
+      "hint": "Barcode in den Rahmen halten. Die Erkennung erfolgt automatisch.",
+      "starting": "Kamera wird gestartet…",
+      "permissionDenied": "Kamerazugriff verweigert. Erlauben Sie die Kamera in den Browser-Einstellungen.",
+      "noCamera": "Auf diesem Gerät ist keine Kamera verfügbar.",
+      "unsupported": "Live-Kamera ist in diesem Browser nicht verfügbar.",
+      "insecureContext": "Die Live-Kamera erfordert HTTPS. Fotografieren Sie den Barcode mit der Schaltfläche unten.",
+      "photoHint": "Fotografieren Sie den Barcode für die automatische Erkennung.",
+      "takePhoto": "Barcode fotografieren",
+      "decodingPhoto": "Foto wird analysiert…",
+      "photoDecodeFailed": "Kein Barcode erkannt. Versuchen Sie es mit einem schärferen Foto erneut.",
+      "retryLiveCamera": "Live-Kamera erneut versuchen"
+    }
   },
   "nav": {
     "home": "Startseite",

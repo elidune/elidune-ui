@@ -18,7 +18,7 @@ import {
   Clock,
   CheckCircle,
 } from 'lucide-react';
-import { Card, Button, Badge, Input, Modal } from '@/components/common';
+import { Card, Button, Badge, Input, Modal, BarcodeScanField } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatIsbnDisplay } from '@/utils/isbnDisplay';
@@ -1312,11 +1312,10 @@ export default function ImportIsoPage() {
     setTimeout(() => scanInputRef.current?.focus(), 100);
   };
 
-  const handleScanSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!scanInput.trim()) return;
+  const processScanBarcode = async (rawBarcode: string) => {
+    const barcode = rawBarcode.trim();
+    if (!barcode) return;
 
-    const barcode = scanInput.trim();
     setScanError('');
 
     const matchingRecord = records.find((r) => {
@@ -1347,6 +1346,11 @@ export default function ImportIsoPage() {
     if (remaining === 0) {
       setScanMode(false);
     }
+  };
+
+  const handleScanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await processScanBarcode(scanInput);
   };
 
   const handleCancel = () => {
@@ -1981,19 +1985,25 @@ export default function ImportIsoPage() {
                 </Button>
               </div>
 
-              <form onSubmit={handleScanSubmit} className="flex items-center gap-3">
-                <div className="flex-1">
-                  <Input
-                    ref={scanInputRef}
-                    value={scanInput}
-                    onChange={(e) => setScanInput(e.target.value)}
-                    placeholder={t('importMarc.scanPlaceholder')}
-                    autoFocus
-                  />
-                </div>
-                <Button type="submit">
-                  {t('importMarc.validate')}
-                </Button>
+              <form onSubmit={handleScanSubmit} className="flex items-end gap-3">
+                <BarcodeScanField
+                  ref={scanInputRef}
+                  value={scanInput}
+                  onChange={(e) => setScanInput(e.target.value)}
+                  placeholder={t('importMarc.scanPlaceholder')}
+                  autoFocus
+                  wrapperClassName="flex-1"
+                  scannerTitle={t('importMarc.scanMode')}
+                  onCameraScan={(code) => {
+                    setScanInput(code);
+                    void processScanBarcode(code);
+                  }}
+                  suffix={
+                    <Button type="submit">
+                      {t('importMarc.validate')}
+                    </Button>
+                  }
+                />
               </form>
 
               {scanError && (

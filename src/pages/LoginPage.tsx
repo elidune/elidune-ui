@@ -526,7 +526,7 @@ export default function LoginPage() {
                 t('auth.loginTitle')}
             </h1>
 
-            <form onSubmit={handleSearch} className="flex max-w-3xl gap-2 mb-4">
+            <form onSubmit={handleSearch} className="mb-4 flex max-w-3xl flex-col gap-2 sm:flex-row">
               <Input
                 ref={searchRef}
                 type="text"
@@ -564,13 +564,108 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* ── Results + Login (fills space so library info sits at bottom of page) ─ */}
-        <div className="flex min-h-min flex-1 items-stretch gap-4 sm:gap-6">
+        {/* ── Results + Login ─────────────────────────────────────────────
+            Mobile: login first (full width), then events/catalog.
+            lg+: events left, sticky login sidebar right. ─────────────── */}
+        <div className="flex min-h-min flex-1 flex-col items-stretch gap-4 sm:gap-6 lg:flex-row">
+
+          {/* Login — prominent on mobile, sidebar on desktop */}
+          <div className="order-1 flex w-full shrink-0 flex-col self-stretch min-h-min lg:order-2 lg:w-80 lg:sticky lg:top-4 lg:self-start">
+            <Card
+              padding="none"
+              className="flex flex-col border-amber-200/70 shadow-md ring-1 ring-amber-100/80 dark:border-amber-900/40 dark:ring-amber-900/30 lg:border-gray-200 lg:shadow-sm lg:ring-0 dark:lg:border-gray-800"
+            >
+              <div className="shrink-0 border-b border-gray-100 px-4 pt-3 pb-2.5 dark:border-gray-800">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {t('opac.readerSpace')}
+                </h3>
+              </div>
+              <div className="space-y-3 px-4 py-3">
+                <form onSubmit={handleLogin} className="space-y-2">
+                  <div className="space-y-2">
+                    <Input
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        if (loginError) setLoginError('');
+                      }}
+                      placeholder={t('auth.yourIdentifier')}
+                      required
+                      autoComplete="username"
+                    />
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (loginError) setLoginError('');
+                      }}
+                      placeholder={t('auth.yourPassword')}
+                      required
+                      autoComplete="current-password"
+                      rightIcon={
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                          aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                          aria-pressed={showPassword}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      }
+                    />
+                  </div>
+                  {loginError && (
+                    <div
+                      role="alert"
+                      className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-2.5 py-2 text-sm text-red-700 dark:text-red-300"
+                    >
+                      {loginError}
+                    </div>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="w-full"
+                    isLoading={isLoggingIn}
+                    leftIcon={<LogIn className="h-4 w-4" />}
+                  >
+                    {t('auth.loginButton')}
+                  </Button>
+                  <div className="text-center">
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
+                    >
+                      {t('auth.passwordReset.forgotLink')}
+                    </Link>
+                  </div>
+                </form>
+
+                <div className="space-y-1.5 border-t border-gray-100 dark:border-gray-800 pt-2.5">
+                  {[
+                    'opac.featureReserve',
+                    'opac.featureRenew',
+                    'opac.featureHistory',
+                    'opac.featureDigital',
+                    'opac.featureSuggestions',
+                  ].map((key) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-amber-400 dark:bg-amber-600 flex-shrink-0" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{t(key)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          </div>
 
           {/* Results card — tabs + list/detail panes */}
           <Card
             padding="none"
-            className="flex min-h-0 flex-1 flex-col overflow-hidden border-gray-200/80 shadow-md dark:shadow-none dark:border-gray-800"
+            className="order-2 flex min-h-[min(60vh,32rem)] flex-1 flex-col overflow-hidden border-gray-200/80 shadow-md dark:border-gray-800 dark:shadow-none lg:order-1 lg:min-h-0"
           >
             <div
               className="flex flex-shrink-0 gap-0 border-b border-gray-200 bg-gray-50/80 px-2 dark:border-gray-800 dark:bg-gray-900/50"
@@ -794,96 +889,6 @@ export default function LoginPage() {
               </div>
             </div>
           </Card>
-
-          {/* Login — same height as results column */}
-          <div className="flex w-80 shrink-0 flex-col self-stretch min-h-min">
-            <Card padding="none" className="flex flex-col">
-              <div className="shrink-0 border-b border-gray-100 px-4 pt-3 pb-2.5 dark:border-gray-800">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {t('opac.readerSpace')}
-                </h3>
-              </div>
-              <div className="space-y-3 px-4 py-3">
-                <form onSubmit={handleLogin} className="space-y-2">
-                  <div className="space-y-2">
-                    <Input
-                      type="text"
-                      value={username}
-                      onChange={(e) => {
-                        setUsername(e.target.value);
-                        if (loginError) setLoginError('');
-                      }}
-                      placeholder={t('auth.yourIdentifier')}
-                      required
-                      autoComplete="username"
-                    />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (loginError) setLoginError('');
-                      }}
-                      placeholder={t('auth.yourPassword')}
-                      required
-                      autoComplete="current-password"
-                      rightIcon={
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((v) => !v)}
-                          className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
-                          aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                          aria-pressed={showPassword}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      }
-                    />
-                  </div>
-                  {loginError && (
-                    <div
-                      role="alert"
-                      className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-2.5 py-2 text-sm text-red-700 dark:text-red-300"
-                    >
-                      {loginError}
-                    </div>
-                  )}
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    className="w-full"
-                    isLoading={isLoggingIn}
-                    leftIcon={<LogIn className="h-4 w-4" />}
-                  >
-                    {t('auth.loginButton')}
-                  </Button>
-                  <div className="text-center">
-                    <Link
-                      to="/forgot-password"
-                      className="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline"
-                    >
-                      {t('auth.passwordReset.forgotLink')}
-                    </Link>
-                  </div>
-                </form>
-
-                <div className="space-y-1.5 border-t border-gray-100 dark:border-gray-800 pt-2.5">
-                  {[
-                    'opac.featureReserve',
-                    'opac.featureRenew',
-                    'opac.featureHistory',
-                    'opac.featureDigital',
-                    'opac.featureSuggestions',
-                  ].map((key) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <div className="w-1 h-1 rounded-full bg-amber-400 dark:bg-amber-600 flex-shrink-0" />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{t(key)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
-          </div>
 
         </div>
 

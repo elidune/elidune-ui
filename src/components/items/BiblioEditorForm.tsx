@@ -12,7 +12,7 @@ import {
   ChevronDown,
   Import,
 } from 'lucide-react';
-import { Input, Button, ConfirmDialog } from '@/components/common';
+import { Input, Button, ConfirmDialog, BarcodeScanField } from '@/components/common';
 import CallNumberField from '@/components/specimen/CallNumberField';
 import { buildSuggestedCallNumber, validateCallNumber } from '@/utils/callNumber';
 import { formControlClass, formTextareaClass, formLabelClass } from '@/utils/formControl';
@@ -1124,10 +1124,12 @@ export default function BiblioEditorForm({
             {specimens.map((specimen, index) => (
               <div key={index} className="flex items-start gap-2 p-3 rounded-lg border border-amber-200/70 dark:border-amber-800/50 bg-white/70 dark:bg-gray-900/40">
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <Input
+                  <BarcodeScanField
                     placeholder={t('items.specimenBarcode')}
                     value={specimen.barcode}
                     onChange={(e) => handleSpecimenChange(index, 'barcode', e.target.value)}
+                    scannerTitle={t('items.specimenBarcode')}
+                    onCameraScan={(code) => handleSpecimenChange(index, 'barcode', code)}
                   />
                   <CallNumberField
                     value={specimen.callNumber}

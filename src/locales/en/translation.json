@@ -44,7 +44,22 @@
     "validate": "Validate",
     "confirmDeletion": "Confirm deletion",
     "firstPage": "First page",
-    "lastPage": "Last page"
+    "lastPage": "Last page",
+    "barcodeScanner": {
+      "openCamera": "Scan with camera",
+      "title": "Scan a barcode",
+      "hint": "Align the barcode within the frame. Detection is automatic.",
+      "starting": "Starting camera…",
+      "permissionDenied": "Camera access denied. Allow the camera in your browser settings.",
+      "noCamera": "Unable to access the camera on this device.",
+      "unsupported": "Live camera is not available in this browser.",
+      "insecureContext": "Live camera requires HTTPS. Use the button below to photograph the barcode.",
+      "photoHint": "Take a photo of the barcode to scan it automatically.",
+      "takePhoto": "Photograph barcode",
+      "decodingPhoto": "Analyzing photo…",
+      "photoDecodeFailed": "No barcode detected. Try again with a clearer photo.",
+      "retryLiveCamera": "Retry live camera"
+    }
   },
   "nav": {
     "home": "Home",

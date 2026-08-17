@@ -23,7 +23,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { Card, Button, Modal, Input, Badge, ScrollableListRegion } from '@/components/common';
+import { Card, Button, Modal, Input, Badge, ScrollableListRegion, BarcodeScanField } from '@/components/common';
 import api from '@/services/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
@@ -559,8 +559,8 @@ export default function InventoryPage() {
             {inputSubTab === 'scan' && (
               <>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('inventory.scanBarcodeHint')}</p>
-                <div className="flex gap-3 flex-wrap">
-                  <Input
+                <div className="flex gap-3 flex-wrap items-end">
+                  <BarcodeScanField
                     ref={barcodeRef}
                     value={barcode}
                     onChange={(e) => setBarcode(e.target.value)}
@@ -569,15 +569,25 @@ export default function InventoryPage() {
                     }}
                     placeholder={t('inventory.barcodePlaceholder')}
                     autoFocus
-                    className="flex-1 min-w-[200px]"
+                    inputClassName="min-w-[200px]"
+                    wrapperClassName="flex-1 min-w-[200px]"
+                    scannerTitle={t('inventory.scanBarcode')}
+                    onCameraScan={(code) => {
+                      setBarcode(code);
+                      if (activeSession && activeSession.status === 'open') {
+                        scanMutation.mutate({ id: activeSession.id, bc: code.trim() });
+                      }
+                    }}
+                    suffix={
+                      <Button
+                        onClick={handleScan}
+                        isLoading={scanMutation.isPending}
+                        leftIcon={<Scan className="h-4 w-4" />}
+                      >
+                        {t('inventory.scan')}
+                      </Button>
+                    }
                   />
-                  <Button
-                    onClick={handleScan}
-                    isLoading={scanMutation.isPending}
-                    leftIcon={<Scan className="h-4 w-4" />}
-                  >
-                    {t('inventory.scan')}
-                  </Button>
                 </div>
 
                 {scanFlash && (
